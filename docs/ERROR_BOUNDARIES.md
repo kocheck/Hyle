@@ -199,7 +199,44 @@ export default defineConfig({
 
 ## Testing Error Boundaries
 
-To test that error boundaries are working correctly:
+The error boundary system includes comprehensive automated tests. Run them with:
+
+```bash
+# Run tests in watch mode
+npm test
+
+# Run tests once
+npm run test:run
+
+# Run tests with coverage report
+npm run test:coverage
+```
+
+### Test Files
+
+| File | Description |
+|------|-------------|
+| `src/utils/errorSanitizer.test.ts` | Unit tests for sanitization functions |
+| `src/components/PrivacyErrorBoundary.test.tsx` | Component tests for error boundary |
+| `src/test/setup.ts` | Test setup with mocks for Electron APIs |
+
+### What's Tested
+
+**errorSanitizer.test.ts:**
+- Unix-style path sanitization (`/Users/username/...`)
+- Linux home directory sanitization (`/home/username/...`)
+- Windows-style path sanitization (`C:\Users\username\...`)
+- Error message sanitization
+- Edge cases (empty username, missing stack, special regex characters)
+- Report body generation
+
+**PrivacyErrorBoundary.test.tsx:**
+- Normal rendering when no error occurs
+- Error UI display when child throws
+- Privacy notice display
+- Copy & email button functionality
+- Clipboard and mailto integration
+- Graceful handling of IPC failures
 
 ### Manual Testing
 
