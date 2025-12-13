@@ -22,3 +22,16 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   // You can expose other APTs you need here.
   // ...
 })
+
+// --------- Error Reporting API ---------
+contextBridge.exposeInMainWorld('errorReporting', {
+  /**
+   * Get the system username for PII sanitization
+   */
+  getUsername: (): Promise<string> => ipcRenderer.invoke('get-username'),
+
+  /**
+   * Open an external URL (mailto: or https:) in the default application
+   */
+  openExternal: (url: string): Promise<boolean> => ipcRenderer.invoke('open-external', url),
+})

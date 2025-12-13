@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain, dialog, protocol, net } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, protocol, net, shell } from 'electron'
+import os from 'node:os'
 import JSZip from 'jszip'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
@@ -98,6 +99,20 @@ app.whenReady().then(() => {
 
   createMainWindow()
   ipcMain.on('create-world-window', createWorldWindow)
+
+  // Error reporting IPC handlers
+  ipcMain.handle('get-username', () => {
+    return os.userInfo().username
+  })
+
+  ipcMain.handle('open-external', async (_event, url: string) => {
+    // Only allow mailto: and https: URLs for security
+    if (url.startsWith('mailto:') || url.startsWith('https:')) {
+      await shell.openExternal(url)
+      return true
+    }
+    return false
+  })
   ipcMain.on('SYNC_WORLD_STATE', (_event, state) => {
     if (worldWindow && !worldWindow.isDestroyed()) {
         worldWindow.webContents.send('SYNC_WORLD_STATE', state)
