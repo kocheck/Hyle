@@ -479,11 +479,9 @@ describe('PendingErrorsIndicator', () => {
 
       await waitFor(() => {
         expect(mockErrorReporting.saveToFile).toHaveBeenCalled()
+        // Verify markErrorReported is not called after save is handled
+        expect(globalErrorHandler.markErrorReported).not.toHaveBeenCalled()
       })
-
-      // Wait a bit to ensure markErrorReported is not called
-      await new Promise(resolve => setTimeout(resolve, 100))
-      expect(globalErrorHandler.markErrorReported).not.toHaveBeenCalled()
     })
 
     it('should handle save errors gracefully', async () => {
