@@ -120,7 +120,11 @@ ${userContext.trim()}
         this.setState({ copyStatus: 'idle' });
       }, 3000);
     } catch (err) {
-      console.error('Failed to copy report or open email client:', err);
+      if (err instanceof Error) {
+        console.error('Failed to copy report or open email client:', `${err.name}: ${err.message}`);
+      } else {
+        console.error('Failed to copy report or open email client:', typeof err === 'string' ? err : '[Unknown error]');
+      }
       this.setState({ copyStatus: 'error' });
 
       // Reset error status after 3 seconds
