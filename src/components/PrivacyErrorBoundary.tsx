@@ -47,8 +47,7 @@ class PrivacyErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    // Perform async sanitization in a separate function
-    // This ensures componentDidCatch remains synchronous as React expects
+    // Delegate to async method to keep componentDidCatch synchronous per React lifecycle requirements
     this.sanitizeAndSetError(error, errorInfo);
   }
 
@@ -74,8 +73,7 @@ class PrivacyErrorBoundary extends Component<Props, State> {
         isLoading: false,
       });
     } catch (sanitizationError) {
-      // If sanitization fails, create a minimal safe error
-      // Sanitization failed; not logging error details to avoid leaking sensitive information.
+      // Sanitization failed - avoiding logging to prevent sensitive data leakage
       const fallbackError: SanitizedError = {
         name: 'Error',
         message: 'An error occurred, but we could not safely generate a report.',
