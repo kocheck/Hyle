@@ -1,6 +1,7 @@
 import Konva from 'konva';
 import { Stage, Layer, Image as KonvaImage, Line, Rect, Transformer } from 'react-konva';
-import { useRef, useEffect, useState } from 'react';
+import { KonvaEventObject } from 'konva/lib/Node';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import useImage from 'use-image';
 import { processImage } from '../../utils/AssetProcessor';
 import { snapToGrid } from '../../utils/grid';
@@ -8,20 +9,44 @@ import { useGameStore } from '../../store/gameStore';
 import GridOverlay from './GridOverlay';
 import ImageCropper from '../ImageCropper';
 
-const URLImage = ({ src, x, y, width, height, id, isSelected, onSelect }: any) => {
+// Zoom constants
+const MIN_SCALE = 0.1;
+const MAX_SCALE = 5;
+const ZOOM_SCALE_BY = 1.1;
+const MIN_PINCH_DISTANCE = 0.001; // Guard against division by zero
+
+// Helper functions for touch/pinch calculations
+const calculatePinchDistance = (touch1: Touch, touch2: Touch): number => {
+    return Math.hypot(
+        touch2.clientX - touch1.clientX,
+        touch2.clientY - touch1.clientY
+    );
+};
+
+const calculatePinchCenter = (touch1: Touch, touch2: Touch): { x: number, y: number } => {
+    return {
+        x: (touch1.clientX + touch2.clientX) / 2,
+        y: (touch1.clientY + touch2.clientY) / 2,
+    };
+};
+
+interface URLImageProps {
+  src: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  id: string;
+  onSelect: (e: KonvaEventObject<MouseEvent>) => void;
+  onDragEnd: (x: number, y: number) => void;
+}
+
+const URLImage = ({ src, x, y, width, height, id, onSelect, onDragEnd }: URLImageProps) => {
   const safeSrc = src.startsWith('file:') ? src.replace('file:', 'media:') : src;
   const [img] = useImage(safeSrc);
-  const shapeRef = useRef<any>(null);
-
-  useEffect(() => {
-    if (isSelected && shapeRef.current) {
-        // manually attach transformer? No, simpler to rely on name lookup in parent
-    }
-  }, [isSelected]);
 
   return (
     <KonvaImage
-      ref={shapeRef}
       name="token"
       id={id}
       image={img}
@@ -32,6 +57,9 @@ const URLImage = ({ src, x, y, width, height, id, isSelected, onSelect }: any) =
       draggable
       onClick={onSelect}
       onTap={onSelect}
+      onDragEnd={(e) => {
+        onDragEnd(e.target.x(), e.target.y());
+      }}
     />
   );
 };
@@ -44,7 +72,7 @@ interface CanvasManagerProps {
 const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: window.innerWidth, height: window.innerHeight });
-  const { tokens, drawings, gridSize, addToken, addDrawing } = useGameStore();
+  const { tokens, drawings, gridSize, addToken, addDrawing, updateTokenPosition, updateTokenTransform } = useGameStore();
 
   const isDrawing = useRef(false);
   const currentLine = useRef<any>(null); // Temp line points
@@ -63,6 +91,10 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
   const [isSpacePressed, setIsSpacePressed] = useState(false);
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
+  
+  // Touch/Pinch State
+  const lastPinchDistance = useRef<number | null>(null);
+  const lastPinchCenter = useRef<{ x: number, y: number } | null>(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -80,50 +112,100 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Reusable zoom function
+  const performZoom = useCallback((newScale: number, centerX: number, centerY: number, currentScale: number, currentPos: { x: number, y: number }) => {
+      // Apply min/max constraints
+      const constrainedScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
+
+      const pointTo = {
+          x: (centerX - currentPos.x) / currentScale,
+          y: (centerY - currentPos.y) / currentScale,
+      };
+
+      const newPos = {
+          x: centerX - pointTo.x * constrainedScale,
+          y: centerY - pointTo.y * constrainedScale,
+      };
+
+      setScale(constrainedScale);
+      setPosition(newPos);
+  }, []);
+
+  // Keyboard zoom (centered on viewport)
+  const handleKeyboardZoom = useCallback((zoomIn: boolean) => {
+      if (!containerRef.current) return;
+      
+      const centerX = size.width / 2;
+      const centerY = size.height / 2;
+      const newScale = zoomIn ? scale * ZOOM_SCALE_BY : scale / ZOOM_SCALE_BY;
+      
+      performZoom(newScale, centerX, centerY, scale, position);
+  }, [scale, position, size.width, size.height, performZoom]);
+
   useEffect(() => {
+    const isEditableElement = (el: EventTarget | null): boolean => {
+      if (!(el instanceof HTMLElement)) return false;
+      const tag = el.tagName.toLowerCase();
+      return (
+        tag === 'input' ||
+        tag === 'textarea' ||
+        el.isContentEditable
+      );
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
+        if (isEditableElement(e.target)) return;
+        
         if (e.code === 'Space' && !e.repeat) {
             setIsSpacePressed(true);
         }
+        
+        // Zoom in with + or =
+        if ((e.code === 'Equal' || e.code === 'NumpadAdd') && !e.repeat) {
+            e.preventDefault();
+            handleKeyboardZoom(true);
+        }
+        
+        // Zoom out with -
+        if ((e.code === 'Minus' || e.code === 'NumpadSubtract') && !e.repeat) {
+            e.preventDefault();
+            handleKeyboardZoom(false);
+        }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
+        if (isEditableElement(e.target)) return;
         if (e.code === 'Space') {
             setIsSpacePressed(false);
         }
     };
+    const handleBlur = () => {
+        setIsSpacePressed(false);
+    };
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
 
     return () => {
         window.removeEventListener('keydown', handleKeyDown);
         window.removeEventListener('keyup', handleKeyUp);
+        window.removeEventListener('blur', handleBlur);
     };
-  }, []);
+  }, [handleKeyboardZoom]);
 
-  const handleWheel = (e: any) => {
+  const handleWheel = (e: KonvaEventObject<WheelEvent>) => {
       e.evt.preventDefault();
       const stage = e.target.getStage();
+      if (!stage) return;
+      
       const oldScale = stage.scaleX();
       const pointer = stage.getPointerPosition();
+      if (!pointer) return;
 
-      // Zoom
+      // Zoom with Ctrl/Cmd + scroll
       if (e.evt.ctrlKey || e.evt.metaKey) {
-          const scaleBy = 1.1;
-          const newScale = e.evt.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy;
-
-          const mousePointTo = {
-              x: (pointer.x - stage.x()) / oldScale,
-              y: (pointer.y - stage.y()) / oldScale,
-          };
-
-          const newPos = {
-              x: pointer.x - mousePointTo.x * newScale,
-              y: pointer.y - mousePointTo.y * newScale,
-          };
-
-          setScale(newScale);
-          setPosition(newPos);
+          const newScale = e.evt.deltaY < 0 ? oldScale * ZOOM_SCALE_BY : oldScale / ZOOM_SCALE_BY;
+          performZoom(newScale, pointer.x, pointer.y, oldScale, { x: stage.x(), y: stage.y() });
       } else {
           // Pan
           const newPos = {
@@ -131,6 +213,60 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
               y: stage.y() - e.evt.deltaY,
           };
           setPosition(newPos);
+      }
+  };
+
+  // Touch event handlers for pinch-to-zoom
+  const handleTouchStart = (e: KonvaEventObject<TouchEvent>) => {
+      const touches = e.evt.touches;
+      if (touches.length === 2) {
+          e.evt.preventDefault();
+          const touch1 = touches[0];
+          const touch2 = touches[1];
+          lastPinchDistance.current = calculatePinchDistance(touch1, touch2);
+          lastPinchCenter.current = calculatePinchCenter(touch1, touch2);
+      }
+  };
+
+  const handleTouchMove = (e: KonvaEventObject<TouchEvent>) => {
+      const touches = e.evt.touches;
+      if (touches.length === 2) {
+          e.evt.preventDefault();
+          
+          if (lastPinchDistance.current && lastPinchCenter.current) {
+              const touch1 = touches[0];
+              const touch2 = touches[1];
+              const distance = calculatePinchDistance(touch1, touch2);
+              const center = calculatePinchCenter(touch1, touch2);
+              
+              // Prevent division by zero
+              if (lastPinchDistance.current < MIN_PINCH_DISTANCE) return;
+              
+              // Convert viewport coordinates to canvas coordinates
+              const stageRect = containerRef.current?.getBoundingClientRect();
+              if (!stageRect) return;
+              
+              const canvasX = center.x - stageRect.left;
+              const canvasY = center.y - stageRect.top;
+              
+              // Calculate scale change
+              const scaleChange = distance / lastPinchDistance.current;
+              const newScale = scale * scaleChange;
+              
+              // Use the pinch center for zoom
+              performZoom(newScale, canvasX, canvasY, scale, position);
+              
+              lastPinchDistance.current = distance;
+              lastPinchCenter.current = center;
+          }
+      }
+  };
+
+  const handleTouchEnd = (e: KonvaEventObject<TouchEvent>) => {
+      const touches = e.evt.touches;
+      if (touches.length < 2) {
+          lastPinchDistance.current = null;
+          lastPinchCenter.current = null;
       }
   };
 
@@ -286,31 +422,13 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
         // Calculate Intersection
         const stage = e.target.getStage();
         const box = selectionRect;
-        const newSelectedIds: string[] = [];
-
-        // Check tokens
-        stage.find('.token').forEach((node: any) => {
-            // simple bounding box intersection? or center point?
-            // node.getClientRect() is relative to stage if not passed attrs
-            // Let's use simple logic: if node center is inside box
-            // node.getClientRect() is relative to stage if not passed attrs
-            // Better: use Konva's HaveIntersection logic or checking overlap
-            // For simplicity, check if node x,y is within box
-            if (Konva.Util.haveIntersection(box, node.getClientRect())) {
-                 newSelectedIds.push(node.id());
-            }
-        });
-        // Check drawings? (Assuming drawings are named with 'drawing')
-        // We need to name lines too.
 
         setSelectionRect({ ...selectionRect, isVisible: false });
-        // NOTE: Actually implement intersection properly below in effect or here
-        // Using Transformer 'nodes' prop is easiest if we have IDs
 
         // Find all shapes that intersect with selection rect
         const shapes = stage.find('.token, .drawing');
         const selected = shapes.filter((shape: any) =>
-            Konva.Util.haveIntersection(box, shape.getClientRect())
+            shape.id() && Konva.Util.haveIntersection(box, shape.getClientRect())
         );
         setSelectedIds(selected.map((n: any) => n.id()));
         selectionStart.current = null;
@@ -319,19 +437,9 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
 
   // Update Transformer nodes
   useEffect(() => {
-    if (transformerRef.current && containerRef.current) {
-        // We need direct access to stage to find nodes, but refs inside loop are tricky.
-        // Assuming we render Transformer *after* nodes, it can find them?
-        // Actually, we can use userGameStore or just query selector since `Stage` is available via ref or context?
-        // Best approach in React-Konva: get the stage instance or use document logic if desperate,
-        // but here we are inside the component.
-        // We can't easily query stage inside render side-effect without ref to stage.
-        // Let's use `onTransformEnd` or similar to update store.
-
-        // Wait, React-Konva Transformer accepts `nodes` prop.
-        // We need the actual Konva Nodes.
+    if (transformerRef.current) {
         const stage = transformerRef.current.getStage();
-        if(stage) {
+        if (stage) {
             const selectedNodes = stage.find((node: any) => selectedIds.includes(node.id()));
             transformerRef.current.nodes(selectedNodes);
             transformerRef.current.getLayer().batchDraw();
@@ -363,6 +471,9 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
         scaleX={scale}
         scaleY={scale}
         x={position.x}
@@ -382,7 +493,7 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
                 <Line
                     key={line.id}
                     id={line.id}
-                    name="drawing" // ID for selection
+                    name="drawing" // name for selection
                     points={line.points}
                     stroke={line.color}
                     strokeWidth={line.size}
@@ -391,9 +502,16 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
                     globalCompositeOperation={
                         line.tool === 'eraser' ? 'destination-out' : 'source-over'
                     }
-                    draggable={tool === 'select'}
-                    onClick={() => {
-                        if (tool === 'select') setSelectedIds([line.id]);
+                    onClick={(e) => {
+                        if (tool === 'select') {
+                            if (e.evt.shiftKey) {
+                                if (!selectedIds.includes(line.id)) {
+                                    setSelectedIds([...selectedIds, line.id]);
+                                }
+                            } else {
+                                setSelectedIds([line.id]);
+                            }
+                        }
                     }}
                 />
             ))}
@@ -408,9 +526,19 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
                     y={token.y}
                     width={gridSize * token.scale}
                     height={gridSize * token.scale}
-                    isSelected={selectedIds.includes(token.id)}
-                    onSelect={() => {
-                         if (tool === 'select') setSelectedIds([token.id]);
+                    onSelect={(e) => {
+                         if (tool === 'select') {
+                             if (e.evt.shiftKey) {
+                                 if (!selectedIds.includes(token.id)) {
+                                     setSelectedIds([...selectedIds, token.id]);
+                                 }
+                             } else {
+                                 setSelectedIds([token.id]);
+                             }
+                         }
+                    }}
+                    onDragEnd={(x, y) => {
+                        updateTokenPosition(token.id, x, y);
                     }}
                 />
             ))}
@@ -446,8 +574,33 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
             <Transformer
                 ref={transformerRef}
                 boundBoxFunc={(_oldBox, newBox) => {
-                    // Start simple
                     return newBox;
+                }}
+                onTransformEnd={(e) => {
+                    const node = e.target;
+                    const scaleX = node.scaleX();
+                    const scaleY = node.scaleY();
+                    
+                    // Update token transform in store
+                    if (node.name() === 'token') {
+                        // Use average of scaleX and scaleY for uniform scaling
+                        const transformScale = (scaleX + scaleY) / 2;
+                        const token = tokens.find(t => t.id === node.id());
+                        if (token) {
+                            // Multiply current scale by transformation scale
+                            const newScale = token.scale * transformScale;
+                            updateTokenTransform(
+                                node.id(),
+                                node.x(),
+                                node.y(),
+                                newScale
+                            );
+                        }
+                        
+                        // Reset scale to 1 since the new scale is stored
+                        node.scaleX(1);
+                        node.scaleY(1);
+                    }
                 }}
             />
         </Layer>
