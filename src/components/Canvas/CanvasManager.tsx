@@ -831,7 +831,6 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
         </Layer>
 
         {/* Layer 2: Drawings (Separate layer so Eraser doesn't erase map) */}
-        {/* Layer 2: Drawings (Separate layer so Eraser doesn't erase map) */}
         <Layer>
             {isAltPressed && drawings.filter(d => draggedItemIds.includes(d.id)).map(ghostLine => (
                 <Line
