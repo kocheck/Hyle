@@ -15,7 +15,7 @@ interface URLImageProps {
   width: number;
   height: number;
   id: string;
-  onSelect: () => void;
+  onSelect: (e: any) => void;
   onDragEnd: (x: number, y: number) => void;
 }
 
@@ -391,10 +391,12 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
                     globalCompositeOperation={
                         line.tool === 'eraser' ? 'destination-out' : 'source-over'
                     }
-                    onClick={() => {
+                    onClick={(e) => {
                         if (tool === 'select') {
-                            if ((window.event as MouseEvent)?.shiftKey) {
-                                setSelectedIds([...selectedIds, line.id]);
+                            if (e.evt.shiftKey) {
+                                if (!selectedIds.includes(line.id)) {
+                                    setSelectedIds([...selectedIds, line.id]);
+                                }
                             } else {
                                 setSelectedIds([line.id]);
                             }
@@ -413,10 +415,12 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
                     y={token.y}
                     width={gridSize * token.scale}
                     height={gridSize * token.scale}
-                    onSelect={() => {
+                    onSelect={(e) => {
                          if (tool === 'select') {
-                             if ((window.event as MouseEvent)?.shiftKey) {
-                                 setSelectedIds([...selectedIds, token.id]);
+                             if (e.evt.shiftKey) {
+                                 if (!selectedIds.includes(token.id)) {
+                                     setSelectedIds([...selectedIds, token.id]);
+                                 }
                              } else {
                                  setSelectedIds([token.id]);
                              }
@@ -466,14 +470,14 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
                     const scaleX = node.scaleX();
                     const scaleY = node.scaleY();
                     
-                    // Update token transform in store
+                    // Update token transform in store (use average scale for uniform scaling)
                     if (node.name() === 'token') {
+                        const avgScale = (scaleX + scaleY) / 2;
                         updateTokenTransform(
                             node.id(),
                             node.x(),
                             node.y(),
-                            scaleX,
-                            scaleY
+                            avgScale
                         );
                         
                         // Reset scale after updating store
