@@ -6,7 +6,7 @@ const Sidebar = () => {
     const {
         setMap, gridType, setGridType,
         map, updateMapPosition, updateMapScale,
-        isCalibrating, setIsCalibrating
+        isCalibrating, setIsCalibrating, showToast
     } = useGameStore();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -40,12 +40,12 @@ const Sidebar = () => {
             };
             img.onerror = (e) => {
                 console.error("Map Image Failed to Load for Dimensions", e);
-                alert("Failed to load map image. Please try a different file.");
                 URL.revokeObjectURL(objectUrl);
+                showToast('Failed to load map image. Please check the file format and try again.', 'error');
             }
         } catch (err) {
             console.error("Failed to upload map", err);
-            alert("Failed to upload map. Please try again.");
+            showToast('Failed to upload map. Please ensure the file is a valid image.', 'error');
         }
     };
 
