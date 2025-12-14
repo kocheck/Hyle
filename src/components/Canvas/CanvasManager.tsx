@@ -157,6 +157,7 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
         if (isEditableElement(e.target)) return;
         
         if (e.code === 'Space' && !e.repeat) {
+            e.preventDefault();
             setIsSpacePressed(true);
         }
         
