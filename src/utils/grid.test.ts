@@ -20,8 +20,13 @@ describe('snapToGrid', () => {
       expect(result).toEqual({ x: -50, y: -50 });
     });
 
-    it('should handle zero dimensions explicitly (fallback to legacy)', () => {
+    it('should handle zero dimensions (zero-sized tokens)', () => {
+      // Zero dimensions are valid and should be processed normally
+      // 0x0 token (0 cells, even) => snap to intersection
       const result = snapToGrid(27, 33, gridSize, 0, 0);
+      // Center: (27 + 0, 33 + 0) = (27, 33)
+      // Intersection: round(27/50)*50 = 50, round(33/50)*50 = 50
+      // Top-left: (50 - 0, 50 - 0) = (50, 50)
       expect(result).toEqual({ x: 50, y: 50 });
     });
   });

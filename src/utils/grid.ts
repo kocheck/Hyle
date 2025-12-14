@@ -2,8 +2,8 @@ export const snapToGrid = (
   x: number,
   y: number,
   gridSize: number,
-  width: number = 0,
-  height: number = 0
+  width?: number,
+  height?: number
 ): { x: number; y: number } => {
   // If dimensions not provided, use simple top-left rounding (legacy behavior)
   if (width === undefined || height === undefined) {

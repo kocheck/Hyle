@@ -1,6 +1,9 @@
 import React from 'react';
 import { Group, Line, Circle } from 'react-konva';
 
+// Maximum number of dots to render before using subset rendering for performance
+const MAX_DOTS_THRESHOLD = 10000;
+
 interface GridOverlayProps {
   visibleBounds: { x: number; y: number; width: number; height: number };
   gridSize: number;
@@ -63,11 +66,11 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
     const dotsY = Math.ceil((endY - startY) / gridSize) + 1;
     const totalDots = dotsX * dotsY;
     
-    // If there would be too many dots (>10000), fall back to a simpler grid or skip
-    if (totalDots > 10000) {
+    // If there would be too many dots, fall back to a simpler grid or skip
+    if (totalDots > MAX_DOTS_THRESHOLD) {
       console.warn('Grid too dense for DOTS mode, rendering subset');
       // Render a subset by increasing step size
-      const step = Math.ceil(Math.sqrt(totalDots / 10000)) * gridSize;
+      const step = Math.ceil(Math.sqrt(totalDots / MAX_DOTS_THRESHOLD)) * gridSize;
       for (let ix = startX; ix <= endX; ix += step) {
         for (let iy = startY; iy <= endY; iy += step) {
           elements.push(
