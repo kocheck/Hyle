@@ -208,7 +208,7 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
 
       setScale(constrainedScale);
       setPosition(clampedPos);
-  }, [size.width, size.height, map]);
+  }, [size.width, size.height, map, clampPosition]);
 
   // Auto-center on map load
   const lastMapSrc = useRef<string | null>(null);
@@ -611,7 +611,7 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
   };
 
   // Helper to clamp position to keep map in view
-  const clampPosition = (newPos: { x: number, y: number }, newScale: number) => {
+  const clampPosition = useCallback((newPos: { x: number, y: number }, newScale: number) => {
       // If no map, allow free movement? Or constrain to some large box?
       // Let's constrain to a 10000x10000 box if no map.
       // If map exists, constrain so at least a bit of the map is visible?
@@ -652,7 +652,7 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
           x: -(clampedCenterX * newScale - size.width/2),
           y: -(clampedCenterY * newScale - size.height/2)
       };
-  };
+  }, [map, size.width, size.height]);
 
   const handleWheel = (e: KonvaEventObject<WheelEvent>) => {
       e.evt.preventDefault();
