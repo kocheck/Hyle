@@ -1,6 +1,9 @@
 import React from 'react';
 import { Group, Line, Circle } from 'react-konva';
 
+// Maximum number of dots to render before using subset rendering for performance
+const MAX_DOTS_THRESHOLD = 10000;
+
 interface GridOverlayProps {
   visibleBounds: { x: number; y: number; width: number; height: number };
   gridSize: number;
@@ -57,19 +60,46 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
       );
     }
   } else if (type === 'DOTS') {
-    // Render dots at intersections
-    for (let ix = startX; ix <= endX; ix += gridSize) {
-      for (let iy = startY; iy <= endY; iy += gridSize) {
-        elements.push(
-          <Circle
-            key={`dot-${ix}-${iy}`}
-            x={ix}
-            y={iy}
-            radius={2}
-            fill={stroke}
-            opacity={opacity}
-          />
-        );
+    // Render dots at intersections using a single Shape for better performance
+    // Limit rendering if there are too many dots to avoid performance issues
+    const dotsX = Math.ceil((endX - startX) / gridSize) + 1;
+    const dotsY = Math.ceil((endY - startY) / gridSize) + 1;
+    const totalDots = dotsX * dotsY;
+    
+    // If there would be too many dots, fall back to a simpler grid or skip
+    if (totalDots > MAX_DOTS_THRESHOLD) {
+      const step = Math.ceil(Math.sqrt(totalDots / MAX_DOTS_THRESHOLD)) * gridSize;
+      console.warn(`Grid too dense for DOTS mode (${totalDots} dots > ${MAX_DOTS_THRESHOLD}), rendering subset with step size ${step}px`);
+      // Render a subset by increasing step size
+      for (let ix = startX; ix <= endX; ix += step) {
+        for (let iy = startY; iy <= endY; iy += step) {
+          elements.push(
+            <Circle
+              key={`dot-${ix}-${iy}`}
+              x={ix}
+              y={iy}
+              radius={2}
+              fill={stroke}
+              opacity={opacity}
+            />
+          );
+        }
+      }
+    } else {
+      // Normal rendering
+      for (let ix = startX; ix <= endX; ix += gridSize) {
+        for (let iy = startY; iy <= endY; iy += gridSize) {
+          elements.push(
+            <Circle
+              key={`dot-${ix}-${iy}`}
+              x={ix}
+              y={iy}
+              radius={2}
+              fill={stroke}
+              opacity={opacity}
+            />
+          );
+        }
       }
     }
   }

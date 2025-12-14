@@ -26,7 +26,7 @@ const PII_PATTERNS = {
   ipv6: /\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b|\b(?:[0-9a-fA-F]{1,4}:){1,7}:|:(?::[0-9a-fA-F]{1,4}){1,7}\b/g,
 
   // API keys / tokens (common patterns: long alphanumeric strings)
-  apiKey: /\b(?:api[_-]?key|token|secret|password|auth)[=:]\s*['"]?([A-Za-z0-9_-]{20,})['"]?/gi,
+  apiKey: /\b(?:api[_-]?key|token|secret|password|auth)[=:]\s*['"]?[A-Za-z0-9_-]{20,}['"]?/gi,
 
   // Bearer tokens
   bearerToken: /Bearer\s+[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/gi,
@@ -50,7 +50,7 @@ function sanitizePII(text: string): string {
     .replace(PII_PATTERNS.ipv4, '<IP>')
     .replace(PII_PATTERNS.ipv6, '<IP>')
     .replace(PII_PATTERNS.bearerToken, 'Bearer <TOKEN>')
-    .replace(PII_PATTERNS.apiKey, '$1=<REDACTED>')
+    .replace(PII_PATTERNS.apiKey, '<REDACTED>')
     .replace(PII_PATTERNS.envVar, '<ENV_VAR>')
     .replace(PII_PATTERNS.uuid, '<UUID>');
 }
@@ -66,7 +66,7 @@ function sanitizePII(text: string): string {
  */
 export function sanitizeStack(error: Error, username: string): SanitizedError {
   const errorName = error.name || 'Error';
-  let errorMessage = error.message || 'Unknown error';
+  let errorMessage = error.message || '';
   let errorStack = error.stack || '';
 
   // Create regex patterns to match the username in various path formats

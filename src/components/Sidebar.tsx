@@ -46,6 +46,9 @@ const Sidebar = () => {
         } catch (err) {
             console.error("Failed to upload map", err);
             showToast('Failed to upload map. Please ensure the file is a valid image.', 'error');
+        } finally {
+            // Reset the file input so the same file can be uploaded again
+            e.target.value = '';
         }
     };
 

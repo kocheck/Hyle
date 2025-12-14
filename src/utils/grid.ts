@@ -2,11 +2,11 @@ export const snapToGrid = (
   x: number,
   y: number,
   gridSize: number,
-  width: number = 0,
-  height: number = 0
+  width?: number,
+  height?: number
 ): { x: number; y: number } => {
   // If dimensions not provided, use simple top-left rounding (legacy behavior)
-  if (!width || !height) {
+  if (width === undefined || height === undefined) {
     return {
       x: Math.round(x / gridSize) * gridSize,
       y: Math.round(y / gridSize) * gridSize,

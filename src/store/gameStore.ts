@@ -56,6 +56,7 @@ export interface GameState {
   setMap: (map: MapConfig | null) => void;
   updateMapPosition: (x: number, y: number) => void;
   updateMapScale: (scale: number) => void;
+  updateMapTransform: (scale: number, x: number, y: number) => void;
   isCalibrating: boolean;
   setIsCalibrating: (isCalibrating: boolean) => void;
   setGridType: (type: GridType) => void;
@@ -95,6 +96,9 @@ export const useGameStore = create<GameState>((set) => ({
   })),
   updateMapScale: (scale) => set((state) => ({
     map: state.map ? { ...state.map, scale } : null
+  })),
+  updateMapTransform: (scale, x, y) => set((state) => ({
+    map: state.map ? { ...state.map, scale, x, y } : null
   })),
   isCalibrating: false,
   setIsCalibrating: (isCalibrating) => set({ isCalibrating }),
