@@ -127,9 +127,7 @@ describe('snapToGrid', () => {
         const tokenSize = 25; // 0.5 cells
         const result = snapToGrid(37, 62, gridSize, tokenSize, tokenSize);
         // Center: (37 + 12.5, 62 + 12.5) = (49.5, 74.5)
-        // Cell count: round(25/50) = 0, even => snap to intersection
-        // But actually the algorithm doesn't snap because size < gridSize
-        // It still calculates: cellCount = round(25/50) = 1 (rounds to 1)
+        // Cell count: round(25/50) = 1 (rounds up to 1 cell)
         // 1 is odd, so snaps to cell center
         // X: floor(49.5/50) + 0.5)*50 = 25, top-left = 25 - 12.5 = 12.5
         // Y: floor(74.5/50) + 0.5)*50 = 75, top-left = 75 - 12.5 = 62.5

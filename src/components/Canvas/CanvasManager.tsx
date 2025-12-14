@@ -836,13 +836,13 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
                                  const drawing = drawings.find(d => d.id === id);
                                  if (drawing) {
                                      // Calculate drag offset and apply to all points
+                                     // Points array format: [x1, y1, x2, y2, ...] (alternating x,y coordinates)
                                      const points = drawing.points;
-                                     // For lines, points = [x1, y1, x2, y2, ...]
                                      const dx = x - (drawing.x || 0);
                                      const dy = y - (drawing.y || 0);
                                      // Offset all points by (dx, dy)
                                      const newPoints = points.map((val, idx) =>
-                                         idx % 2 === 0 ? val + dx : val + dy
+                                         idx % 2 === 0 ? val + dx : val + dy // Even indices are X, odd are Y
                                      );
                                      addDrawing({ ...drawing, id: crypto.randomUUID(), points: newPoints, x: 0, y: 0 });
                                  }
