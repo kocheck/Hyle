@@ -1,0 +1,775 @@
+# Hyle - AI Assistant Context
+
+## Project Type
+**Desktop Application** - Local-first tabletop gaming tool (digital battlemap for Dungeon Masters)
+
+## Tech Stack
+
+### Core
+- **Electron 30.0.1** - Desktop app framework (dual-process architecture)
+- **React 18.2.0** + **TypeScript 5.2.2** - UI with strict type safety
+- **Vite 5.1.6** - Build tool and dev server
+
+### State & Rendering
+- **Zustand 5.0.9** - Lightweight state management (single store pattern)
+- **Konva 10.0.12** + **React-Konva 18.2.14** - High-performance Canvas rendering
+- **use-image** - Konva image loading hook
+
+### Styling & UI
+- **Tailwind CSS 4.1.18** - Utility-first CSS (no CSS modules)
+- **react-easy-crop** - Image cropping interface
+
+### File Processing
+- **JSZip** - Campaign file archival (`.hyle` format = ZIP + manifest.json)
+- **fs-extra** - Enhanced Node.js file operations
+- **OffscreenCanvas** - Image processing/optimization (WebP conversion)
+
+## Architecture
+
+### Dual-Window System
+```
+┌─────────────────────────────────────────────────────────┐
+│             ELECTRON MAIN PROCESS (main.ts)             │
+│  Responsibilities:                                      │
+│  - Create/manage Main Window (DM control)               │
+│  - Create/manage World Window (player projector view)   │
+│  - IPC message routing between windows                  │
+│  - File I/O (save/load .hyle campaigns)                 │
+│  - Asset temp storage (userData/temp_assets/)           │
+│  - Custom protocol handler (media:// for file:// URLs)  │
+└────────┬────────────────────────────────────┬───────────┘
+         │                                    │
+    IPC Bridge                           IPC Bridge
+    (preload.ts)                        (preload.ts)
+         │                                    │
+┌────────▼─────────────────┐     ┌───────────▼────────────┐
+│   MAIN WINDOW            │     │   WORLD WINDOW         │
+│   (Architect View)       │     │   (Player View)        │
+│  ┌──────────────────┐   │     │  ┌──────────────────┐  │
+│  │ App.tsx          │   │     │  │ App.tsx          │  │
+│  │ - Toolbar        │   │     │  │ - Canvas only    │  │
+│  │ - Sidebar        │   │     │  │ - No controls    │  │
+│  │ - Save/Load      │   │     │  │                  │  │
+│  └──────────────────┘   │     │  └──────────────────┘  │
+│  ┌──────────────────┐   │     │  ┌──────────────────┐  │
+│  │ SyncManager      │   │     │  │ SyncManager      │  │
+│  │ (PRODUCER)       │   │     │  │ (CONSUMER)       │  │
+│  │ subscribes to    │───┼─────┼─▶│ receives IPC     │  │
+│  │ store changes    │   │     │  │ updates          │  │
+│  └──────────────────┘   │     │  └──────────────────┘  │
+└──────────┬───────────────┘     └───────────┬────────────┘
+           │                                 │
+           │         ┌───────────────────┐   │
+           └────────▶│  gameStore.ts     │◀──┘
+                     │  (Zustand)        │
+                     │  - tokens[]       │
+                     │  - drawings[]     │
+                     │  - gridSize       │
+                     └───────────────────┘
+```
+
+**Critical Concept:** State flows ONE-WAY:
+1. Main Window user action → update gameStore
+2. SyncManager detects change → IPC send to Main Process
+3. Main Process → IPC broadcast to World Window
+4. World Window SyncManager → update local gameStore copy
+5. Both windows re-render with same state
+
+**Window Detection:** `new URLSearchParams(window.location.search).get('type') === 'world'`
+
+### Component Hierarchy
+```
+App.tsx (root)
+├─ SyncManager (state sync, no UI)
+├─ Sidebar (asset library, drag-drop sources)
+└─ CanvasManager (main canvas logic)
+    ├─ Stage (react-konva root)
+    │   └─ Layer
+    │       ├─ GridOverlay (background grid lines)
+    │       ├─ Line[] (drawings from marker/eraser tools)
+    │       └─ URLImage[] (tokens - draggable)
+    └─ ImageCropper (modal overlay for token cropping)
+```
+
+### State Management Pattern
+**Store Location:** `src/store/gameStore.ts`
+
+**Access Patterns:**
+```typescript
+// 1. Hook-based (triggers re-render on change)
+const { tokens, addToken } = useGameStore()
+
+// 2. Direct getState (no re-render, use for event handlers)
+const state = useGameStore.getState()
+state.addToken(token)
+
+// 3. setState (bulk updates, used in load/sync)
+useGameStore.setState({ tokens: [...], drawings: [...] })
+
+// 4. Subscribe (used by SyncManager for IPC)
+const unsub = useGameStore.subscribe((state) => {
+  // Called on every state change
+})
+```
+
+**When to use each:**
+- **Hooks:** Component rendering (most common)
+- **getState():** Event handlers, IPC invoke calls
+- **setState():** Loading saved data, receiving sync updates
+- **subscribe():** Side effects (IPC sync, logging)
+
+### IPC Communication
+
+**Channels:**
+```typescript
+// Renderer → Main
+'create-world-window' // send (no response)
+'SYNC_WORLD_STATE'    // send (broadcast to world window)
+'SAVE_ASSET_TEMP'     // invoke (returns file:// path)
+'SAVE_CAMPAIGN'       // invoke (returns boolean)
+'LOAD_CAMPAIGN'       // invoke (returns GameState | null)
+
+// Main → Renderer
+'main-process-message' // on (timestamp ping)
+'SYNC_WORLD_STATE'     // on (receive state updates)
+```
+
+**File Path Transformations:**
+```typescript
+// Upload: Browser Blob → file:// (temp storage)
+// Render: file:// → media:// (custom protocol handler)
+// Save:   file:// → assets/filename.webp (relative path in ZIP)
+// Load:   assets/filename.webp → file:// (extracted to session dir)
+```
+
+### Asset Processing Pipeline
+```
+User drops image file
+↓
+1. Create Object URL (for cropping preview)
+↓
+2. ImageCropper → user crops/zooms → Blob
+↓
+3. AssetProcessor.processImage(blob, 'TOKEN' | 'MAP')
+   - Resize to MAX_TOKEN_DIMENSION (512px) or MAX_MAP_DIMENSION (4096px)
+   - Maintain aspect ratio
+   - Convert to WebP (quality: 0.85)
+   - Use OffscreenCanvas for performance
+↓
+4. IPC invoke 'SAVE_ASSET_TEMP'
+   - Saves to app.getPath('userData')/temp_assets/${timestamp}-${name}.webp
+   - Returns file:// URL
+↓
+5. Add to gameStore with file:// src
+↓
+6. Render: Convert file:// → media:// for Konva image loading
+```
+
+## Code Conventions
+
+### File Naming
+- **Components:** PascalCase - `CanvasManager.tsx`, `ImageCropper.tsx`
+- **Utilities:** camelCase - `grid.ts`, `gameStore.ts`
+- **Config:** kebab-case - `vite.config.ts`, `electron-env.d.ts`
+- **Types:** PascalCase - `interface Token`, `type AssetType`
+
+### Import Organization
+**Always follow this order:**
+```typescript
+// 1. External dependencies (React, Konva, etc.)
+import { useState, useEffect } from 'react'
+import { Stage, Layer } from 'react-konva'
+
+// 2. Internal utilities/stores (relative paths)
+import { snapToGrid } from '../../utils/grid'
+import { useGameStore } from '../../store/gameStore'
+
+// 3. Components (relative paths)
+import GridOverlay from './GridOverlay'
+import ImageCropper from '../ImageCropper'
+```
+
+### Component Structure Template
+```typescript
+// 1. Imports (see order above)
+
+// 2. Interfaces/Types (always define props interface)
+interface ComponentNameProps {
+  prop: Type;
+  optional?: Type;
+}
+
+// 3. Component definition (prefer direct function, not React.FC)
+const ComponentName = ({ prop, optional = 'default' }: ComponentNameProps) => {
+  // 4. Refs
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // 5. State hooks
+  const [localState, setLocalState] = useState(initialValue);
+  const { storeData } = useGameStore();
+
+  // 6. Derived values
+  const computed = useMemo(() => calculate(storeData), [storeData]);
+
+  // 7. Event handlers (prefix with 'handle')
+  const handleClick = (e: React.MouseEvent) => {
+    // Logic here
+  };
+
+  // 8. Effects (group by purpose)
+  useEffect(() => {
+    // Setup/cleanup
+    return () => cleanup();
+  }, [dependencies]);
+
+  // 9. JSX return
+  return (
+    <div className="w-full h-full">
+      {/* ... */}
+    </div>
+  );
+};
+
+// 10. Export
+export default ComponentName;
+```
+
+### TypeScript Standards
+- **Strict mode enabled** - all compiler flags on
+- **Explicit return types** for exported functions
+- **Interface over type** for object shapes (consistency)
+- **Avoid `any`** - use `unknown` or proper types
+- **`@ts-ignore` only when:**
+  - Electron IPC types unavailable (add TODO to fix)
+  - Third-party library types incomplete (add comment)
+
+### Error Handling
+```typescript
+// Pattern 1: User-facing errors (file operations, IPC)
+try {
+  const result = await window.ipcRenderer.invoke('SAVE_CAMPAIGN', data);
+  if (!result) {
+    alert('Save failed - file dialog cancelled');
+    return;
+  }
+  alert('Campaign saved!');
+} catch (error) {
+  console.error('Save error:', error);
+  alert(`Failed to save: ${error instanceof Error ? error.message : 'Unknown error'}`);
+}
+
+// Pattern 2: Developer errors (should not happen in production)
+if (!ctx) {
+  throw new Error('Could not get 2D context from OffscreenCanvas');
+}
+
+// Pattern 3: Silent failures (non-critical UI)
+try {
+  const img = await loadImage(src);
+} catch (err) {
+  console.warn('Image load failed, using fallback:', err);
+  return fallbackImage;
+}
+```
+
+### Styling with Tailwind
+**Color Palette (dark theme):**
+```
+Background layers:  bg-neutral-900 → bg-neutral-800 → bg-neutral-700
+Text:              text-white, text-neutral-400 (labels)
+Primary action:    bg-blue-600, hover:bg-blue-500
+Interactive:       bg-neutral-600, hover:bg-neutral-500
+Borders:           border-neutral-700
+```
+
+**Spacing consistency:**
+```
+Padding:  px-3 py-1 (buttons), p-4 (containers), p-2 (compact toolbars)
+Gaps:     gap-2 (default), gap-4 (sections)
+Rounded:  rounded (default 0.25rem), rounded-lg (modals)
+```
+
+**Layout patterns:**
+```typescript
+// Full-screen container
+<div className="w-full h-screen flex overflow-hidden">
+
+// Sidebar
+<div className="w-64 shrink-0 bg-neutral-800 border-r border-neutral-700">
+
+// Fixed toolbar overlay
+<div className="fixed top-4 right-4 bg-neutral-800 p-2 rounded shadow flex gap-2 z-50">
+
+// Grid layout
+<div className="grid grid-cols-2 gap-2">
+```
+
+## Preferred Patterns
+
+### Pattern 1: Grid Snapping
+```typescript
+// ALWAYS snap token positions to grid
+const { x, y } = snapToGrid(rawX, rawY, gridSize);
+addToken({ id: crypto.randomUUID(), x, y, src, scale: 1 });
+
+// Grid coordinates are top-left corner of cell
+// Token renders at (x, y) with width/height = gridSize * scale
+```
+
+### Pattern 2: Drag-and-Drop Data
+```typescript
+// Library items (sidebar) - use JSON
+const handleDragStart = (e: React.DragEvent) => {
+  e.dataTransfer.setData('application/json', JSON.stringify({
+    type: 'LIBRARY_TOKEN',
+    src: 'https://example.com/token.png'
+  }));
+};
+
+// File uploads - use files
+const handleDrop = (e: React.DragEvent) => {
+  e.preventDefault();
+
+  // Check for JSON first
+  const jsonData = e.dataTransfer.getData('application/json');
+  if (jsonData) {
+    const data = JSON.parse(jsonData);
+    // Handle library item
+  }
+
+  // Then check for files
+  if (e.dataTransfer.files.length > 0) {
+    const file = e.dataTransfer.files[0];
+    // Handle upload
+  }
+};
+```
+
+### Pattern 3: Drawing Tools
+```typescript
+// Use refs for drawing state (avoid re-renders during drag)
+const isDrawing = useRef(false);
+const currentLine = useRef<any>(null);
+
+// Use local state for temp preview (render active stroke)
+const [tempLine, setTempLine] = useState<Drawing | null>(null);
+
+// Commit to store on MouseUp (sync to world window)
+const handleMouseUp = () => {
+  if (tempLine) {
+    addDrawing(tempLine); // Triggers IPC sync
+    setTempLine(null);
+  }
+};
+```
+
+### Pattern 4: Konva Image Loading
+```typescript
+// ALWAYS convert file:// to media:// for rendering
+const URLImage = ({ src, ...props }: any) => {
+  const safeSrc = src.startsWith('file:')
+    ? src.replace('file:', 'media:')
+    : src;
+  const [img] = useImage(safeSrc);
+
+  return <KonvaImage image={img} {...props} />;
+};
+```
+
+### Pattern 5: Unique IDs
+```typescript
+// Use crypto.randomUUID() for all entities
+const token: Token = {
+  id: crypto.randomUUID(),
+  x, y, src, scale: 1
+};
+
+// Never use Math.random() or timestamps (collision risk)
+```
+
+## Anti-patterns (Avoid These)
+
+### ❌ DON'T: Mutate store directly
+```typescript
+// WRONG
+const state = useGameStore.getState();
+state.tokens.push(newToken); // Mutates array!
+
+// CORRECT
+const { addToken } = useGameStore.getState();
+addToken(newToken);
+```
+
+### ❌ DON'T: Use file:// URLs directly in Konva
+```typescript
+// WRONG - will fail to load due to CORS/protocol
+<KonvaImage src="file:///path/to/image.png" />
+
+// CORRECT - use custom media:// protocol
+<KonvaImage src="media:///path/to/image.png" />
+```
+
+### ❌ DON'T: Update store on every mousemove
+```typescript
+// WRONG - causes IPC spam and performance issues
+const handleMouseMove = (e) => {
+  const point = getPointerPosition();
+  addDrawing({ points: [...currentPoints, point.x, point.y] });
+};
+
+// CORRECT - use local state during drag, commit on mouseup
+const handleMouseMove = (e) => {
+  currentLine.current.points.push(point.x, point.y);
+  setTempLine({ ...currentLine.current }); // Local render only
+};
+```
+
+### ❌ DON'T: Assume window type without checking
+```typescript
+// WRONG - both windows run same code
+if (worldWindow) { ... }
+
+// CORRECT - check URL parameter
+const isWorldView = new URLSearchParams(window.location.search).get('type') === 'world';
+```
+
+### ❌ DON'T: Use hardcoded paths
+```typescript
+// WRONG - breaks across platforms
+const tempPath = '/tmp/assets/image.png';
+
+// CORRECT - use Electron paths
+const tempDir = path.join(app.getPath('userData'), 'temp_assets');
+```
+
+## Domain Knowledge
+
+### Key Concepts
+
+**Architect View** - The DM's control window with:
+- Full toolbar (Select, Marker, Eraser tools)
+- Sidebar with asset library
+- Save/Load campaign buttons
+- "World View" button to open projector window
+
+**World View** - The player-facing projector window with:
+- Canvas only (no UI controls)
+- Synchronized with Architect View in real-time
+- Typically fullscreen on second monitor/projector
+
+**Token** - A character/creature marker on the battlemap:
+- Square image (1:1 aspect ratio preferred)
+- Snaps to grid on placement
+- Draggable by DM (not implemented for players yet)
+- Scale property (e.g., scale=2 for Large creatures = 2x2 grid cells)
+
+**Drawing** - Freehand marker or eraser strokes:
+- Stored as array of [x1, y1, x2, y2, ...] points
+- Eraser uses 'destination-out' composite operation (cuts through drawings)
+- Synchronized in real-time (committed on mouse up)
+
+**Grid** - Square grid overlay:
+- Default 50px per cell (configurable)
+- Used for token snapping and movement
+- Visual guide only (no mechanical rules enforced)
+
+**Campaign** - Saved game state:
+- File extension: `.hyle`
+- Format: ZIP archive containing:
+  - `manifest.json` (serialized GameState)
+  - `assets/` folder (all token/map images as WebP)
+- Portable across machines (all assets embedded)
+
+### Business Rules
+
+1. **Asset Optimization:**
+   - Maps: max 4096px (4K display support)
+   - Tokens: max 512px (performance)
+   - All converted to WebP (85% quality)
+   - Original files NOT preserved (compression is destructive)
+
+2. **Grid Snapping:**
+   - Tokens ALWAYS snap to grid on drop
+   - Dragging tokens also snaps (automatic via Konva transform)
+   - No sub-grid positioning (enforces tactical grid movement)
+
+3. **State Synchronization:**
+   - Main Window is source of truth
+   - World Window is read-only display (no user input accepted)
+   - Sync happens on every store update (via Zustand subscription)
+   - Drawings sync on mouseUp (not during drag for performance)
+
+4. **File Storage:**
+   - Temp assets: `{userData}/temp_assets/` (cleared on app quit? TODO)
+   - Loaded campaigns: `{userData}/sessions/{timestamp}/assets/`
+   - Each load creates NEW session dir (no overwriting)
+
+5. **Image Cropping:**
+   - Required for all uploaded tokens (enforces 1:1 aspect)
+   - Optional zoom (1x to 3x)
+   - Library tokens skip cropping (pre-processed)
+   - Maps skip cropping (placed as-is)
+
+### Terminology
+
+- **DM** - Dungeon Master (the user controlling Hyle)
+- **Battlemap** - The canvas/grid where combat takes place
+- **Fog of War** - (Planned feature) Hidden areas players can't see
+- **Asset** - Any image file (map background or token)
+- **Library** - Pre-imported tokens in sidebar (currently hardcoded examples)
+- **Session** - Active game state (not the same as "campaign file")
+- **Projector View** - Synonym for World View
+
+## Common Tasks
+
+### Task 1: Add a New Drawing Tool
+```typescript
+// 1. Add tool type to union
+type Tool = 'select' | 'marker' | 'eraser' | 'fog'; // Add 'fog'
+
+// 2. Add button to toolbar (App.tsx)
+<button
+  className={`px-3 py-1 rounded ${tool === 'fog' ? 'bg-blue-600' : 'bg-neutral-600'}`}
+  onClick={() => setTool('fog')}>
+  Fog of War
+</button>
+
+// 3. Update Drawing interface if needed (gameStore.ts)
+export interface Drawing {
+  tool: 'marker' | 'eraser' | 'fog'; // Add to union
+  // ... other properties
+}
+
+// 4. Implement drawing logic (CanvasManager.tsx)
+const handleMouseDown = (e: any) => {
+  if (tool === 'fog') {
+    currentLine.current = {
+      id: crypto.randomUUID(),
+      tool: 'fog',
+      points: [pos.x, pos.y],
+      color: '#000000', // Black overlay
+      size: 30, // Larger brush
+    };
+  }
+  // ... existing logic
+};
+
+// 5. Render with appropriate style (CanvasManager.tsx)
+{drawings.map((line) => (
+  <Line
+    key={line.id}
+    points={line.points}
+    stroke={line.color}
+    strokeWidth={line.size}
+    opacity={line.tool === 'fog' ? 0.8 : 1} // Semi-transparent fog
+    // ...
+  />
+))}
+```
+
+### Task 2: Add a New IPC Handler
+```typescript
+// 1. Define channel name constant (create new file: src/constants/ipc.ts)
+export const IPC_CHANNELS = {
+  SAVE_CAMPAIGN: 'SAVE_CAMPAIGN',
+  LOAD_CAMPAIGN: 'LOAD_CAMPAIGN',
+  DELETE_TOKEN: 'DELETE_TOKEN', // New
+} as const;
+
+// 2. Add handler in main process (electron/main.ts)
+ipcMain.handle('DELETE_TOKEN', async (_event, tokenId: string) => {
+  // Implement deletion logic (e.g., remove temp file)
+  const tempDir = path.join(app.getPath('userData'), 'temp_assets');
+  // ... find and delete file
+  return true; // Return success
+});
+
+// 3. Call from renderer (CanvasManager.tsx)
+const handleDeleteToken = async (tokenId: string) => {
+  try {
+    // @ts-ignore
+    await window.ipcRenderer.invoke('DELETE_TOKEN', tokenId);
+    // Update store
+    useGameStore.getState().removeToken(tokenId);
+  } catch (err) {
+    console.error('Delete failed:', err);
+  }
+};
+```
+
+### Task 3: Add a New Component
+```typescript
+// 1. Create file: src/components/TokenLibrary.tsx
+import React from 'react';
+
+interface TokenLibraryProps {
+  onSelectToken: (tokenUrl: string) => void;
+}
+
+const TokenLibrary = ({ onSelectToken }: TokenLibraryProps) => {
+  return (
+    <div className="p-4">
+      {/* Component logic */}
+    </div>
+  );
+};
+
+export default TokenLibrary;
+
+// 2. Import in parent (App.tsx or Sidebar.tsx)
+import TokenLibrary from './components/TokenLibrary';
+
+// 3. Use in JSX
+<TokenLibrary onSelectToken={handleTokenSelect} />
+```
+
+### Task 4: Modify Store Schema
+```typescript
+// 1. Update interface (gameStore.ts)
+export interface GameState {
+  tokens: Token[];
+  drawings: Drawing[];
+  gridSize: number;
+  fogEnabled: boolean; // NEW FIELD
+  // ...
+}
+
+// 2. Update initial state
+export const useGameStore = create<GameState>((set) => ({
+  tokens: [],
+  drawings: [],
+  gridSize: 50,
+  fogEnabled: false, // NEW DEFAULT
+  // ...
+}));
+
+// 3. Add action
+export interface GameState {
+  // ... existing
+  setFogEnabled: (enabled: boolean) => void; // NEW ACTION
+}
+
+// 4. Implement action
+setFogEnabled: (enabled) => set({ fogEnabled: enabled }),
+
+// 5. Update save/load to include new field (electron/main.ts)
+const dataToSave = {
+  tokens: state.tokens,
+  drawings: state.drawings,
+  gridSize: state.gridSize,
+  fogEnabled: state.fogEnabled, // Include in save
+};
+```
+
+### Task 5: Debug State Sync Issues
+```typescript
+// 1. Add logging to SyncManager (SyncManager.tsx)
+const unsub = useGameStore.subscribe((state) => {
+  console.log('[MAIN WINDOW] State changed, syncing:', state);
+  window.ipcRenderer.send('SYNC_WORLD_STATE', syncState);
+});
+
+// 2. Add logging to World Window receiver
+window.ipcRenderer.on('SYNC_WORLD_STATE', (_event, state) => {
+  console.log('[WORLD WINDOW] Received sync:', state);
+  useGameStore.setState(state);
+});
+
+// 3. Add logging to main process (electron/main.ts)
+ipcMain.on('SYNC_WORLD_STATE', (_event, state) => {
+  console.log('[MAIN PROCESS] Broadcasting to world window:', state);
+  if (worldWindow && !worldWindow.isDestroyed()) {
+    worldWindow.webContents.send('SYNC_WORLD_STATE', state);
+  }
+});
+
+// 4. Check window detection
+const isWorldView = new URLSearchParams(window.location.search).get('type') === 'world';
+console.log('[WINDOW TYPE]', isWorldView ? 'WORLD' : 'MAIN');
+```
+
+## Planned Features
+
+### Fog of War System (High Priority)
+**Concept:** Black overlay that obscures unexplored areas from players
+
+**Implementation approach:**
+1. Add `fogShapes: FogShape[]` to gameStore
+2. New tool: "Reveal" (draws transparent areas in fog layer)
+3. Render fog as top layer with `globalCompositeOperation: 'destination-out'` for reveals
+4. World View always shows fog, Architect View has toggle
+5. Save fog state in campaign files
+
+**Files to modify:**
+- `gameStore.ts` - Add fogShapes array and actions
+- `App.tsx` - Add "Reveal Fog" tool button
+- `CanvasManager.tsx` - Add fog layer rendering (above tokens, below UI)
+- `electron/main.ts` - Include fogShapes in save/load
+
+### Additional Drawing Tools (Medium Priority)
+**Planned tools:**
+- **Ruler** - Measure distances (grid cells)
+- **Shape tools** - Rectangle, circle, line (for marking zones)
+- **Text labels** - Add notes to map
+- **Color picker** - Multiple marker colors
+
+**Implementation notes:**
+- Extend `Drawing` interface with `shape?: 'line' | 'rect' | 'circle'`
+- Add `Konva.Rect`, `Konva.Circle` rendering alongside `Line`
+- Ruler could be temporary overlay (not saved to state)
+
+### Asset Library Management (Low Priority)
+**Features:**
+- Import token packs (bulk upload folder)
+- Organize into categories (monsters, heroes, items)
+- Search/filter tokens
+- Persistent library (saved separately from campaigns)
+
+**Data model:**
+```typescript
+interface LibraryAsset {
+  id: string;
+  name: string;
+  category: string;
+  src: string; // Stored in persistent library dir
+  tags: string[];
+}
+```
+
+## Development Guidelines for AI Assistants
+
+### When Adding Features
+1. **Always maintain dual-window sync** - Test that changes appear in both windows
+2. **Update save/load logic** - New state fields must be serialized
+3. **Follow grid snapping** - Spatial features should respect gridSize
+4. **Use proper IPC patterns** - invoke for request/response, send for fire-and-forget
+5. **Add TypeScript types first** - Define interfaces before implementation
+6. **Update this file** - Document new patterns/conventions as they emerge
+
+### When Debugging
+1. **Check window type first** - Many bugs are caused by code running in wrong window
+2. **Log IPC messages** - Add console.logs to trace message flow
+3. **Verify file paths** - Check file:// vs media:// transformations
+4. **Test save/load roundtrip** - Ensure data persists correctly
+
+### When Refactoring
+1. **Don't break IPC contracts** - Channel names are fragile (no type safety)
+2. **Preserve store shape** - Many components rely on exact structure
+3. **Maintain import order** - Consistency aids AI code generation
+4. **Keep component structure** - Familiar patterns improve code navigation
+
+### Performance Considerations
+1. **Konva rendering is fast** - Don't optimize prematurely
+2. **IPC is slow** - Minimize sync frequency (batch updates if needed)
+3. **Large images hurt** - Always use AssetProcessor (don't bypass)
+4. **Grid with many cells** - Consider viewport culling if canvas > 10000px
+
+## Questions to Ask Before Implementing
+
+- [ ] Does this feature need to sync to World View?
+- [ ] Should this be saved in campaign files?
+- [ ] Does this need an IPC handler?
+- [ ] Should this respect the grid?
+- [ ] Will this work with planned fog of war?
+- [ ] Does this need undo/redo support? (not implemented yet)
+- [ ] How does this handle errors (user-facing vs developer)?
