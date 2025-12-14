@@ -8,6 +8,7 @@ import { snapToGrid } from '../../utils/grid';
 import { useGameStore } from '../../store/gameStore';
 import GridOverlay from './GridOverlay';
 import ImageCropper from '../ImageCropper';
+import TokenErrorBoundary from './TokenErrorBoundary';
 
 // Zoom constants
 const MIN_SCALE = 0.1;
@@ -51,10 +52,7 @@ interface URLImageProps {
 
 const URLImage = ({ src, x, y, width, height, scaleX, scaleY, id, onSelect, onDragEnd, onDragStart, draggable, name, opacity, listening }: URLImageProps) => {
   const safeSrc = src.startsWith('file:') ? src.replace('file:', 'media:') : src;
-  const [img, status] = useImage(safeSrc);
-
-  useEffect(() => {
-  }, [id, status]);
+  const [img] = useImage(safeSrc);
 
   return (
     <KonvaImage
@@ -104,8 +102,7 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
   const removeTokens = useGameStore(s => s.removeTokens);
   const removeDrawings = useGameStore(s => s.removeDrawings);
   const setIsCalibrating = useGameStore(s => s.setIsCalibrating);
-  const updateMapScale = useGameStore(s => s.updateMapScale);
-  const updateMapPosition = useGameStore(s => s.updateMapPosition);
+  const updateMapTransform = useGameStore(s => s.updateMapTransform);
   const updateDrawingTransform = useGameStore(s => s.updateDrawingTransform);
 
   const isDrawing = useRef(false);
@@ -139,39 +136,82 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
   const lastPinchDistance = useRef<number | null>(null);
   const lastPinchCenter = useRef<{ x: number, y: number } | null>(null);
 
-    // Handle Delete/Backspace & Alt Key
+    // Consolidated keyboard event handling for canvas operations
   useEffect(() => {
+    const isEditableElement = (el: EventTarget | null): boolean => {
+      if (!(el instanceof HTMLElement)) return false;
+      const tag = el.tagName.toLowerCase();
+      return (
+        tag === 'input' ||
+        tag === 'textarea' ||
+        el.isContentEditable
+      );
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Track Alt Key
+      // Track Alt Key (always track, even in inputs, for drag operations)
       if (e.key === 'Alt') {
           setIsAltPressed(true);
       }
 
-      // Ignore if typing in an input
-      if (document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement) return;
+      // Ignore other operations if typing in an input
+      if (isEditableElement(e.target)) return;
 
+      // Delete/Backspace - remove selected items
       if (e.key === 'Delete' || e.key === 'Backspace') {
           if (selectedIds.length > 0) {
               removeTokens(selectedIds);
               removeDrawings(selectedIds);
-              setSelectedIds([]); // Clear selection
+              setSelectedIds([]);
           }
+      }
+
+      // Space - enable pan mode
+      if (e.code === 'Space' && !e.repeat) {
+          e.preventDefault();
+          setIsSpacePressed(true);
+      }
+
+      // Zoom in with + or =
+      if ((e.code === 'Equal' || e.code === 'NumpadAdd') && !e.repeat) {
+          e.preventDefault();
+          handleKeyboardZoom(true);
+      }
+
+      // Zoom out with -
+      if ((e.code === 'Minus' || e.code === 'NumpadSubtract') && !e.repeat) {
+          e.preventDefault();
+          handleKeyboardZoom(false);
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
+        // Always track Alt key release
         if (e.key === 'Alt') {
             setIsAltPressed(false);
         }
+        
+        // Space key release
+        if (!isEditableElement(e.target) && e.code === 'Space') {
+            setIsSpacePressed(false);
+        }
+    };
+
+    const handleBlur = () => {
+        setIsSpacePressed(false);
+        setIsAltPressed(false);
     };
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
+
     return () => {
         window.removeEventListener('keydown', handleKeyDown);
         window.removeEventListener('keyup', handleKeyUp);
+        window.removeEventListener('blur', handleBlur);
     };
-  }, [selectedIds, removeTokens, removeDrawings]);
+  }, [selectedIds, removeTokens, removeDrawings, handleKeyboardZoom]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -261,9 +301,13 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
           lastMapSrc.current = map.src;
           const mapCenterX = map.x + (map.width * map.scale) / 2;
           const mapCenterY = map.y + (map.height * map.scale) / 2;
-          const newX = (size.width / 2) - (mapCenterX * scale);
-          const newY = (size.height / 2) - (mapCenterY * scale);
-          setPosition({ x: newX, y: newY });
+          // Use setScale callback to get current scale value instead of stale closure
+          setScale(currentScale => {
+              const newX = (size.width / 2) - (mapCenterX * currentScale);
+              const newY = (size.height / 2) - (mapCenterY * currentScale);
+              setPosition({ x: newX, y: newY });
+              return currentScale; // Return unchanged scale
+          });
       } else if (!map) {
           lastMapSrc.current = null;
       }
@@ -279,58 +323,6 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
 
       performZoom(newScale, centerX, centerY, scale, position);
   }, [scale, position, size.width, size.height, performZoom]);
-
-  useEffect(() => {
-    const isEditableElement = (el: EventTarget | null): boolean => {
-      if (!(el instanceof HTMLElement)) return false;
-      const tag = el.tagName.toLowerCase();
-      return (
-        tag === 'input' ||
-        tag === 'textarea' ||
-        el.isContentEditable
-      );
-    };
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-        if (isEditableElement(e.target)) return;
-
-        if (e.code === 'Space' && !e.repeat) {
-            e.preventDefault();
-            setIsSpacePressed(true);
-        }
-
-        // Zoom in with + or =
-        if ((e.code === 'Equal' || e.code === 'NumpadAdd') && !e.repeat) {
-            e.preventDefault();
-            handleKeyboardZoom(true);
-        }
-
-        // Zoom out with -
-        if ((e.code === 'Minus' || e.code === 'NumpadSubtract') && !e.repeat) {
-            e.preventDefault();
-            handleKeyboardZoom(false);
-        }
-    };
-    const handleKeyUp = (e: KeyboardEvent) => {
-        if (isEditableElement(e.target)) return;
-        if (e.code === 'Space') {
-            setIsSpacePressed(false);
-        }
-    };
-    const handleBlur = () => {
-        setIsSpacePressed(false);
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    window.addEventListener('blur', handleBlur);
-
-    return () => {
-        window.removeEventListener('keydown', handleKeyDown);
-        window.removeEventListener('keyup', handleKeyUp);
-        window.removeEventListener('blur', handleBlur);
-    };
-  }, [handleKeyboardZoom]);
 
   // handleWheel moved to below to use clamp logic
 
@@ -589,8 +581,8 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
              const mapAdjustmentX = targetX - currentProjectedX;
              const mapAdjustmentY = targetY - currentProjectedY;
 
-             updateMapScale(newScale);
-             updateMapPosition(map.x + mapAdjustmentX, map.y + mapAdjustmentY);
+             // Use atomic update to avoid intermediate render states
+             updateMapTransform(newScale, map.x + mapAdjustmentX, map.y + mapAdjustmentY);
          }
 
          setCalibrationRect(null);
@@ -762,6 +754,8 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
                     src={map.src}
                     x={map.x}
                     y={map.y}
+                    width={map.width}
+                    height={map.height}
                     scaleX={map.scale}
                     scaleY={map.scale}
                     draggable={false}
@@ -795,6 +789,10 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
                     id={line.id}
                     name="drawing"
                     points={line.points}
+                    x={line.x || 0}
+                    y={line.y || 0}
+                    scaleX={line.scale || 1}
+                    scaleY={line.scale || 1}
                     stroke={line.color}
                     strokeWidth={line.size}
                     tension={0.5}
@@ -830,13 +828,23 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
                          const y = node.y();
 
                          // Duplication Logic (Option/Alt + Drag)
-                         if (e.evt.altKey) {
+                         // Use isAltPressed state for consistency instead of e.evt.altKey
+                         if (isAltPressed) {
                              const idsToDuplicate = selectedIds.includes(line.id) ? selectedIds : [line.id];
                              idsToDuplicate.forEach(id => {
                                  // Only duplicate drawings here; tokens are handled in their own handler.
                                  const drawing = drawings.find(d => d.id === id);
                                  if (drawing) {
-                                     addDrawing({ ...drawing, id: crypto.randomUUID() });
+                                     // Calculate drag offset and apply to all points
+                                     const points = drawing.points;
+                                     // For lines, points = [x1, y1, x2, y2, ...]
+                                     const dx = x - (drawing.x || 0);
+                                     const dy = y - (drawing.y || 0);
+                                     // Offset all points by (dx, dy)
+                                     const newPoints = points.map((val, idx) =>
+                                         idx % 2 === 0 ? val + dx : val + dy
+                                     );
+                                     addDrawing({ ...drawing, id: crypto.randomUUID(), points: newPoints, x: 0, y: 0 });
                                  }
                              });
                          }
@@ -891,6 +899,7 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
             ))}
 
             {tokens.map((token) => (
+                <TokenErrorBoundary key={token.id} tokenId={token.id}>
                 <URLImage
                     key={token.id}
                     name="token"
@@ -930,13 +939,14 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
                          const snapped = snapToGrid(x, y, gridSize, width, height);
 
                          // Duplication Logic (Option/Alt + Drag)
-                         if (e.evt.altKey) {
+                         // Use isAltPressed state for consistency instead of e.evt.altKey
+                         if (isAltPressed) {
                              const idsToDuplicate = selectedIds.includes(token.id) ? selectedIds : [token.id];
                              idsToDuplicate.forEach(id => {
                                  // Only duplicate tokens here; drawings are handled in their own handler.
                                  const t = tokens.find(tk => tk.id === id);
                                  if (t) {
-                                     addToken({ ...t, id: crypto.randomUUID() });
+                                     addToken({ ...t, id: crypto.randomUUID(), x: snapped.x, y: snapped.y });
                                  }
                              });
                          }
@@ -945,6 +955,7 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
                          setDraggedItemIds([]);
                      }}
                 />
+                </TokenErrorBoundary>
             ))}
 
             {/* Selection Rect */}

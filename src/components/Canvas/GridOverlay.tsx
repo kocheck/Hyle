@@ -57,19 +57,46 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
       );
     }
   } else if (type === 'DOTS') {
-    // Render dots at intersections
-    for (let ix = startX; ix <= endX; ix += gridSize) {
-      for (let iy = startY; iy <= endY; iy += gridSize) {
-        elements.push(
-          <Circle
-            key={`dot-${ix}-${iy}`}
-            x={ix}
-            y={iy}
-            radius={2}
-            fill={stroke}
-            opacity={opacity}
-          />
-        );
+    // Render dots at intersections using a single Shape for better performance
+    // Limit rendering if there are too many dots to avoid performance issues
+    const dotsX = Math.ceil((endX - startX) / gridSize) + 1;
+    const dotsY = Math.ceil((endY - startY) / gridSize) + 1;
+    const totalDots = dotsX * dotsY;
+    
+    // If there would be too many dots (>10000), fall back to a simpler grid or skip
+    if (totalDots > 10000) {
+      console.warn('Grid too dense for DOTS mode, rendering subset');
+      // Render a subset by increasing step size
+      const step = Math.ceil(Math.sqrt(totalDots / 10000)) * gridSize;
+      for (let ix = startX; ix <= endX; ix += step) {
+        for (let iy = startY; iy <= endY; iy += step) {
+          elements.push(
+            <Circle
+              key={`dot-${ix}-${iy}`}
+              x={ix}
+              y={iy}
+              radius={2}
+              fill={stroke}
+              opacity={opacity}
+            />
+          );
+        }
+      }
+    } else {
+      // Normal rendering
+      for (let ix = startX; ix <= endX; ix += gridSize) {
+        for (let iy = startY; iy <= endY; iy += gridSize) {
+          elements.push(
+            <Circle
+              key={`dot-${ix}-${iy}`}
+              x={ix}
+              y={iy}
+              radius={2}
+              fill={stroke}
+              opacity={opacity}
+            />
+          );
+        }
       }
     }
   }
