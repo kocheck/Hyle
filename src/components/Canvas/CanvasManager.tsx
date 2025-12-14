@@ -20,14 +20,17 @@ interface URLImageProps {
 const URLImage = ({ token, width, height, onDuplicate, onMove }: URLImageProps) => {
   const safeSrc = token.src.startsWith('file:') ? token.src.replace('file:', 'media:') : token.src;
   const [img] = useImage(safeSrc);
-  const [isDuplicateMode, setIsDuplicateMode] = useState(false);
   const originalPos = useRef({ x: 0, y: 0 });
 
-  // Helper function to update cursor
+  // Helper function to safely update cursor
   const setCursor = (stage: Konva.Stage | null | undefined, cursor: string) => {
-    const container = stage?.container();
-    if (container) {
-      container.style.cursor = cursor;
+    try {
+      const container = stage?.container();
+      if (container) {
+        container.style.cursor = cursor;
+      }
+    } catch (error) {
+      console.error('Error setting cursor:', error);
     }
   };
 
@@ -35,16 +38,11 @@ const URLImage = ({ token, width, height, onDuplicate, onMove }: URLImageProps) 
     try {
       originalPos.current = { x: token.x, y: token.y };
       const altPressed = e.evt.altKey;
-      setIsDuplicateMode(altPressed);
       
-      // Update cursor
-      if (altPressed) {
-        setCursor(e.target.getStage(), 'copy');
-      }
+      // Update cursor based on mode
+      setCursor(e.target.getStage(), altPressed ? 'copy' : 'grabbing');
     } catch (error) {
       console.error('Error in handleDragStart:', error);
-      // Reset state on error
-      setIsDuplicateMode(false);
       setCursor(e.target.getStage(), 'default');
     }
   };
@@ -52,26 +50,11 @@ const URLImage = ({ token, width, height, onDuplicate, onMove }: URLImageProps) 
   const handleDragMove = (e: Konva.KonvaEventObject<DragEvent>) => {
     try {
       const altPressed = e.evt.altKey;
-      const wasDuplicateMode = isDuplicateMode;
       
-      if (altPressed !== wasDuplicateMode) {
-        setIsDuplicateMode(altPressed);
-        
-        // Update cursor
-        setCursor(e.target.getStage(), altPressed ? 'copy' : 'grabbing');
-
-        // If switching to duplicate mode, reset position to original
-        if (altPressed) {
-          e.target.position({
-            x: originalPos.current.x,
-            y: originalPos.current.y,
-          });
-        }
-      }
+      // Update cursor dynamically as alt key state changes
+      setCursor(e.target.getStage(), altPressed ? 'copy' : 'grabbing');
     } catch (error) {
       console.error('Error in handleDragMove:', error);
-      // Reset state on error
-      setIsDuplicateMode(false);
       setCursor(e.target.getStage(), 'default');
     }
   };
@@ -96,13 +79,9 @@ const URLImage = ({ token, width, height, onDuplicate, onMove }: URLImageProps) 
         // Move mode - update token position
         onMove(token.id, newPos.x, newPos.y);
       }
-      
-      setIsDuplicateMode(false);
     } catch (error) {
       console.error('Error in handleDragEnd:', error);
-      // Reset cursor on error
       setCursor(e.target.getStage(), 'default');
-      setIsDuplicateMode(false);
     }
   };
 
