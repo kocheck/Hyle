@@ -7,6 +7,7 @@ import { snapToGrid } from '../../utils/grid';
 import { useGameStore, Token } from '../../store/gameStore';
 import GridOverlay from './GridOverlay';
 import ImageCropper from '../ImageCropper';
+import TokenErrorBoundary from './TokenErrorBoundary';
 
 interface URLImageProps {
   token: Token;
@@ -31,57 +32,72 @@ const URLImage = ({ token, width, height, onDuplicate, onMove }: URLImageProps) 
   };
 
   const handleDragStart = (e: Konva.KonvaEventObject<DragEvent>) => {
-    originalPos.current = { x: token.x, y: token.y };
-    const altPressed = e.evt.altKey;
-    setIsDuplicateMode(altPressed);
-    
-    // Update cursor
-    if (altPressed) {
-      setCursor(e.target.getStage(), 'copy');
+    try {
+      originalPos.current = { x: token.x, y: token.y };
+      const altPressed = e.evt.altKey;
+      setIsDuplicateMode(altPressed);
+      
+      // Update cursor
+      if (altPressed) {
+        setCursor(e.target.getStage(), 'copy');
+      }
+    } catch (error) {
+      console.error('Error in handleDragStart:', error);
     }
   };
 
   const handleDragMove = (e: Konva.KonvaEventObject<DragEvent>) => {
-    const altPressed = e.evt.altKey;
-    const wasDuplicateMode = isDuplicateMode;
-    
-    if (altPressed !== wasDuplicateMode) {
-      setIsDuplicateMode(altPressed);
+    try {
+      const altPressed = e.evt.altKey;
+      const wasDuplicateMode = isDuplicateMode;
       
-      // Update cursor
-      setCursor(e.target.getStage(), altPressed ? 'copy' : 'grabbing');
+      if (altPressed !== wasDuplicateMode) {
+        setIsDuplicateMode(altPressed);
+        
+        // Update cursor
+        setCursor(e.target.getStage(), altPressed ? 'copy' : 'grabbing');
 
-      // If switching to duplicate mode, reset position to original
-      if (altPressed) {
-        e.target.position({
-          x: originalPos.current.x,
-          y: originalPos.current.y,
-        });
+        // If switching to duplicate mode, reset position to original
+        if (altPressed) {
+          e.target.position({
+            x: originalPos.current.x,
+            y: originalPos.current.y,
+          });
+        }
       }
+    } catch (error) {
+      console.error('Error in handleDragMove:', error);
     }
   };
 
   const handleDragEnd = (e: Konva.KonvaEventObject<DragEvent>) => {
-    const newPos = e.target.position();
-    const altPressed = e.evt.altKey;
+    try {
+      const newPos = e.target.position();
+      const altPressed = e.evt.altKey;
 
-    // Reset cursor
-    setCursor(e.target.getStage(), 'default');
+      // Reset cursor
+      setCursor(e.target.getStage(), 'default');
 
-    if (altPressed) {
-      // Duplicate mode - create new token at new position
-      onDuplicate(token, newPos.x, newPos.y);
-      // Reset dragged token to original position
-      e.target.position({
-        x: originalPos.current.x,
-        y: originalPos.current.y,
-      });
-    } else {
-      // Move mode - update token position
-      onMove(token.id, newPos.x, newPos.y);
+      if (altPressed) {
+        // Duplicate mode - create new token at new position
+        onDuplicate(token, newPos.x, newPos.y);
+        // Reset dragged token to original position
+        e.target.position({
+          x: originalPos.current.x,
+          y: originalPos.current.y,
+        });
+      } else {
+        // Move mode - update token position
+        onMove(token.id, newPos.x, newPos.y);
+      }
+      
+      setIsDuplicateMode(false);
+    } catch (error) {
+      console.error('Error in handleDragEnd:', error);
+      // Reset cursor on error
+      setCursor(e.target.getStage(), 'default');
+      setIsDuplicateMode(false);
     }
-    
-    setIsDuplicateMode(false);
   };
 
   return (
@@ -117,18 +133,26 @@ const CanvasManager = ({ tool = 'select' }: CanvasManagerProps) => {
 
   // Handler for duplicating a token
   const handleTokenDuplicate = (originalToken: Token, newX: number, newY: number) => {
-    const newToken: Token = {
-      ...originalToken,
-      id: crypto.randomUUID(),
-      x: newX,
-      y: newY,
-    };
-    addToken(newToken);
+    try {
+      const newToken: Token = {
+        ...originalToken,
+        id: crypto.randomUUID(),
+        x: newX,
+        y: newY,
+      };
+      addToken(newToken);
+    } catch (error) {
+      console.error('Error duplicating token:', error);
+    }
   };
 
   // Handler for moving a token
   const handleTokenMove = (id: string, newX: number, newY: number) => {
-    updateTokenPosition(id, newX, newY);
+    try {
+      updateTokenPosition(id, newX, newY);
+    } catch (error) {
+      console.error('Error moving token:', error);
+    }
   };
 
   useEffect(() => {
@@ -319,14 +343,15 @@ const CanvasManager = ({ tool = 'select' }: CanvasManagerProps) => {
 
             {/* Tokens */}
             {tokens.map((token) => (
-                <URLImage
-                    key={token.id}
-                    token={token}
-                    width={gridSize * token.scale}
-                    height={gridSize * token.scale}
-                    onDuplicate={handleTokenDuplicate}
-                    onMove={handleTokenMove}
-                />
+                <TokenErrorBoundary key={token.id} tokenId={token.id}>
+                    <URLImage
+                        token={token}
+                        width={gridSize * token.scale}
+                        height={gridSize * token.scale}
+                        onDuplicate={handleTokenDuplicate}
+                        onMove={handleTokenMove}
+                    />
+                </TokenErrorBoundary>
             ))}
         </Layer>
       </Stage>
