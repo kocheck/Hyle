@@ -30,6 +30,11 @@ export interface MapConfig {
 
 export type GridType = 'LINES' | 'DOTS' | 'HIDDEN';
 
+export interface ToastMessage {
+  message: string;
+  type: 'error' | 'success' | 'info';
+}
+
 export interface GameState {
   tokens: Token[];
   drawings: Drawing[];
@@ -54,6 +59,9 @@ export interface GameState {
   isCalibrating: boolean;
   setIsCalibrating: (isCalibrating: boolean) => void;
   setGridType: (type: GridType) => void;
+  toast: ToastMessage | null;
+  showToast: (message: string, type: 'error' | 'success' | 'info') => void;
+  clearToast: () => void;
 }
 
 export const useGameStore = create<GameState>((set) => ({
@@ -97,4 +105,7 @@ export const useGameStore = create<GameState>((set) => ({
   isCalibrating: false,
   setIsCalibrating: (isCalibrating) => set({ isCalibrating }),
   setGridType: (type) => set({ gridType: type }),
+  toast: null,
+  showToast: (message, type) => set({ toast: { message, type } }),
+  clearToast: () => set({ toast: null }),
 }));
