@@ -34,15 +34,17 @@ interface URLImageProps {
   src: string;
   x: number;
   y: number;
-  width: number;
-  height: number;
+  width?: number;
+  height?: number;
+  scaleX?: number;
+  scaleY?: number;
   id: string;
   onSelect: (e: KonvaEventObject<MouseEvent>) => void;
   onDragEnd: (x: number, y: number) => void;
   draggable: boolean;
 }
 
-const URLImage = ({ src, x, y, width, height, id, onSelect, onDragEnd, draggable }: URLImageProps) => {
+const URLImage = ({ src, x, y, width, height, scaleX, scaleY, id, onSelect, onDragEnd, draggable }: URLImageProps) => {
   const safeSrc = src.startsWith('file:') ? src.replace('file:', 'media:') : src;
   const [img] = useImage(safeSrc);
 
@@ -53,8 +55,10 @@ const URLImage = ({ src, x, y, width, height, id, onSelect, onDragEnd, draggable
       image={img}
       x={x}
       y={y}
-      width={width}
-      height={height}
+      width={width || img?.width}
+      height={height || img?.height}
+      scaleX={scaleX}
+      scaleY={scaleY}
       draggable={draggable}
       onClick={onSelect}
       onTap={onSelect}
@@ -73,11 +77,19 @@ interface CanvasManagerProps {
 const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: window.innerWidth, height: window.innerHeight });
-  const { tokens, drawings, gridSize, addToken, addDrawing, updateTokenPosition, updateTokenTransform } = useGameStore();
+  const {
+    tokens, drawings, map, gridSize, gridType, isCalibrating,
+    addToken, addDrawing, updateTokenPosition, updateTokenTransform,
+    setMap, setIsCalibrating, updateMapScale, updateMapPosition, updateDrawingTransform
+  } = useGameStore();
 
   const isDrawing = useRef(false);
   const currentLine = useRef<any>(null); // Temp line points
   const [tempLine, setTempLine] = useState<any>(null);
+
+  // Calibration State
+  const calibrationStart = useRef<{x: number, y: number} | null>(null);
+  const [calibrationRect, setCalibrationRect] = useState<{ x: number, y: number, width: number, height: number } | null>(null);
 
   // Cropping State
   const [pendingCrop, setPendingCrop] = useState<{ src: string, x: number, y: number } | null>(null);
@@ -93,7 +105,7 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
   const [isDragging, setIsDragging] = useState(false);
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
-  
+
   // Touch/Pinch State
   const lastPinchDistance = useRef<number | null>(null);
   const lastPinchCenter = useRef<{ x: number, y: number } | null>(null);
@@ -136,11 +148,11 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
   // Keyboard zoom (centered on viewport)
   const handleKeyboardZoom = useCallback((zoomIn: boolean) => {
       if (!containerRef.current) return;
-      
+
       const centerX = size.width / 2;
       const centerY = size.height / 2;
       const newScale = zoomIn ? scale * ZOOM_SCALE_BY : scale / ZOOM_SCALE_BY;
-      
+
       performZoom(newScale, centerX, centerY, scale, position);
   }, [scale, position, size.width, size.height, performZoom]);
 
@@ -157,18 +169,18 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
 
     const handleKeyDown = (e: KeyboardEvent) => {
         if (isEditableElement(e.target)) return;
-        
+
         if (e.code === 'Space' && !e.repeat) {
             e.preventDefault();
             setIsSpacePressed(true);
         }
-        
+
         // Zoom in with + or =
         if ((e.code === 'Equal' || e.code === 'NumpadAdd') && !e.repeat) {
             e.preventDefault();
             handleKeyboardZoom(true);
         }
-        
+
         // Zoom out with -
         if ((e.code === 'Minus' || e.code === 'NumpadSubtract') && !e.repeat) {
             e.preventDefault();
@@ -200,7 +212,7 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
       e.evt.preventDefault();
       const stage = e.target.getStage();
       if (!stage) return;
-      
+
       const oldScale = stage.scaleX();
       const pointer = stage.getPointerPosition();
       if (!pointer) return;
@@ -235,30 +247,30 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
       const touches = e.evt.touches;
       if (touches.length === 2) {
           e.evt.preventDefault();
-          
+
           if (lastPinchDistance.current && lastPinchCenter.current) {
               const touch1 = touches[0];
               const touch2 = touches[1];
               const distance = calculatePinchDistance(touch1, touch2);
               const center = calculatePinchCenter(touch1, touch2);
-              
+
               // Prevent division by zero
               if (lastPinchDistance.current < MIN_PINCH_DISTANCE) return;
-              
+
               // Convert viewport coordinates to canvas coordinates
               const stageRect = containerRef.current?.getBoundingClientRect();
               if (!stageRect) return;
-              
+
               const canvasX = center.x - stageRect.left;
               const canvasY = center.y - stageRect.top;
-              
+
               // Calculate scale change
               const scaleChange = distance / lastPinchDistance.current;
               const newScale = scale * scaleChange;
-              
+
               // Use the pinch center for zoom
               performZoom(newScale, canvasX, canvasY, scale, position);
-              
+
               lastPinchDistance.current = distance;
               lastPinchCenter.current = center;
           }
@@ -284,6 +296,9 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
     if (!stageRect) return;
     const rawX = e.clientX - stageRect.left;
     const rawY = e.clientY - stageRect.top;
+
+    // Initial snap for drop (assuming standard 1x1 if unknown, or center on mouse)
+    // We don't know image size yet, so we snap top-left to grid line nearby.
     const { x, y } = snapToGrid(rawX, rawY, gridSize);
 
     // Check for JSON (Library Item)
@@ -318,15 +333,13 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
     if (!pendingCrop) return;
 
     try {
-        // Convert blob to file-like object or modify ProcessImage to accept Blob
         const file = new File([blob], "token.webp", { type: 'image/webp' });
 
-        // We can reuse processImage but it expects resizing logic.
-        // Since we already cropped and likely want to keep that quality or just format it,
-        // Let's modify processImage to just save if it's already a blob?
-        // Or just let processImage handle the standardized resizing (max 512px) + saving.
-        // Yes, let processImage optimize it for storage.
-        const src = await processImage(file, 'TOKEN');
+        // If Shift is held during drop (simulated here by checking state or just assumption),
+        // we could process as MAP. But determining "Shift was held" during async drop/crop is hard.
+        // For now, we assume TOKEN from crop.
+
+        const src = await processImage(file, 'TOKEN'); // Default to Token for now
 
         addToken({
           id: crypto.randomUUID(),
@@ -335,6 +348,8 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
           src,
           scale: 1,
         });
+
+        // TODO: In future, add UI to swap to Map or set 'processImage' type based on user choice
     } catch (err) {
         console.error("Crop save failed", err);
     } finally {
@@ -345,6 +360,15 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
   // Drawing Handlers
   const handleMouseDown = (e: any) => {
     if (isSpacePressed) return; // Allow panning
+
+    // CALIBRATION LOGIC
+    if (isCalibrating) {
+        const stage = e.target.getStage();
+        const pos = stage.getRelativePointerPosition();
+        calibrationStart.current = { x: pos.x, y: pos.y };
+        setCalibrationRect({ x: pos.x, y: pos.y, width: 0, height: 0 });
+        return;
+    }
 
     // If marker/eraser, draw
     if (tool !== 'select') {
@@ -397,6 +421,18 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
         return;
     }
 
+    // CALIBRATION LOGIC
+    if (isCalibrating && calibrationStart.current) {
+        const stage = e.target.getStage();
+        const pos = stage.getRelativePointerPosition();
+        const x = Math.min(pos.x, calibrationStart.current.x);
+        const y = Math.min(pos.y, calibrationStart.current.y);
+        const width = Math.abs(pos.x - calibrationStart.current.x);
+        const height = Math.abs(pos.y - calibrationStart.current.y);
+        setCalibrationRect({ x, y, width, height });
+        return;
+    }
+
     // Selection Rect Update
     if (selectionRect.isVisible && selectionStart.current) {
         const stage = e.target.getStage();
@@ -410,6 +446,96 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
   };
 
   const handleMouseUp = (e: any) => {
+    // CALIBRATION LOGIC
+    if (isCalibrating && calibrationStart.current && calibrationRect) {
+         if (calibrationRect.width > 5 && calibrationRect.height > 5 && map) {
+             // 1. Calculate new scale
+             // The drawn box represents ONE Grid Cell (gridSize)
+             // Drawn Size (in current map space) = calibrationRect.width
+             // We want this Drawn Size to BECOME gridSize
+             // Current Map Scale * Factor = New Map Scale
+             // Factor = gridSize / Drawn Size (in UN-SCALED MAP UNITS?? No.)
+             // Everything is in Stage Coordinates (which are scaled by Stage Scale, but getRelativePointerPosition handles that).
+             // However, the Map Image is rendered at `map.scale`.
+             // The user drew a box of `w` pixels on the screen (canvas space).
+             // They want `w` pixels to conform to `gridSize` pixels.
+             // Wait. The grid overlay is fixed at `gridSize`.
+             // If I draw a box that is 100px wide, and I say "This is a grid cell", and grid cell is 50px.
+             // Then the visual content is 2x too big. I need to shrink it by 0.5.
+             // So, Scale Factor = gridSize / calibrationRect.width.
+             // New Map Scale = map.scale * Factor.
+
+             const scaleFactor = gridSize / Math.max(calibrationRect.width, calibrationRect.height); // Use max dim?
+             const newScale = map.scale * scaleFactor;
+
+             // 2. Calculate Align Offset
+             // We want the top-left of the drawn box (calibrationRect.x, y) to align with a grid line.
+             // calibrationRect.x is in Canvas Coordinates.
+             // The Map is at map.x.
+             // We want the point `calibrationRect.x` (relative to Map Origin) to fall on a multiple of `gridSize` (scaled?).
+             // Let's simplify: Shift the map so that calibrationRect.x aligns with the NEAREST grid line.
+             // Actually, usually users draw the box over a printed grid square on the map.
+             // So we want that printed square to align with our virtual grid.
+             // Virtual Grid lines are at 0, 50, 100...
+             // Drawn Box is at X.
+             // We want to shift map by `delta` so that X + delta = 0 (or multiple of 50).
+             // NO. We assume the grid starts at (0,0) of the world.
+             // We want to move the Map so that the Drawn Box Left aligns with a Grid Line.
+             // Nearest Grid Line to X is `round(X / gridSize) * gridSize`.
+             // Diff = Nearest - X.
+             // We shift Top Left of map by Diff?
+             // Not exactly, because we just scaled the map around (0,0) or center?
+             // Konva scales images around their x,y? Defaults to top left.
+             // If we change scale, the image grows/shrinks from its own origin (map.x, map.y).
+             // So if we just update scale, the point under the mouse moves.
+             // We should probably Scale around the center of the drawn box?
+             // That's complex.
+             // Simplified Logic:
+             // 1. Apply Scale.
+             // 2. Then shift Map so that the scaled drawn box top-left aligns with a module of gridSize.
+
+             // Where is the drawn box relative to the map origin *before* rescale?
+             // RelX = calibrationRect.x - map.x
+             // RelY = calibrationRect.y - map.y
+
+             // After rescale (by scaleFactor), this distance becomes:
+             // NewRelX = RelX * scaleFactor
+
+             // So the New Canvas X of the box head is:
+             // NewBoxX = map.x + NewRelX
+             // We want NewBoxX to be `N * gridSize`.
+             // Ideally 0, or closest.
+             // Let's force it to align with the grid line at `0` for simplicity? No, that jumps the map.
+             // Align with `Math.round(NewBoxX / gridSize) * gridSize`.
+             // TargetX = Math.round(NewBoxX / gridSize) * gridSize
+             // Adjustment = TargetX - NewBoxX.
+             // NewMapX = map.x + Adjustment.
+
+             const relX = calibrationRect.x - map.x;
+             const relY = calibrationRect.y - map.y;
+
+             const newRelX = relX * scaleFactor;
+             const newRelY = relY * scaleFactor;
+
+             const currentProjectedX = map.x + newRelX;
+             const currentProjectedY = map.y + newRelY;
+
+             const targetX = Math.round(currentProjectedX / gridSize) * gridSize;
+             const targetY = Math.round(currentProjectedY / gridSize) * gridSize;
+
+             const mapAdjustmentX = targetX - currentProjectedX;
+             const mapAdjustmentY = targetY - currentProjectedY;
+
+             updateMapScale(newScale);
+             updateMapPosition(map.x + mapAdjustmentX, map.y + mapAdjustmentY);
+         }
+
+         setCalibrationRect(null);
+         calibrationStart.current = null;
+         setIsCalibrating(false);
+         return;
+    }
+
     if (tool !== 'select') {
          if (!isDrawing.current) return;
          isDrawing.current = false;
@@ -495,7 +621,24 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
         style={{ cursor: (isSpacePressed && isDragging) ? 'grabbing' : (isSpacePressed ? 'grab' : (tool === 'select' ? 'default' : 'crosshair')) }}
       >
         <Layer>
-            <GridOverlay width={size.width} height={size.height} gridSize={gridSize} />
+            {/* Map Layer */}
+            {map && (
+                <URLImage
+                    key="bg-map"
+                    id="map"
+                    src={map.src}
+                    x={map.x}
+                    y={map.y}
+                    scaleX={map.scale}
+                    scaleY={map.scale}
+                    draggable={tool === 'select' && isSpacePressed} // Only draggable in pan mode? Or separate mode?
+                    // For now, lock map to prevent accidental moves
+                    onSelect={() => {}}
+                    onDragEnd={() => {}}
+                />
+            )}
+
+            <GridOverlay width={size.width} height={size.height} gridSize={gridSize} type={gridType} />
 
             {/* Drawings */}
             {drawings.map((line) => (
@@ -553,9 +696,13 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
                              }
                          }
                     }}
-                    onDragEnd={(x, y) => {
-                        updateTokenPosition(token.id, x, y);
-                    }}
+                     onDragEnd={(x, y) => {
+                         // Apply dimension-based snapping
+                         const width = gridSize * token.scale;
+                         const height = gridSize * token.scale;
+                         const snapped = snapToGrid(x, y, gridSize, width, height);
+                         updateTokenPosition(token.id, snapped.x, snapped.y);
+                     }}
                 />
             ))}
 
@@ -586,6 +733,20 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
                 />
             )}
 
+            {/* Calibration Overlay */}
+            {isCalibrating && calibrationRect && (
+                <Rect
+                    x={calibrationRect.x}
+                    y={calibrationRect.y}
+                    width={calibrationRect.width}
+                    height={calibrationRect.height}
+                    fill="rgba(255, 0, 0, 0.2)"
+                    stroke="red"
+                    dash={[5, 5]}
+                    listening={false}
+                />
+            )}
+
             {/* Transformer */}
             <Transformer
                 ref={transformerRef}
@@ -593,7 +754,7 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
                     const node = e.target;
                     const scaleX = node.scaleX();
                     const scaleY = node.scaleY();
-                    
+
                     // Update token transform in store
                     if (node.name() === 'token') {
                         // Use average of scaleX and scaleY for uniform scaling
@@ -609,7 +770,7 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
                                 newScale
                             );
                         }
-                        
+
                         // Reset scale to 1 since the new scale is stored
                         node.scaleX(1);
                         node.scaleY(1);
