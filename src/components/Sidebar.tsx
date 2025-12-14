@@ -27,7 +27,6 @@ const Sidebar = () => {
             const img = new Image();
             img.src = objectUrl;
             img.onload = () => {
-                 console.log("Map Image Loaded", { width: img.width, height: img.height, src });
                  setMap({
                     src, // Keep the processed path for the store
                     x: 0,
