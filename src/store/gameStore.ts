@@ -22,6 +22,7 @@ export interface GameState {
   gridSize: number;
   addToken: (token: Token) => void;
   updateTokenPosition: (id: string, x: number, y: number) => void;
+  updateTokenTransform: (id: string, x: number, y: number, scale: number) => void;
   addDrawing: (drawing: Drawing) => void;
   setGridSize: (size: number) => void;
   setState: (state: GameState) => void; // Generic set state
@@ -35,6 +36,9 @@ export const useGameStore = create<GameState>((set) => ({
   addToken: (token) => set((state) => ({ tokens: [...state.tokens, token] })),
   updateTokenPosition: (id, x, y) => set((state) => ({
     tokens: state.tokens.map((t) => t.id === id ? { ...t, x, y } : t)
+  })),
+  updateTokenTransform: (id, x, y, scale) => set((state) => ({
+    tokens: state.tokens.map((t) => t.id === id ? { ...t, x, y, scale } : t)
   })),
   addDrawing: (drawing) => set((state) => ({ drawings: [...state.drawings, drawing] })),
   setGridSize: (size) => set({ gridSize: size }),
