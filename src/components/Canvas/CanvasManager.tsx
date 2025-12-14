@@ -70,6 +70,10 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
   const [isSpacePressed, setIsSpacePressed] = useState(false);
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
+  
+  // Touch/Pinch State
+  const lastPinchDistance = useRef<number | null>(null);
+  const lastPinchCenter = useRef<{ x: number, y: number } | null>(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -87,6 +91,41 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Zoom constants
+  const MIN_SCALE = 0.1;
+  const MAX_SCALE = 5;
+  const ZOOM_SCALE_BY = 1.1;
+
+  // Reusable zoom function
+  const performZoom = (newScale: number, centerX: number, centerY: number, currentScale: number, currentPos: { x: number, y: number }) => {
+      // Apply min/max constraints
+      const constrainedScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
+
+      const pointTo = {
+          x: (centerX - currentPos.x) / currentScale,
+          y: (centerY - currentPos.y) / currentScale,
+      };
+
+      const newPos = {
+          x: centerX - pointTo.x * constrainedScale,
+          y: centerY - pointTo.y * constrainedScale,
+      };
+
+      setScale(constrainedScale);
+      setPosition(newPos);
+  };
+
+  // Keyboard zoom (centered on viewport)
+  const handleKeyboardZoom = (zoomIn: boolean) => {
+      if (!containerRef.current) return;
+      
+      const centerX = size.width / 2;
+      const centerY = size.height / 2;
+      const newScale = zoomIn ? scale * ZOOM_SCALE_BY : scale / ZOOM_SCALE_BY;
+      
+      performZoom(newScale, centerX, centerY, scale, position);
+  };
+
   useEffect(() => {
     const isEditableElement = (el: EventTarget | null): boolean => {
       if (!(el instanceof HTMLElement)) return false;
@@ -100,8 +139,21 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
 
     const handleKeyDown = (e: KeyboardEvent) => {
         if (isEditableElement(e.target)) return;
+        
         if (e.code === 'Space' && !e.repeat) {
             setIsSpacePressed(true);
+        }
+        
+        // Zoom in with + or =
+        if ((e.code === 'Equal' || e.code === 'NumpadAdd') && !e.repeat) {
+            e.preventDefault();
+            handleKeyboardZoom(true);
+        }
+        
+        // Zoom out with -
+        if ((e.code === 'Minus' || e.code === 'NumpadSubtract') && !e.repeat) {
+            e.preventDefault();
+            handleKeyboardZoom(false);
         }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -123,7 +175,7 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
         window.removeEventListener('keyup', handleKeyUp);
         window.removeEventListener('blur', handleBlur);
     };
-  }, []);
+  }, [handleKeyboardZoom]);
 
   const handleWheel = (e: any) => {
       e.evt.preventDefault();
@@ -131,28 +183,10 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
       const oldScale = stage.scaleX();
       const pointer = stage.getPointerPosition();
 
-      // Zoom
+      // Zoom with Ctrl/Cmd + scroll
       if (e.evt.ctrlKey || e.evt.metaKey) {
-          const scaleBy = 1.1;
-          const newScale = e.evt.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy;
-          
-          // Add min/max constraints
-          const minScale = 0.1;
-          const maxScale = 5;
-          const constrainedScale = Math.max(minScale, Math.min(maxScale, newScale));
-
-          const mousePointTo = {
-              x: (pointer.x - stage.x()) / oldScale,
-              y: (pointer.y - stage.y()) / oldScale,
-          };
-
-          const newPos = {
-              x: pointer.x - mousePointTo.x * constrainedScale,
-              y: pointer.y - mousePointTo.y * constrainedScale,
-          };
-
-          setScale(constrainedScale);
-          setPosition(newPos);
+          const newScale = e.evt.deltaY < 0 ? oldScale * ZOOM_SCALE_BY : oldScale / ZOOM_SCALE_BY;
+          performZoom(newScale, pointer.x, pointer.y, oldScale, { x: stage.x(), y: stage.y() });
       } else {
           // Pan
           const newPos = {
@@ -160,6 +194,65 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
               y: stage.y() - e.evt.deltaY,
           };
           setPosition(newPos);
+      }
+  };
+
+  // Touch event handlers for pinch-to-zoom
+  const handleTouchStart = (e: any) => {
+      const touches = e.evt.touches;
+      if (touches.length === 2) {
+          // Calculate initial pinch distance
+          const touch1 = touches[0];
+          const touch2 = touches[1];
+          const distance = Math.hypot(
+              touch2.clientX - touch1.clientX,
+              touch2.clientY - touch1.clientY
+          );
+          lastPinchDistance.current = distance;
+          
+          // Calculate pinch center
+          lastPinchCenter.current = {
+              x: (touch1.clientX + touch2.clientX) / 2,
+              y: (touch1.clientY + touch2.clientY) / 2,
+          };
+      }
+  };
+
+  const handleTouchMove = (e: any) => {
+      const touches = e.evt.touches;
+      if (touches.length === 2 && lastPinchDistance.current && lastPinchCenter.current) {
+          e.evt.preventDefault();
+          
+          const touch1 = touches[0];
+          const touch2 = touches[1];
+          const distance = Math.hypot(
+              touch2.clientX - touch1.clientX,
+              touch2.clientY - touch1.clientY
+          );
+          
+          // Calculate pinch center
+          const center = {
+              x: (touch1.clientX + touch2.clientX) / 2,
+              y: (touch1.clientY + touch2.clientY) / 2,
+          };
+          
+          // Calculate scale change
+          const scaleChange = distance / lastPinchDistance.current;
+          const newScale = scale * scaleChange;
+          
+          // Use the pinch center for zoom
+          performZoom(newScale, center.x, center.y, scale, position);
+          
+          lastPinchDistance.current = distance;
+          lastPinchCenter.current = center;
+      }
+  };
+
+  const handleTouchEnd = (e: any) => {
+      const touches = e.evt.touches;
+      if (touches.length < 2) {
+          lastPinchDistance.current = null;
+          lastPinchCenter.current = null;
       }
   };
 
@@ -364,6 +457,9 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
         scaleX={scale}
         scaleY={scale}
         x={position.x}
