@@ -154,7 +154,6 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
 
       if (e.key === 'Delete' || e.key === 'Backspace') {
           if (selectedIds.length > 0) {
-              console.log('Deleting selected items:', selectedIds);
               removeTokens(selectedIds);
               removeDrawings(selectedIds);
               setSelectedIds([]); // Clear selection
