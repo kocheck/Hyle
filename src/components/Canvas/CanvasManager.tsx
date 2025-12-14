@@ -14,6 +14,21 @@ const MIN_SCALE = 0.1;
 const MAX_SCALE = 5;
 const ZOOM_SCALE_BY = 1.1;
 
+// Helper functions for touch/pinch calculations
+const calculatePinchDistance = (touch1: Touch, touch2: Touch): number => {
+    return Math.hypot(
+        touch2.clientX - touch1.clientX,
+        touch2.clientY - touch1.clientY
+    );
+};
+
+const calculatePinchCenter = (touch1: Touch, touch2: Touch): { x: number, y: number } => {
+    return {
+        x: (touch1.clientX + touch2.clientX) / 2,
+        y: (touch1.clientY + touch2.clientY) / 2,
+    };
+};
+
 interface URLImageProps {
   src: string;
   x: number;
@@ -177,21 +192,6 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
     };
   }, [handleKeyboardZoom]);
 
-  // Helper functions for touch/pinch calculations
-  const calculatePinchDistance = (touch1: Touch, touch2: Touch): number => {
-      return Math.hypot(
-          touch2.clientX - touch1.clientX,
-          touch2.clientY - touch1.clientY
-      );
-  };
-
-  const calculatePinchCenter = (touch1: Touch, touch2: Touch): { x: number, y: number } => {
-      return {
-          x: (touch1.clientX + touch2.clientX) / 2,
-          y: (touch1.clientY + touch2.clientY) / 2,
-      };
-  };
-
   const handleWheel = (e: KonvaEventObject<WheelEvent>) => {
       e.evt.preventDefault();
       const stage = e.target.getStage();
@@ -235,6 +235,9 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
           const touch2 = touches[1];
           const distance = calculatePinchDistance(touch1, touch2);
           const center = calculatePinchCenter(touch1, touch2);
+          
+          // Prevent division by zero
+          if (lastPinchDistance.current < 0.001) return;
           
           // Calculate scale change
           const scaleChange = distance / lastPinchDistance.current;
