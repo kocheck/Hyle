@@ -50,29 +50,39 @@ describe('Sidebar - Map Upload Error Handling', () => {
     it('should show error toast when map image fails to load', async () => {
         vi.mocked(AssetProcessor.processImage).mockResolvedValue('/path/to/image.png');
 
+        // Mock URL.createObjectURL to return a fake URL
+        const originalCreateObjectURL = global.URL.createObjectURL;
+        const originalRevokeObjectURL = global.URL.revokeObjectURL;
+        global.URL.createObjectURL = vi.fn(() => 'blob:fake-url');
+        global.URL.revokeObjectURL = vi.fn();
+
+        // Mock Image to trigger onerror
+        const originalImage = global.Image;
+        
+        global.Image = class MockImage {
+            onload: ((event: Event) => void) | null = null;
+            onerror: ((event: Event) => void) | null = null;
+            _src: string = '';
+            
+            get src() {
+                return this._src;
+            }
+            
+            set src(value: string) {
+                this._src = value;
+                // Trigger onerror asynchronously when src is set
+                Promise.resolve().then(() => {
+                    if (this.onerror) {
+                        this.onerror(new Event('error'));
+                    }
+                });
+            }
+        } as any;
+
         render(<Sidebar />);
         
         const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
         const file = new File(['test'], 'test.png', { type: 'image/png' });
-        
-        // Mock Image to trigger onerror
-        const originalImage = global.Image;
-        let imageOnError: ((event: Event) => void) | null = null;
-        
-        global.Image = class {
-            onload: ((event: Event) => void) | null = null;
-            onerror: ((event: Event) => void) | null = null;
-            src: string = '';
-            
-            constructor() {
-                setTimeout(() => {
-                    if (this.onerror) {
-                        imageOnError = this.onerror;
-                        this.onerror(new Event('error'));
-                    }
-                }, 0);
-            }
-        } as any;
 
         fireEvent.change(fileInput, { target: { files: [file] } });
 
@@ -83,7 +93,9 @@ describe('Sidebar - Map Upload Error Handling', () => {
             expect(state.toast?.message).toContain('Failed to load map image');
         });
 
-        // Restore original Image
+        // Restore originals
         global.Image = originalImage;
+        global.URL.createObjectURL = originalCreateObjectURL;
+        global.URL.revokeObjectURL = originalRevokeObjectURL;
     });
 });

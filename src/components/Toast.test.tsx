@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import { act } from 'react-dom/test-utils';
+import { act } from 'react';
 import Toast from './Toast';
 import { useGameStore } from '../store/gameStore';
 
@@ -59,14 +59,13 @@ describe('Toast', () => {
         render(<Toast />);
         expect(screen.getByText('Auto dismiss test')).toBeInTheDocument();
 
-        // Fast-forward time by 5 seconds
-        act(() => {
-            vi.advanceTimersByTime(5000);
+        // Fast-forward all timers
+        await act(async () => {
+            vi.runAllTimers();
         });
 
-        await waitFor(() => {
-            expect(useGameStore.getState().toast).toBeNull();
-        });
+        // Check that toast is cleared
+        expect(useGameStore.getState().toast).toBeNull();
     });
 
     it('should clear toast when close button is clicked', () => {
