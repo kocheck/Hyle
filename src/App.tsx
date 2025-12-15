@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import CanvasManager from './components/Canvas/CanvasManager'
 import SyncManager from './components/SyncManager'
+import { ThemeManager } from './components/ThemeManager'
 import Sidebar from './components/Sidebar'
 import Toast from './components/Toast'
 import { useGameStore } from './store/gameStore'
@@ -84,6 +85,7 @@ function App() {
 
   return (
     <div className="w-full h-screen bg-neutral-900 text-white flex overflow-hidden">
+      <ThemeManager />
       <SyncManager />
       <Toast />
 
