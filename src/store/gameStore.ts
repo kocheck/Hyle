@@ -127,7 +127,7 @@ export type GridType = 'LINES' | 'DOTS' | 'HIDDEN';
 /**
  * ToastMessage represents a temporary notification
  *
- * Toasts appear at top of screen, auto-dismiss after 3 seconds.
+ * Toasts appear at top of screen, auto-dismiss after 5 seconds.
  * Used for user feedback (save success, upload errors, etc.).
  *
  * @property message - Text content to display
