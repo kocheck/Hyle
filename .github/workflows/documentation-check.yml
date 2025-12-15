@@ -1,0 +1,109 @@
+name: Documentation Check
+
+on:
+  pull_request:
+    branches: [ main, NEXT ]
+    paths:
+      - 'src/**/*.ts'
+      - 'src/**/*.tsx'
+      - 'electron/**/*.ts'
+
+jobs:
+  check-documentation:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v44
+        with:
+          files: |
+            src/**/*.ts
+            src/**/*.tsx
+            electron/**/*.ts
+
+      - name: Check for JSDoc comments
+        if: steps.changed-files.outputs.any_changed == 'true'
+        run: |
+          echo "Checking documentation in changed files..."
+          MISSING_DOCS=()
+
+          for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
+            if [ -f "$file" ]; then
+              # Count exported functions/classes
+              EXPORTS=$(grep -E "^export (function|class|interface|type|const)" "$file" | wc -l)
+
+              # Count JSDoc comments (/** */)
+              JSDOCS=$(grep -c "/\*\*" "$file" || true)
+
+              # If file has exports but no JSDoc, flag it
+              if [ "$EXPORTS" -gt 0 ] && [ "$JSDOCS" -eq 0 ]; then
+                MISSING_DOCS+=("$file")
+              fi
+            fi
+          done
+
+          if [ ${#MISSING_DOCS[@]} -gt 0 ]; then
+            echo "::warning::The following files are missing JSDoc documentation:"
+            for file in "${MISSING_DOCS[@]}"; do
+              echo "::warning file=$file::Missing JSDoc documentation"
+            done
+            echo "FILES_WITHOUT_DOCS=${MISSING_DOCS[*]}" >> $GITHUB_ENV
+          else
+            echo "✓ All changed files have JSDoc documentation"
+          fi
+
+      - name: Comment on PR with documentation feedback
+        if: env.FILES_WITHOUT_DOCS != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const files = process.env.FILES_WITHOUT_DOCS.split(' ');
+            const fileList = files.map(f => `- \`${f}\``).join('\n');
+
+            const body = `## 📝 Documentation Check
+
+            The following files are missing JSDoc documentation:
+
+            ${fileList}
+
+            Please add JSDoc comments to exported functions, classes, and interfaces to improve code maintainability and AI-assisted development.
+
+            ### Example JSDoc format:
+            \`\`\`typescript
+            /**
+             * Brief description of the function
+             *
+             * @param paramName - Description of parameter
+             * @returns Description of return value
+             */
+            export function myFunction(paramName: string): ReturnType {
+              // ...
+            }
+            \`\`\`
+
+            See the [.cursorrules](.cursorrules) file for project-specific documentation guidelines.`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+      - name: Documentation check summary
+        run: |
+          if [ -z "$FILES_WITHOUT_DOCS" ]; then
+            echo "✓ All changed TypeScript/React files have JSDoc documentation"
+          else
+            echo "⚠ Some files are missing JSDoc documentation (see PR comments)"
+            echo "This is a warning, not a failure - the check will still pass"
+          fi
