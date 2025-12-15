@@ -10,39 +10,33 @@ This directory contains automated workflows for Hyle repository maintenance.
 
 ### Features
 
-- ✅ Analyzes PR diffs using Claude API
+- ✅ Analyzes PR diffs using GitHub Copilot (GPT-4o)
 - ✅ Identifies which documentation files need updates
 - ✅ Posts detailed analysis as PR comment
 - ✅ Adds `documentation-needed` label for high/medium impact changes
 - ✅ Provides direct links to relevant documentation files
+- ✅ No external API keys required - uses built-in GitHub token
 
 ### Setup
 
-1. **Create Anthropic API key:**
-   - Go to https://console.anthropic.com/
-   - Create a new API key
-   - Copy the key (starts with `sk-ant-...`)
-
-2. **Add secret to GitHub repository:**
-   - Go to your repository → Settings → Secrets and variables → Actions
-   - Click "New repository secret"
-   - Name: `ANTHROPIC_API_KEY`
-   - Value: Paste your Anthropic API key
-   - Click "Add secret"
-
-3. **Enable workflow permissions:**
+1. **Enable workflow permissions:**
    - Go to Settings → Actions → General
    - Under "Workflow permissions", select:
      - ✅ Read and write permissions
    - Click "Save"
 
-4. **Create label (optional):**
+2. **Create label (optional):**
    - Go to Issues → Labels
    - Click "New label"
    - Name: `documentation-needed`
    - Description: "PR requires documentation updates"
    - Color: Choose a color (e.g., #FFA500 for orange)
    - Click "Create label"
+
+3. **Enable GitHub Models (if required):**
+   - GitHub Models is generally available for public repositories
+   - For private repositories, you may need a GitHub Copilot subscription
+   - The workflow uses the built-in `GITHUB_TOKEN` automatically
 
 ### Usage
 
@@ -86,7 +80,7 @@ The workflow posts a comment on each PR like this:
 ```markdown
 ## 📚 Documentation Check
 
-Claude has analyzed this PR for documentation impact.
+GitHub Copilot has analyzed this PR for documentation impact.
 
 **Documentation Impact:** High
 
@@ -135,8 +129,21 @@ if echo "$analysis" | grep -q "Documentation Impact: High"; then
 Change line limit in the workflow:
 
 ```bash
-$(head -n 1000 pr_diff.txt)  # Increase from 500 to 1000 lines
+head -n 1000 pr_diff.txt  # Increase from 500 to 1000 lines
 ```
+
+**Change AI model:**
+
+Edit the model in the workflow:
+
+```json
+"model": "gpt-4o-mini"  # Use faster/cheaper model
+```
+
+Available models:
+- `gpt-4o` - Most capable (default)
+- `gpt-4o-mini` - Faster and more cost-effective
+- `gpt-4-turbo` - Alternative high-quality model
 
 ### Troubleshooting
 
@@ -146,17 +153,12 @@ $(head -n 1000 pr_diff.txt)  # Increase from 500 to 1000 lines
 - ✅ Verify the PR is targeting the `main` branch
 - ✅ Check Actions tab for any error messages
 
-**Issue: "ANTHROPIC_API_KEY not found"**
+**Issue: "Unauthorized" or API errors**
 
-- ✅ Verify secret is named exactly `ANTHROPIC_API_KEY` (case-sensitive)
-- ✅ Check that secret is in "Repository secrets", not "Environment secrets"
-- ✅ Try re-creating the secret
-
-**Issue: API rate limits**
-
-- ✅ Anthropic has generous rate limits, but consider:
-  - Caching analysis results per commit SHA
-  - Only running on PRs with code changes (not docs-only PRs)
+- ✅ Verify workflow permissions include "Read and write"
+- ✅ Check if your repository has access to GitHub Models
+- ✅ For private repos, verify GitHub Copilot subscription is active
+- ✅ Try re-running the workflow
 
 **Issue: Comment not posted**
 
@@ -164,43 +166,45 @@ $(head -n 1000 pr_diff.txt)  # Increase from 500 to 1000 lines
 - ✅ Verify GitHub token has correct scopes
 - ✅ Check Actions logs for specific error messages
 
+**Issue: Rate limiting**
+
+- ✅ GitHub Models has rate limits per repository
+- ✅ Consider adding caching or throttling for high-PR-volume repos
+- ✅ Check GitHub Actions logs for specific rate limit messages
+
 ### Cost Estimates
 
-**Claude API pricing** (as of January 2025):
+**GitHub Models pricing:**
 
-- Model: Claude Sonnet 4.5
-- Input: ~$3 per million tokens
-- Output: ~$15 per million tokens
+- **Public repositories**: Free with GitHub account
+- **Private repositories**: Included with GitHub Copilot subscription
+  - Individual: $10/month
+  - Business: $19/user/month
+  - Enterprise: Custom pricing
 
-**Typical PR analysis:**
-- Input tokens: ~2,000 (diff + prompt)
-- Output tokens: ~500 (analysis)
-- Cost per PR: **~$0.01** (one cent)
+**Typical usage:**
+- Per PR analysis: Minimal token usage (~3-5K tokens)
+- 100 PRs/month: Well within free tier or included limits
 
-For a repository with 100 PRs/month: **~$1/month**
+**Cost comparison:**
+- GitHub Copilot approach: **$0/month** (if you already have Copilot)
+- Claude API approach: **~$1/month** for 100 PRs
 
-### Alternative: Manual Review
+### Alternative Workflows
 
-If you prefer not to use the Claude API, you can:
+**Simple Rule-Based Workflow:**
 
-1. **Use the checklist manually:**
-   - See `DOCUMENTATION.md` for validation checklist
-   - Review changed files against documentation inventory
+The repository also includes `documentation-check-simple.yml` which uses pattern matching instead of AI:
 
-2. **Create a simpler rule-based workflow:**
-   - Check if certain files changed (e.g., `electron/main.ts`)
-   - Post reminder comment to update specific docs
-   - No AI analysis, just pattern matching
+- ✅ No AI or API required
+- ✅ Zero setup needed
+- ✅ Fast execution
+- ❌ Less intelligent analysis
+- ❌ Fixed rules only
 
-**Example simple workflow:**
-
-```yaml
-- name: Check for IPC changes
-  run: |
-    if git diff --name-only origin/main | grep -q "electron/main.ts"; then
-      echo "⚠️ electron/main.ts changed - please review IPC_API.md"
-    fi
-```
+To use the simple workflow instead:
+1. Disable `documentation-check.yml`
+2. Enable `documentation-check-simple.yml`
 
 ### Maintenance
 
@@ -213,28 +217,76 @@ When adding new documentation files, update the workflow prompt in `documentatio
 - NEW_FILE.md (description)
 ```
 
-**Update Claude model:**
+**Update to newer models:**
 
-To use a newer Claude model, change the model name:
+GitHub Models may release new models. Check available models and update:
 
 ```json
-"model": "claude-sonnet-4-20250514"  # Update to newer version
+"model": "gpt-4o"  # Update to newer version when available
 ```
 
 ### Security Notes
 
-- ✅ API key is stored as a secret (not in code)
+- ✅ Uses built-in `GITHUB_TOKEN` (no external secrets needed)
 - ✅ Workflow only has read access to code, write access to PR comments
-- ✅ PR diffs are sent to Anthropic API (consider for sensitive repos)
+- ✅ PR diffs are sent to GitHub's Models API (Microsoft Azure backend)
+- ✅ Data is processed according to GitHub's data processing terms
 - ✅ No credentials or secrets are included in diffs
+- ℹ️ For highly sensitive repositories, consider using the simple rule-based workflow instead
+
+### GitHub Models Information
+
+**What is GitHub Models?**
+
+GitHub Models provides access to AI models through Azure OpenAI Service:
+- GPT-4o and other OpenAI models
+- Claude models (via Azure)
+- Other AI models as they become available
+
+**Data Processing:**
+- Requests are processed through Azure OpenAI
+- Subject to GitHub's data processing agreement
+- Not used to train AI models (per GitHub's policy)
+
+**Access:**
+- Public repositories: Generally available
+- Private repositories: Requires GitHub Copilot subscription
+- Rate limits apply per repository
 
 ### See Also
 
 - [DOCUMENTATION.md](../../DOCUMENTATION.md) - Documentation inventory
 - [CONVENTIONS.md](../../CONVENTIONS.md) - Documentation standards
 - [GitHub Actions docs](https://docs.github.com/en/actions)
-- [Anthropic API docs](https://docs.anthropic.com/claude/reference/messages_post)
+- [GitHub Models docs](https://docs.github.com/en/github-models)
+- [GitHub Copilot docs](https://docs.github.com/en/copilot)
 
 ---
 
-**Last updated:** 2025-01-XX
+## Simple Documentation Check Workflow
+
+**File:** `documentation-check-simple.yml`
+
+A rule-based alternative that doesn't use AI:
+
+**Features:**
+- ✅ Pattern matching for file changes
+- ✅ No AI or API required
+- ✅ Zero setup or configuration
+- ✅ Fast execution
+- ✅ Predictable suggestions
+
+**How it works:**
+- Detects which directories/files were modified
+- Suggests relevant documentation based on patterns
+- Posts recommendations as PR comment
+
+**When to use:**
+- You don't have GitHub Copilot subscription
+- You prefer deterministic rule-based checks
+- Your repository has simple documentation update patterns
+- You want zero external dependencies
+
+---
+
+**Last updated:** 2025-01-15

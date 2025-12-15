@@ -34,10 +34,10 @@ jobs:
 
           echo "diff_size=$(wc -l < pr_diff.txt)" >> $GITHUB_OUTPUT
 
-      - name: Analyze with Claude
-        id: claude
+      - name: Analyze with GitHub Copilot
+        id: copilot
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Create analysis prompt
           cat > analysis_prompt.txt << 'EOF'
@@ -68,10 +68,16 @@ jobs:
           - JSDoc in all modified files
 
           **Changed Files:**
-          $(cat changed_files.txt)
+          EOF
+          cat changed_files.txt >> analysis_prompt.txt
+
+          cat >> analysis_prompt.txt << 'EOF'
 
           **Code Changes:**
-          $(head -n 500 pr_diff.txt)  # First 500 lines of diff
+          EOF
+          head -n 500 pr_diff.txt >> analysis_prompt.txt
+
+          cat >> analysis_prompt.txt << 'EOF'
 
           Analyze the changes and provide:
 
@@ -83,27 +89,31 @@ jobs:
           Format your response as markdown for a GitHub PR comment.
           EOF
 
-          # Call Claude API
-          response=$(curl -s https://api.anthropic.com/v1/messages \
+          # Call GitHub Models API (OpenAI-compatible endpoint)
+          response=$(curl -s https://models.inference.ai.azure.com/chat/completions \
             -H "Content-Type: application/json" \
-            -H "x-api-key: $ANTHROPIC_API_KEY" \
-            -H "anthropic-version: 2023-06-01" \
+            -H "Authorization: Bearer $GH_TOKEN" \
             -d @- << JSON
           {
-            "model": "claude-sonnet-4-20250514",
-            "max_tokens": 4096,
+            "model": "gpt-4o",
             "messages": [
               {
+                "role": "system",
+                "content": "You are a helpful documentation reviewer. Analyze code changes and provide specific, actionable documentation suggestions."
+              },
+              {
                 "role": "user",
-                "content": "$(cat analysis_prompt.txt | jq -Rs .)"
+                "content": $(cat analysis_prompt.txt | jq -Rs .)
               }
-            ]
+            ],
+            "max_tokens": 4096,
+            "temperature": 0.3
           }
           JSON
           )
 
           # Extract content from response
-          analysis=$(echo "$response" | jq -r '.content[0].text')
+          analysis=$(echo "$response" | jq -r '.choices[0].message.content')
 
           # Save to file for comment
           echo "$analysis" > analysis_result.md
@@ -124,7 +134,7 @@ jobs:
 
             const comment = `## 📚 Documentation Check
 
-            Claude has analyzed this PR for documentation impact.
+            GitHub Copilot has analyzed this PR for documentation impact.
 
             ${analysis}
 
@@ -140,7 +150,7 @@ jobs:
 
             **See [DOCUMENTATION.md](https://github.com/${{ github.repository }}/blob/${{ github.base_ref }}/DOCUMENTATION.md) for complete documentation inventory.**
 
-            <sub>Powered by Claude API • [Documentation Guide](https://github.com/${{ github.repository }}/blob/${{ github.base_ref }}/DOCUMENTATION.md)</sub>`;
+            <sub>Powered by GitHub Copilot • [Documentation Guide](https://github.com/${{ github.repository }}/blob/${{ github.base_ref }}/DOCUMENTATION.md)</sub>`;
 
             // Post comment on PR
             github.rest.issues.createComment({
@@ -151,7 +161,7 @@ jobs:
             });
 
       - name: Add PR label
-        if: steps.claude.outputs.needs_update == 'true'
+        if: steps.copilot.outputs.needs_update == 'true'
         uses: actions/github-script@v7
         with:
           script: |
