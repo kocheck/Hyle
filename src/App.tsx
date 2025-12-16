@@ -4,6 +4,7 @@ import SyncManager from './components/SyncManager'
 import { ThemeManager } from './components/ThemeManager'
 import Sidebar from './components/Sidebar'
 import Toast from './components/Toast'
+import TokenInspector from './components/TokenInspector'
 import { useGameStore } from './store/gameStore'
 
 /**
@@ -21,7 +22,7 @@ import { useGameStore } from './store/gameStore'
  *   └── Main area
  *       ├── CanvasManager (battlemap canvas)
  *       └── Toolbar (floating top-right)
- *           ├── Tool buttons (Select, Marker, Eraser)
+ *           ├── Tool buttons (Select, Marker, Eraser, Wall)
  *           ├── Save/Load campaign buttons
  *           └── World View button
  * ```
@@ -52,9 +53,18 @@ import { useGameStore } from './store/gameStore'
  */
 function App() {
   // Active tool state (controls CanvasManager behavior)
-  const [tool, setTool] = useState<'select' | 'marker' | 'eraser'>('select');
+  const [tool, setTool] = useState<'select' | 'marker' | 'eraser' | 'wall'>('select');
   const [color, setColor] = useState('#df4b26');
   const colorInputRef = useRef<HTMLInputElement>(null);
+
+  // Selected tokens state (for TokenInspector)
+  const [selectedTokenIds, setSelectedTokenIds] = useState<string[]>([]);
+
+  // Filter selected IDs to only include tokens (not drawings)
+  const tokens = useGameStore((s) => s.tokens);
+  const selectedTokensOnly = selectedTokenIds.filter((id) =>
+    tokens.some((t) => t.id === id)
+  );
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -72,6 +82,9 @@ function App() {
           break;
         case 'e':
           setTool('eraser');
+          break;
+        case 'w':
+          setTool('wall');
           break;
         case 'i':
           colorInputRef.current?.click();
@@ -92,7 +105,11 @@ function App() {
       <Sidebar />
 
       <div className="flex-1 relative h-full">
-        <CanvasManager tool={tool} color={color} />
+        <CanvasManager
+          tool={tool}
+          color={color}
+          onSelectionChange={setSelectedTokenIds}
+        />
         {/* Toolbar */}
         <div className="toolbar fixed top-4 right-4 p-2 rounded shadow flex gap-2 z-50">
            <button
@@ -104,6 +121,9 @@ function App() {
            <button
              className={`btn btn-tool ${tool === 'eraser' ? 'active' : ''}`}
              onClick={() => setTool('eraser')}>Eraser (E)</button>
+           <button
+             className={`btn btn-tool ${tool === 'wall' ? 'active' : ''}`}
+             onClick={() => setTool('wall')}>Wall (W)</button>
            <div className="toolbar-divider w-px mx-1"></div>
            <label className="flex items-center gap-2 cursor-pointer">
              <span className="text-sm font-medium">Color (I)</span>
@@ -178,6 +198,11 @@ function App() {
              World View
            </button>
         </div>
+
+        {/* Token Inspector (only show when tokens selected) */}
+        {selectedTokensOnly.length > 0 && (
+          <TokenInspector selectedTokenIds={selectedTokensOnly} />
+        )}
       </div>
     </div>
   )

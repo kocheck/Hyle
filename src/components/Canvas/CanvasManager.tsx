@@ -9,6 +9,7 @@ import { useGameStore } from '../../store/gameStore';
 import GridOverlay from './GridOverlay';
 import ImageCropper from '../ImageCropper';
 import TokenErrorBoundary from './TokenErrorBoundary';
+import FogOfWarLayer from './FogOfWarLayer';
 
 // Zoom constants
 const MIN_SCALE = 0.1;
@@ -79,13 +80,18 @@ const URLImage = ({ src, x, y, width, height, scaleX, scaleY, id, onSelect, onDr
 
 
 interface CanvasManagerProps {
-  tool?: 'select' | 'marker' | 'eraser';
+  tool?: 'select' | 'marker' | 'eraser' | 'wall';
   color?: string;
+  onSelectionChange?: (selectedIds: string[]) => void;
 }
 
-const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProps) => {
+const CanvasManager = ({ tool = 'select', color = '#df4b26', onSelectionChange }: CanvasManagerProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+
+  // Detect if this is World View (Player View)
+  const params = new URLSearchParams(window.location.search);
+  const isWorldView = params.get('type') === 'world';
 
   // Get grid color from CSS variable (theme-aware)
   const [gridColor, setGridColor] = useState('#222');
@@ -164,6 +170,13 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
   // Touch/Pinch State
   const lastPinchDistance = useRef<number | null>(null);
   const lastPinchCenter = useRef<{ x: number, y: number } | null>(null);
+
+  // Notify parent of selection changes
+  useEffect(() => {
+    if (onSelectionChange) {
+      onSelectionChange(selectedIds);
+    }
+  }, [selectedIds, onSelectionChange]);
 
   // Helper function to clamp viewport position within bounds
   const clampPosition = useCallback((newPos: { x: number, y: number }, newScale: number) => {
@@ -486,16 +499,29 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
         return;
     }
 
-    // If marker/eraser, draw
+    // If marker/eraser/wall, draw
     if (tool !== 'select') {
         isDrawing.current = true;
         const pos = e.target.getStage().getRelativePointerPosition();
+
+        // Set color and size based on tool type
+        let drawColor = color;
+        let drawSize = 5;
+
+        if (tool === 'eraser') {
+            drawColor = '#000000';
+            drawSize = 20;
+        } else if (tool === 'wall') {
+            drawColor = '#ff0000'; // Red color for walls (visible in DM view only)
+            drawSize = 8;
+        }
+
         currentLine.current = {
             id: crypto.randomUUID(),
             tool: tool,
             points: [pos.x, pos.y],
-            color: tool === 'eraser' ? '#000000' : color,
-            size: tool === 'eraser' ? 20 : 5,
+            color: drawColor,
+            size: drawSize,
         };
         return;
     }
@@ -532,8 +558,25 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
     if (tool !== 'select') {
         if (!isDrawing.current) return;
         const stage = e.target.getStage();
-        const point = stage.getRelativePointerPosition();
+        let point = stage.getRelativePointerPosition();
         const cur = currentLine.current;
+
+        // Shift-key axis locking: Lock to horizontal or vertical
+        if (e.evt.shiftKey && cur.points.length >= 2) {
+            const startX = cur.points[0];
+            const startY = cur.points[1];
+            const dx = Math.abs(point.x - startX);
+            const dy = Math.abs(point.y - startY);
+
+            if (dx > dy) {
+                // Lock to horizontal (X axis)
+                point = { x: point.x, y: startY };
+            } else {
+                // Lock to vertical (Y axis)
+                point = { x: startX, y: point.y };
+            }
+        }
+
         cur.points = cur.points.concat([point.x, point.y]);
         setTempLine({...cur});
         return;
@@ -790,7 +833,8 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
                     strokeWidth={ghostLine.size}
                     tension={0.5}
                     lineCap="round"
-                    opacity={0.5}
+                    dash={ghostLine.tool === 'wall' ? [10, 5] : undefined}
+                    opacity={ghostLine.tool === 'wall' && isWorldView ? 0 : 0.5}
                     listening={false}
                 />
             ))}
@@ -809,6 +853,8 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
                     strokeWidth={line.size}
                     tension={0.5}
                     lineCap="round"
+                    dash={line.tool === 'wall' ? [10, 5] : undefined}
+                    opacity={line.tool === 'wall' && isWorldView ? 0 : 1}
                     globalCompositeOperation={
                         line.tool === 'eraser' ? 'destination-out' : 'source-over'
                     }
@@ -881,12 +927,24 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26' }: CanvasManagerProp
                     strokeWidth={tempLine.size}
                     tension={0.5}
                     lineCap="round"
+                    dash={tempLine.tool === 'wall' ? [10, 5] : undefined}
+                    opacity={tempLine.tool === 'wall' && isWorldView ? 0 : 1}
                     globalCompositeOperation={
                         tempLine.tool === 'eraser' ? 'destination-out' : 'source-over'
                     }
                 />
             )}
         </Layer>
+
+        {/* Fog of War Layer (World View only) */}
+        {isWorldView && (
+          <FogOfWarLayer
+            tokens={tokens}
+            drawings={drawings}
+            gridSize={gridSize}
+            visibleBounds={visibleBounds}
+          />
+        )}
 
         {/* Layer 3: Tokens & UI */}
         <Layer>
