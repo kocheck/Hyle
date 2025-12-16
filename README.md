@@ -4,7 +4,7 @@
 
 Hyle is a lightweight, local-first desktop application for Dungeon Masters. It replaces the physical battlemap with a digital projector or screen share, allowing you to manage your campaign map on one screen while projecting a player-facing view on another.
 
-**Philosophy:** Hyle is a generic "digital battlemat." It doesn't know about D&D 5e, Pathfinder, or HP. It just handles maps, tokens, and fog of war (eventually). It respects your data ownership (local files) and privacy.
+**Philosophy:** Hyle is a generic "digital battlemat." It doesn't know about D&D 5e, Pathfinder, or HP. It just handles maps, tokens, and dynamic fog of war. It respects your data ownership (local files) and privacy.
 
 ![Hyle Screenshot](https://via.placeholder.com/800x450?text=Hyle+Application+Preview)
 
@@ -22,7 +22,13 @@ Hyle is a lightweight, local-first desktop application for Dungeon Masters. It r
   - Drag and drop any image (JPG, PNG) directly onto the canvas.
   - **Auto-Optimization**: Large maps are automatically resized and converted to high-performance WebP formats.
   - **Cropping UI**: Built-in tool to crop and zoom tokens before importing.
-- **Drawing Tools**: Simple marker and eraser tools for quick sketches and fog of war.
+- **Drawing Tools**:
+  - **Marker & Eraser**: Quick sketches and annotations with Shift-key axis locking for straight lines.
+  - **Wall Tool**: Draw vision-blocking walls (invisible to players, dashed red in DM view).
+- **Fog of War System**:
+  - **Dynamic Vision**: PC tokens reveal areas based on configurable vision radius (darkvision support).
+  - **Wall Occlusion**: Walls block line of sight using real-time raycasting algorithm.
+  - **Token Inspector**: Edit token properties (name, type, vision radius) in DM view.
 - **Persistence**: Save your entire session to a `.hyle` file (a compressed ZIP archive of your scene and assets) and load it back instantly.
 - **Advanced Grid System**:
   - **Dynamic Snapping**: Tokens snap to grid intersections (2x2) or cell centers (1x1) automatically.
@@ -37,7 +43,9 @@ Hyle is a lightweight, local-first desktop application for Dungeon Masters. It r
   - `V`: Select Tool
   - `M`: Marker Tool
   - `E`: Eraser Tool
+  - `W`: Wall Tool (vision blocking)
   - `I`: Color Picker
+  - `Shift` (while drawing): Lock to horizontal/vertical axis
 
 ## 🚀 Getting Started
 
