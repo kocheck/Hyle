@@ -171,7 +171,6 @@ const Sidebar = () => {
                             value={gridType}
                             onChange={(e) => setGridType(e.target.value as GridType)}
                             className="sidebar-input w-full rounded px-3 py-2 text-sm"
-                            aria-label="Grid Type"
                         >
                             <option value="LINES">Lines</option>
                             <option value="DOTS">Dots</option>
