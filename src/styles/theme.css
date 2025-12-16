@@ -157,7 +157,7 @@
   --app-text-disabled: var(--slate-9);     /* Disabled text (below AA threshold - intentional) */
 
   /* ===== Interactive (Blue) ===== */
-  --app-accent-bg: var(--slate-12);          /* Accent background (buttons, tags) */
+  --app-accent-bg: var(--blue-3);          /* Accent background (buttons, tags) */
   --app-accent-bg-hover: var(--blue-4);    /* Accent hover state */
   --app-accent-bg-active: var(--blue-5);   /* Accent active state */
   --app-accent-solid: #0070C1;             /* Solid accent - WCAG AA compliant with white (4.51:1) */
