@@ -28,10 +28,21 @@ const MAX_TOKEN_DIMENSION = 512;
 export type ProgressCallback = (progress: number) => void;
 
 /**
+ * Cancellable processing handle returned by processImage
+ */
+export interface ProcessingHandle {
+  promise: Promise<string>;
+  cancel: () => void;
+}
+
+/**
  * Processes and optimizes uploaded images for use as maps or tokens
  *
  * **PERFORMANCE OPTIMIZATION:** This function now uses Web Workers for non-blocking
  * image processing. The UI remains responsive even when processing large images.
+ *
+ * **RESOURCE MANAGEMENT:** Returns a cancellable handle to prevent worker leaks.
+ * CRITICAL: Always call `cancel()` in cleanup (useEffect return, componentWillUnmount).
  *
  * **Previous Approach (Bottleneck):**
  * - Image processing on main thread (blocks UI)
@@ -42,6 +53,7 @@ export type ProgressCallback = (progress: number) => void;
  * - Processing in Web Worker (non-blocking)
  * - Progress callbacks for UI feedback
  * - Parallel processing of multiple files
+ * - Cancellable to prevent resource leaks
  * - Fallback to main thread if worker unavailable
  *
  * This function performs three critical optimizations:
@@ -65,55 +77,82 @@ export type ProgressCallback = (progress: number) => void;
  * @param file - Uploaded image file (PNG, JPG, WebP, etc.)
  * @param type - Asset type determining max dimensions ('MAP' or 'TOKEN')
  * @param onProgress - Optional callback for progress updates (0-100)
- * @returns Promise resolving to file:// URL of processed image in temp storage
+ * @returns ProcessingHandle with promise and cancel function
  * @throws {Error} If processing fails or IPC invoke fails
  *
  * @example
- * // Process uploaded token image with progress
- * const file = new File([blob], "goblin.png", { type: 'image/png' });
- * const src = await processImage(file, 'TOKEN', (progress) => {
- *   console.log(`Processing: ${progress}%`);
- * });
- * // Returns: "file:///Users/.../Hyle/temp_assets/1234567890-goblin.webp"
+ * // Process uploaded token image with cleanup
+ * useEffect(() => {
+ *   const handle = processImage(file, 'TOKEN', (progress) => {
+ *     setProgress(progress);
+ *   });
+ *
+ *   handle.promise
+ *     .then(src => addToken({ src, ... }))
+ *     .catch(err => console.error(err));
+ *
+ *   // CRITICAL: Cancel on unmount to prevent worker leak
+ *   return () => handle.cancel();
+ * }, [file]);
  *
  * @example
- * // Process map image (larger max dimension)
- * const mapFile = new File([blob], "dungeon.jpg", { type: 'image/jpeg' });
- * const mapSrc = await processImage(mapFile, 'MAP');
- * // Image resized to max 4096px, converted to WebP
+ * // Simple usage (auto-cancels if component unmounts)
+ * const handle = processImage(file, 'MAP');
+ * const src = await handle.promise;
  */
-export const processImage = async (
+export const processImage = (
   file: File,
   type: AssetType,
   onProgress?: ProgressCallback
-): Promise<string> => {
+): ProcessingHandle => {
   // Try to use Web Worker for non-blocking processing
   if (typeof Worker !== 'undefined') {
     return processImageWithWorker(file, type, onProgress);
   } else {
     // Fallback to main thread processing (blocking, but compatible)
     console.warn('[AssetProcessor] Web Workers not available, using main thread');
-    return processImageMainThread(file, type, onProgress);
+    return wrapPromiseAsHandle(processImageMainThread(file, type, onProgress));
   }
 };
 
 /**
- * Process image using Web Worker (non-blocking, preferred method)
+ * Wraps a Promise in a ProcessingHandle (for main thread fallback)
  */
-async function processImageWithWorker(
+function wrapPromiseAsHandle(promise: Promise<string>): ProcessingHandle {
+  return {
+    promise,
+    cancel: () => {
+      // Main thread processing can't be cancelled, just ignore
+      console.warn('[AssetProcessor] Main thread processing cannot be cancelled');
+    }
+  };
+}
+
+/**
+ * Process image using Web Worker (non-blocking, preferred method)
+ *
+ * **RESOURCE MANAGEMENT:** Properly terminates worker on cancel, completion, or error.
+ */
+function processImageWithWorker(
   file: File,
   type: AssetType,
   onProgress?: ProgressCallback
-): Promise<string> {
-  return new Promise((resolve, reject) => {
+): ProcessingHandle {
+  let worker: Worker | null = null;
+  let isCancelled = false;
+
+  const promise = new Promise<string>((resolve, reject) => {
     // Create worker instance
-    const worker = new Worker(
+    worker = new Worker(
       new URL('../workers/image-processor.worker.ts', import.meta.url),
       { type: 'module' }
     );
 
     // Handle worker messages
     worker.onmessage = async (event) => {
+      // Ignore messages if already cancelled
+      if (isCancelled) return;
+
       const message = event.data;
 
       switch (message.type) {
@@ -145,18 +184,28 @@ async function processImageWithWorker(
               onProgress(100);
             }
 
-            // Cleanup
-            worker.terminate();
+            // Cleanup and resolve
+            if (worker) {
+              worker.terminate();
+              worker = null;
+            }
             resolve(filePath as string);
           } catch (error) {
-            worker.terminate();
+            // Cleanup and reject
+            if (worker) {
+              worker.terminate();
+              worker = null;
+            }
             reject(error);
           }
           break;
 
         case 'ERROR':
           // Worker encountered an error
-          worker.terminate();
+          if (worker) {
+            worker.terminate();
+            worker = null;
+          }
           reject(new Error(message.error));
           break;
       }
@@ -164,7 +213,10 @@ async function processImageWithWorker(
 
     // Handle worker errors
     worker.onerror = (error) => {
-      worker.terminate();
+      if (worker) {
+        worker.terminate();
+        worker = null;
+      }
       reject(new Error(`Worker error: ${error.message}`));
     };
 
@@ -176,6 +228,18 @@ async function processImageWithWorker(
       fileName: file.name
     });
   });
+
+  // Return cancellable handle
+  return {
+    promise,
+    cancel: () => {
+      isCancelled = true;
+      if (worker) {
+        worker.terminate();
+        worker = null;
+      }
+    }
+  };
 }
 
 /**
@@ -265,28 +329,33 @@ async function processImageMainThread(
  * **PERFORMANCE:** Processes multiple images simultaneously for faster batch imports.
  * Example: 5 tokens processed in parallel takes ~500ms vs 2.5s sequential.
  *
+ * **RESOURCE MANAGEMENT:** Returns cancellable handle for the entire batch.
+ *
  * @param files - Array of image files to process
  * @param type - Asset type for all files
  * @param onProgress - Optional callback receiving overall progress (0-100)
- * @returns Promise resolving to array of file:// URLs
+ * @returns ProcessingHandle with promise and cancel function
  *
  * @example
- * const files = [goblin.png, orc.png, dragon.png];
- * const urls = await processBatch(files, 'TOKEN', (progress) => {
- *   console.log(`Overall progress: ${progress}%`);
- * });
- * // Returns: ["file://.../goblin.webp", "file://.../orc.webp", "file://.../dragon.webp"]
+ * useEffect(() => {
+ *   const handle = processBatch(files, 'TOKEN', setProgress);
+ *
+ *   handle.promise
+ *     .then(urls => urls.forEach(url => addToken({ src: url, ... })))
+ *     .catch(err => console.error(err));
+ *
+ *   // Cancel all workers on unmount
+ *   return () => handle.cancel();
+ * }, [files]);
  */
-export const processBatch = async (
+export const processBatch = (
   files: File[],
   type: AssetType,
   onProgress?: ProgressCallback
-): Promise<string[]> => {
+): ProcessingHandle => {
   const totalFiles = files.length;
-  let completedFiles = 0;
-
-  // Track progress of individual files
   const fileProgress = new Map<number, number>();
+  const handles: ProcessingHandle[] = [];
 
   const updateOverallProgress = () => {
     const total = Array.from(fileProgress.values()).reduce((sum, p) => sum + p, 0);
@@ -297,15 +366,20 @@ export const processBatch = async (
   };
 
   // Process all files in parallel
-  const promises = files.map((file, index) =>
-    processImage(file, type, (progress) => {
+  const promises = files.map((file, index) => {
+    const handle = processImage(file, type, (progress) => {
       fileProgress.set(index, progress);
       updateOverallProgress();
-    }).then((url) => {
-      completedFiles++;
-      return url;
-    })
-  );
+    });
+    handles.push(handle);
+    return handle.promise;
+  });
 
-  return Promise.all(promises);
+  return {
+    promise: Promise.all(promises),
+    cancel: () => {
+      // Cancel all workers
+      handles.forEach(handle => handle.cancel());
+    }
+  };
 };

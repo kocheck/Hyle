@@ -2,12 +2,13 @@ import Konva from 'konva';
 import { Stage, Layer, Line, Rect, Transformer } from 'react-konva';
 import { KonvaEventObject } from 'konva/lib/Node';
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { processImage } from '../../utils/AssetProcessor';
+import { processImage, ProcessingHandle } from '../../utils/AssetProcessor';
 import { snapToGrid } from '../../utils/grid';
 import { useGameStore } from '../../store/gameStore';
 import GridOverlay from './GridOverlay';
 import ImageCropper from '../ImageCropper';
 import TokenErrorBoundary from './TokenErrorBoundary';
+import AssetProcessingErrorBoundary from '../AssetProcessingErrorBoundary';
 import FogOfWarLayer from './FogOfWarLayer';
 
 import URLImage from './URLImage';
@@ -148,6 +149,9 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
 
   // Cropping State
   const [pendingCrop, setPendingCrop] = useState<{ src: string, x: number, y: number } | null>(null);
+
+  // Asset Processing State - Track active processing to prevent worker leaks
+  const processingHandleRef = useRef<ProcessingHandle | null>(null);
 
   // Selection & Drag State
   const [selectionRect, setSelectionRect] = useState<{ x: number, y: number, width: number, height: number, isVisible: boolean }>({ x: 0, y: 0, width: 0, height: 0, isVisible: false });
@@ -466,6 +470,12 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
   const handleCropConfirm = async (blob: Blob) => {
     if (!pendingCrop) return;
 
+    // Cancel any previous processing
+    if (processingHandleRef.current) {
+      processingHandleRef.current.cancel();
+      processingHandleRef.current = null;
+    }
+
     try {
         const file = new File([blob], "token.webp", { type: 'image/webp' });
 
@@ -473,7 +483,14 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
         // we could process as MAP. But determining "Shift was held" during async drop/crop is hard.
         // For now, we assume TOKEN from crop.
 
-        const src = await processImage(file, 'TOKEN'); // Default to Token for now
+        // Start processing and store handle for cleanup
+        const handle = processImage(file, 'TOKEN'); // Default to Token for now
+        processingHandleRef.current = handle;
+
+        const src = await handle.promise;
+
+        // Clear handle after successful completion
+        processingHandleRef.current = null;
 
         addToken({
           id: crypto.randomUUID(),
@@ -486,6 +503,8 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
         // TODO: In future, add UI to swap to Map or set 'processImage' type based on user choice
     } catch (err) {
         console.error("Crop save failed", err);
+        // Clear handle on error
+        processingHandleRef.current = null;
     } finally {
         setPendingCrop(null);
     }
@@ -754,6 +773,17 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
     }
   }, [selectedIds]); // Only update when selection changes; nodes are automatically updated by React Konva
 
+  // Cleanup: Cancel any active image processing on unmount
+  // CRITICAL: Prevents worker leak if component unmounts during processing
+  useEffect(() => {
+    return () => {
+      if (processingHandleRef.current) {
+        console.log('[CanvasManager] Cancelling in-flight image processing on unmount');
+        processingHandleRef.current.cancel();
+        processingHandleRef.current = null;
+      }
+    };
+  }, []); // Run only on mount/unmount
 
   const centerOnPCTokens = useCallback(() => {
     const pcTokens = tokens.filter(t => t.type === 'PC');
@@ -816,11 +846,13 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
         onDrop={handleDrop}
     >
       {pendingCrop && (
-        <ImageCropper
-            imageSrc={pendingCrop.src}
-            onConfirm={handleCropConfirm}
-            onCancel={() => setPendingCrop(null)}
-        />
+        <AssetProcessingErrorBoundary>
+          <ImageCropper
+              imageSrc={pendingCrop.src}
+              onConfirm={handleCropConfirm}
+              onCancel={() => setPendingCrop(null)}
+          />
+        </AssetProcessingErrorBoundary>
       )}
 
       <Stage
