@@ -79,19 +79,59 @@ const URLImage = ({ src, x, y, width, height, scaleX, scaleY, id, onSelect, onDr
 };
 
 
+/**
+ * Props for CanvasManager component
+ *
+ * @property {string} tool - Active drawing/interaction tool (select, marker, eraser)
+ * @property {string} color - Color for marker tool (hex format)
+ * @property {boolean} isWorldView - If true, restricts interactions for player-facing World View
+ */
 interface CanvasManagerProps {
   tool?: 'select' | 'marker' | 'eraser' | 'wall';
   color?: string;
+  isWorldView?: boolean;
   onSelectionChange?: (selectedIds: string[]) => void;
 }
 
-const CanvasManager = ({ tool = 'select', color = '#df4b26', onSelectionChange }: CanvasManagerProps) => {
+/**
+ * CanvasManager - Main canvas component for battlemap rendering and interaction
+ *
+ * This component handles all canvas rendering (map, tokens, drawings, grid) and user
+ * interactions (panning, zooming, drawing, token manipulation). It operates in two modes
+ * based on the window type:
+ *
+ * **Architect View (DM Mode):**
+ * - Full editing capabilities (draw, erase, add/remove tokens)
+ * - File drop support (drag images onto canvas)
+ * - Calibration tools (grid alignment)
+ * - Token transformation (scale, rotate)
+ * - Token duplication (Alt+drag)
+ * - Delete tokens/drawings (Delete/Backspace)
+ *
+ * **World View (Player Mode):**
+ * - ✅ ALLOWED: Pan canvas (mouse drag, space+drag, wheel scroll)
+ * - ✅ ALLOWED: Zoom (ctrl+wheel, pinch, +/- keys)
+ * - ✅ ALLOWED: Select and drag tokens (for DM to demonstrate movement)
+ * - ❌ BLOCKED: Drawing tools (marker, eraser, wall)
+ * - ❌ BLOCKED: File drops (add tokens/maps)
+ * - ❌ BLOCKED: Calibration mode
+ * - ❌ BLOCKED: Token transformation (scale, rotate)
+ * - ❌ BLOCKED: Token duplication (Alt+drag)
+ * - ❌ BLOCKED: Delete tokens/drawings
+ *
+ * **Interaction Restriction Pattern:**
+ * When `isWorldView={true}`, interaction handlers check the flag and return early
+ * to prevent editing operations. Navigation (pan/zoom) remains fully functional.
+ *
+ * @param {CanvasManagerProps} props - Component props
+ * @returns Canvas with interactive battlemap
+ *
+ * @see {@link file://../../utils/useWindowType.ts useWindowType} for window detection
+ * @see {@link file://../../App.tsx App.tsx} for UI sanitization
+ */
+const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false, onSelectionChange }: CanvasManagerProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: window.innerWidth, height: window.innerHeight });
-
-  // Detect if this is World View (Player View)
-  const params = new URLSearchParams(window.location.search);
-  const isWorldView = params.get('type') === 'world';
 
   // Get grid color from CSS variable (theme-aware)
   const [gridColor, setGridColor] = useState('#222');
@@ -268,7 +308,8 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', onSelectionChange }
 
     const handleKeyDown = (e: KeyboardEvent) => {
       // Track Alt Key (always track, even in inputs, for drag operations)
-      if (e.key === 'Alt') {
+      // Disabled in World View to prevent duplication
+      if (e.key === 'Alt' && !isWorldView) {
           setIsAltPressed(true);
       }
 
@@ -276,7 +317,9 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', onSelectionChange }
       if (isEditableElement(e.target)) return;
 
       // Delete/Backspace - remove selected items
+      // BLOCKED in World View (players cannot delete tokens/drawings)
       if (e.key === 'Delete' || e.key === 'Backspace') {
+          if (isWorldView) return; // Block deletion in World View
           if (selectedIds.length > 0) {
               removeTokens(selectedIds);
               removeDrawings(selectedIds);
@@ -406,10 +449,14 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', onSelectionChange }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
+    // BLOCKED in World View (no file drops allowed)
+    if (isWorldView) return;
     e.preventDefault();
   };
 
   const handleDrop = async (e: React.DragEvent) => {
+    // BLOCKED in World View (no file drops allowed)
+    if (isWorldView) return;
     e.preventDefault();
 
     const stageRect = containerRef.current?.getBoundingClientRect();
@@ -491,7 +538,9 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', onSelectionChange }
     if (isSpacePressed) return; // Allow panning
 
     // CALIBRATION LOGIC
+    // BLOCKED in World View (players cannot calibrate grid)
     if (isCalibrating) {
+        if (isWorldView) return; // Block calibration in World View
         const stage = e.target.getStage();
         const pos = stage.getRelativePointerPosition();
         calibrationStart.current = { x: pos.x, y: pos.y };
@@ -500,7 +549,9 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', onSelectionChange }
     }
 
     // If marker/eraser/wall, draw
+    // BLOCKED in World View (players cannot draw)
     if (tool !== 'select') {
+        if (isWorldView) return; // Block drawing tools in World View
         isDrawing.current = true;
         const pos = e.target.getStage().getRelativePointerPosition();
 
@@ -556,6 +607,8 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', onSelectionChange }
     if (isSpacePressed) return;
 
     if (tool !== 'select') {
+        // BLOCKED in World View (no drawing tools)
+        if (isWorldView) return;
         if (!isDrawing.current) return;
         const stage = e.target.getStage();
         let point = stage.getRelativePointerPosition();
@@ -608,7 +661,9 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', onSelectionChange }
 
   const handleMouseUp = (e: any) => {
     // CALIBRATION LOGIC
+    // BLOCKED in World View
     if (isCalibrating && calibrationStart.current && calibrationRect) {
+         if (isWorldView) return; // Block calibration in World View
          if (calibrationRect.width > 5 && calibrationRect.height > 5 && map) {
              // Calibration: Scale and align the map so the drawn box represents one grid cell.
              // 1. Calculate scale factor: gridSize / drawn box size
@@ -647,6 +702,8 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', onSelectionChange }
     }
 
     if (tool !== 'select') {
+         // BLOCKED in World View (no drawing tools)
+         if (isWorldView) return;
          if (!isDrawing.current) return;
          isDrawing.current = false;
          if (tempLine) {
@@ -886,8 +943,9 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', onSelectionChange }
                          const y = node.y();
 
                          // Duplication Logic (Option/Alt + Drag)
+                         // BLOCKED in World View (players cannot duplicate drawings)
                          // Use isAltPressed state for consistency instead of e.evt.altKey
-                         if (isAltPressed) {
+                         if (isAltPressed && !isWorldView) {
                              const idsToDuplicate = selectedIds.includes(line.id) ? selectedIds : [line.id];
                              idsToDuplicate.forEach(id => {
                                  // Only duplicate drawings here; tokens are handled in their own handler.
@@ -1009,8 +1067,9 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', onSelectionChange }
                          const snapped = snapToGrid(x, y, gridSize, width, height);
 
                          // Duplication Logic (Option/Alt + Drag)
+                         // BLOCKED in World View (players cannot duplicate tokens)
                          // Use isAltPressed state for consistency instead of e.evt.altKey
-                         if (isAltPressed) {
+                         if (isAltPressed && !isWorldView) {
                              const idsToDuplicate = selectedIds.includes(token.id) ? selectedIds : [token.id];
                              idsToDuplicate.forEach(id => {
                                  // Only duplicate tokens here; drawings are handled in their own handler.
@@ -1055,6 +1114,8 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', onSelectionChange }
                 />
             )}
 
+            {/* Transformer: BLOCKED in World View (players cannot scale/rotate) */}
+            {!isWorldView && (
             <Transformer
                 ref={transformerRef}
                 onTransformEnd={(e) => {
@@ -1102,6 +1163,7 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', onSelectionChange }
                     }
                 }}
             />
+            )}
         </Layer>
       </Stage>
     </div>
