@@ -20,7 +20,7 @@ export interface URLImageProps {
   draggable: boolean;
   opacity?: number;
   listening?: boolean;
-  filters?: any[];
+  filters?: ((imageData: ImageData) => void)[];
   blurRadius?: number;
   brightness?: number;
 }
@@ -32,8 +32,16 @@ const URLImage = ({ src, x, y, width, height, scaleX = 1, scaleY = 1, id, onSele
 
   useEffect(() => {
     if (imageRef.current && filters && img) {
+        imageRef.current.clearCache();
         imageRef.current.cache();
     }
+
+    // Cleanup: clear cache on unmount
+    return () => {
+      if (imageRef.current) {
+        imageRef.current.clearCache();
+      }
+    };
   }, [img, filters, width, height, blurRadius, brightness]);
 
   return (

@@ -53,7 +53,7 @@ const TokenInspector = ({ selectedTokenIds }: TokenInspectorProps) => {
       setType('NPC');
       setVisionRadius(0);
     }
-  }, [selectedTokenIds.join(',')]); // Dependency on comma-separated IDs
+  }, [tokens, selectedTokenIds]); // Proper dependency tracking
 
   if (selectedTokens.length === 0) {
     return null;
