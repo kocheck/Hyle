@@ -127,7 +127,7 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [isArchitectView]);
 
   return (
     <div className="app-root w-full h-screen flex overflow-hidden">

@@ -31,12 +31,12 @@ const URLImage = ({ src, x, y, width, height, scaleX = 1, scaleY = 1, id, onSele
   const imageRef = useRef<Konva.Image>(null);
 
   useEffect(() => {
+    // Apply cache when filters are present
     if (imageRef.current && filters && img) {
-        imageRef.current.clearCache();
         imageRef.current.cache();
     }
 
-    // Cleanup: clear cache on unmount
+    // Cleanup: clear cache on unmount or before re-caching
     return () => {
       if (imageRef.current) {
         imageRef.current.clearCache();

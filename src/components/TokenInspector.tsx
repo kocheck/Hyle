@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useGameStore } from '../store/gameStore';
 
 interface TokenInspectorProps {
@@ -31,8 +31,11 @@ const TokenInspector = ({ selectedTokenIds }: TokenInspectorProps) => {
   const tokens = useGameStore((s) => s.tokens);
   const updateTokenProperties = useGameStore((s) => s.updateTokenProperties);
 
-  // Get selected tokens
-  const selectedTokens = tokens.filter((t) => selectedTokenIds.includes(t.id));
+  // Get selected tokens (memoized to avoid unnecessary recalculations)
+  const selectedTokens = useMemo(
+    () => tokens.filter((t) => selectedTokenIds.includes(t.id)),
+    [tokens, selectedTokenIds]
+  );
 
   // Local state for editing
   const [name, setName] = useState('');
@@ -53,7 +56,7 @@ const TokenInspector = ({ selectedTokenIds }: TokenInspectorProps) => {
       setType('NPC');
       setVisionRadius(0);
     }
-  }, [tokens, selectedTokenIds]); // Proper dependency tracking
+  }, [selectedTokens]); // Only re-run when selected tokens actually change
 
   if (selectedTokens.length === 0) {
     return null;
