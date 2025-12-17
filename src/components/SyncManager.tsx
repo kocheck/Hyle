@@ -109,7 +109,9 @@ const SyncManager = () => {
         const syncState = {
           tokens: state.tokens,
           drawings: state.drawings,
-          gridSize: state.gridSize
+          gridSize: state.gridSize,
+          gridType: state.gridType,
+          map: state.map
         };
 
         // Send to main process for broadcast to World Window

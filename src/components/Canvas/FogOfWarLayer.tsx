@@ -1,5 +1,6 @@
-import { Layer, Rect, Shape } from 'react-konva';
-import { Token, Drawing } from '../../store/gameStore';
+import { Layer, Shape, Group } from 'react-konva';
+import { Token, Drawing, MapConfig } from '../../store/gameStore';
+import URLImage from './URLImage';
 
 interface FogOfWarLayerProps {
   tokens: Token[];
@@ -11,8 +12,10 @@ interface FogOfWarLayerProps {
     width: number;
     height: number;
   };
+  map: MapConfig | null;
 }
 
+// ... helper interfaces ...
 interface Point {
   x: number;
   y: number;
@@ -23,34 +26,12 @@ interface WallSegment {
   end: Point;
 }
 
-/**
- * FogOfWarLayer renders dynamic vision/lighting for PC tokens
- *
- * Uses raycasting to calculate visibility polygons for each PC token,
- * accounting for walls that block line of sight. The fog starts as
- * opaque black and "cuts out" visible areas using destination-out blending.
- *
- * **Algorithm: 360-degree Raycasting**
- * 1. For each PC token with visionRadius > 0:
- *    - Cast rays at 1-degree intervals (360 rays)
- *    - Each ray extends to visionRadius or until it hits a wall
- *    - Wall collision detection uses line segment intersection
- * 2. Connect ray endpoints to form visibility polygon
- * 3. Render polygon with destination-out to "erase" fog
- *
- * **Performance:**
- * - O(360 × walls.length) per PC token
- * - Typically < 5ms for 10 walls, 3 PC tokens
- *
- * @param tokens - All tokens (only PC tokens with visionRadius emit light)
- * @param drawings - All drawings (walls block vision)
- * @param gridSize - Grid cell size for converting feet to pixels
- * @param visibleBounds - Canvas viewport for culling fog rendering
- */
-const FogOfWarLayer = ({ tokens, drawings, gridSize, visibleBounds }: FogOfWarLayerProps) => {
+// ... logic ...
+
+const FogOfWarLayer = ({ tokens, drawings, gridSize, map }: FogOfWarLayerProps) => {
   // Extract PC tokens with vision
   const pcTokens = tokens.filter(
-    (t) => t.type === 'PC' && (t.visionRadius ?? 0) > 0
+    (t) => t.type === 'PC' && (t.visionRadius ?? 60) > 0
   );
 
   // Extract walls from drawings
@@ -68,70 +49,101 @@ const FogOfWarLayer = ({ tokens, drawings, gridSize, visibleBounds }: FogOfWarLa
       }
     });
 
-  // If no PC tokens or all have 0 vision, show full fog
+  // If no PC tokens or all have 0 vision, we show essentially "No Vision".
+  // This means NO sharp map is rendered. We just return null (so only blurred background is seen).
   if (pcTokens.length === 0) {
     return (
-      <Layer listening={false}>
-        <Rect
-          x={visibleBounds.x}
-          y={visibleBounds.y}
-          width={visibleBounds.width}
-          height={visibleBounds.height}
-          fill="black"
-          opacity={0.9}
-        />
-      </Layer>
+       <Layer listening={false}>
+          {/* No sharp map rendered = Full Fog (only background layer visible) */}
+       </Layer>
     );
   }
 
   return (
     <Layer listening={false}>
-      {/* Full black fog */}
-      <Rect
-        x={visibleBounds.x}
-        y={visibleBounds.y}
-        width={visibleBounds.width}
-        height={visibleBounds.height}
-        fill="black"
-        opacity={0.9}
-      />
+      {/*
+        Group for isolation:
+        1. Render Sharp Map (Source Over)
+        2. Render Vision Polygons (Destination In) -> Masks the sharp map
+      */}
+      <Group>
+        {/* The Sharp Map */}
+        {map && (
+             <URLImage
+                key="bg-map-sharp"
+                name="map-image-sharp"
+                id="map-sharp"
+                src={map.src}
+                x={map.x}
+                y={map.y}
+                width={map.width}
+                height={map.height}
+                scaleX={map.scale}
+                scaleY={map.scale}
+                draggable={false}
+                listening={false}
+                // No filters = Sharp
+            />
+        )}
 
-      {/* Cut out visible areas for each PC */}
-      {pcTokens.map((token) => {
-        const tokenCenterX = token.x + (gridSize * token.scale) / 2;
-        const tokenCenterY = token.y + (gridSize * token.scale) / 2;
-        const visionRadiusPx = ((token.visionRadius ?? 60) / 5) * gridSize; // Convert feet to pixels
+        {/* The Vision Mask (Composite: Destination In) */}
+        {/* This will keep the map ONLY where we draw these shapes */}
+        {pcTokens.map((token) => {
+            const tokenCenterX = token.x + (gridSize * token.scale) / 2;
+            const tokenCenterY = token.y + (gridSize * token.scale) / 2;
+            const visionRadiusPx = ((token.visionRadius ?? 60) / 5) * gridSize;
 
-        // Calculate visibility polygon
-        const visibilityPolygon = calculateVisibilityPolygon(
-          tokenCenterX,
-          tokenCenterY,
-          visionRadiusPx,
-          walls
-        );
+            const visibilityPolygon = calculateVisibilityPolygon(
+              tokenCenterX,
+              tokenCenterY,
+              visionRadiusPx,
+              walls
+            );
 
-        return (
-          <Shape
-            key={`fog-cutout-${token.id}`}
-            sceneFunc={(ctx, shape) => {
-              if (visibilityPolygon.length === 0) return;
+            return (
+              <Shape
+                key={`vision-poly-${token.id}`}
+                sceneFunc={(ctx) => {
+                  if (visibilityPolygon.length === 0) return;
+                  ctx.beginPath();
+                  ctx.moveTo(visibilityPolygon[0].x, visibilityPolygon[0].y);
+                  for (let i = 1; i < visibilityPolygon.length; i++) {
+                    ctx.lineTo(visibilityPolygon[i].x, visibilityPolygon[i].y);
+                  }
+                  ctx.closePath();
 
-              ctx.beginPath();
-              ctx.moveTo(visibilityPolygon[0].x, visibilityPolygon[0].y);
-              for (let i = 1; i < visibilityPolygon.length; i++) {
-                ctx.lineTo(visibilityPolygon[i].x, visibilityPolygon[i].y);
-              }
-              ctx.closePath();
-              ctx.fillStrokeShape(shape);
-            }}
-            fill="black"
-            globalCompositeOperation="destination-out"
-          />
-        );
-      })}
+                  // Radial Gradient for Soft Fog Edge
+                  // Center: Token Center
+                  // Radius: Vision Radius
+                  const gradient = ctx.createRadialGradient(
+                    tokenCenterX,
+                    tokenCenterY,
+                    0,
+                    tokenCenterX,
+                    tokenCenterY,
+                    visionRadiusPx
+                  );
+
+                  // Opaque (1) = Sharp Map Visible
+                  // Transparent (0) = Sharp Map Invisible (reveals blurred fog)
+                  gradient.addColorStop(0, 'rgba(0, 0, 0, 1)');
+                  gradient.addColorStop(0.6, 'rgba(0, 0, 0, 1)'); // Sharp until 80%
+                  gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');   // Fade to transparent at edge
+
+                  ctx.fillStyle = gradient;
+                  ctx.fill();
+                  // We don't stroke here as it might create a hard line
+                }}
+                // fill="black" // Removed in favor of sceneFunc gradient
+                globalCompositeOperation="destination-in"
+              />
+            );
+        })}
+      </Group>
     </Layer>
   );
 };
+
 
 /**
  * Calculates visibility polygon using 360-degree raycasting

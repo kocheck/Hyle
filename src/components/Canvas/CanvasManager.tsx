@@ -1,8 +1,7 @@
 import Konva from 'konva';
-import { Stage, Layer, Image as KonvaImage, Line, Rect, Transformer } from 'react-konva';
+import { Stage, Layer, Line, Rect, Transformer } from 'react-konva';
 import { KonvaEventObject } from 'konva/lib/Node';
 import { useRef, useEffect, useState, useCallback } from 'react';
-import useImage from 'use-image';
 import { processImage } from '../../utils/AssetProcessor';
 import { snapToGrid } from '../../utils/grid';
 import { useGameStore } from '../../store/gameStore';
@@ -10,6 +9,8 @@ import GridOverlay from './GridOverlay';
 import ImageCropper from '../ImageCropper';
 import TokenErrorBoundary from './TokenErrorBoundary';
 import FogOfWarLayer from './FogOfWarLayer';
+
+import URLImage from './URLImage';
 
 // Zoom constants
 const MIN_SCALE = 0.1;
@@ -32,50 +33,6 @@ const calculatePinchCenter = (touch1: Touch, touch2: Touch): { x: number, y: num
         x: (touch1.clientX + touch2.clientX) / 2,
         y: (touch1.clientY + touch2.clientY) / 2,
     };
-};
-
-interface URLImageProps {
-  name?: string;
-  src: string;
-  x: number;
-  y: number;
-  width?: number;
-  height?: number;
-  scaleX?: number;
-  scaleY?: number;
-  id: string;
-  onSelect?: (e: KonvaEventObject<MouseEvent>) => void;
-  onDragStart?: (e: KonvaEventObject<DragEvent>) => void;
-  onDragEnd?: (e: KonvaEventObject<DragEvent>) => void;
-  draggable: boolean;
-  opacity?: number;
-  listening?: boolean;
-}
-
-const URLImage = ({ src, x, y, width, height, scaleX, scaleY, id, onSelect, onDragEnd, onDragStart, draggable, name, opacity, listening }: URLImageProps) => {
-  const safeSrc = src.startsWith('file:') ? src.replace('file:', 'media:') : src;
-  const [img] = useImage(safeSrc);
-
-  return (
-    <KonvaImage
-      name={name} // Use passed name, usually 'token' or 'map-image'
-      id={id} // Ensure ID is passed down!
-      image={img}
-      x={x}
-      y={y}
-      width={width}
-      height={height}
-      scaleX={scaleX}
-      scaleY={scaleY}
-      draggable={draggable}
-      onClick={onSelect}
-      onTap={onSelect}
-      onDragEnd={onDragEnd}
-      onDragStart={onDragStart}
-      opacity={opacity}
-      listening={listening}
-    />
-  );
 };
 
 
@@ -796,6 +753,60 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
     }
   }, [selectedIds]); // Only update when selection changes; nodes are automatically updated by React Konva
 
+
+  const centerOnPCTokens = () => {
+    const pcTokens = tokens.filter(t => t.type === 'PC');
+    if (pcTokens.length === 0) return;
+
+    // Calculate bounds of all PC tokens
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    pcTokens.forEach(token => {
+        const tokenSize = gridSize * token.scale;
+        minX = Math.min(minX, token.x);
+        minY = Math.min(minY, token.y);
+        maxX = Math.max(maxX, token.x + tokenSize);
+        maxY = Math.max(maxY, token.y + tokenSize);
+    });
+
+    // Add some padding around the tokens
+    const padding = gridSize * 2;
+    minX -= padding;
+    minY -= padding;
+    maxX += padding;
+    maxY += padding;
+
+    const boundsWidth = maxX - minX;
+    const boundsHeight = maxY - minY;
+
+    // Calculate scale to fit
+    const scaleX = size.width / boundsWidth;
+    const scaleY = size.height / boundsHeight;
+    const newScale = Math.min(scaleX, scaleY, MAX_SCALE); // Don't zoom in too much
+
+    // Calculate center of the bounds
+    const centerX = minX + boundsWidth / 2;
+    const centerY = minY + boundsHeight / 2;
+
+    // Calculate position to center the bounds
+    // Position formula: - (Center * Scale - ScreenCenter)
+    const newX = - (centerX * newScale - size.width / 2);
+    const newY = - (centerY * newScale - size.height / 2);
+
+    // We should clamp this new position to ensure we don't go out of "world" bounds excessively?
+    // Actually, if we are focusing on tokens, they are by definition "interesting", so we should allowed to go there.
+    // But we can pass it through clampPosition just to be safe if it respects the bounds logic.
+    // However, clampPosition relies on map bounds. If tokens are outside map, we might have issues?
+    // Let's trust the calculated position for now, or just clamp scale.
+
+    // Animate or Instant? Instant for now.
+    setScale(newScale);
+    setPosition({ x: newX, y: newY });
+  };
+
   return (
     <div
         ref={containerRef}
@@ -873,6 +884,28 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
                     draggable={false}
                     onSelect={() => {}}
                     onDragEnd={() => {}}
+                />
+            )}
+
+            {/* World View: Render blurred map as background (Fog) */}
+            {isWorldView && map && (
+                 <URLImage
+                    key="bg-map-blurred"
+                    name="map-image-blurred"
+                    id="map-blurred"
+                    src={map.src}
+                    x={map.x}
+                    y={map.y}
+                    width={map.width}
+                    height={map.height}
+                    scaleX={map.scale}
+                    scaleY={map.scale}
+                    draggable={false}
+                    listening={false}
+                    filters={[Konva.Filters.Blur, Konva.Filters.Brighten]}
+                    blurRadius={60}
+                    brightness={-0.94}
+                    onSelect={() => {}}
                 />
             )}
             <GridOverlay visibleBounds={visibleBounds} gridSize={gridSize} type={gridType} stroke={gridColor} />
@@ -1001,6 +1034,7 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
             drawings={drawings}
             gridSize={gridSize}
             visibleBounds={visibleBounds}
+            map={map}
           />
         )}
 
@@ -1166,6 +1200,21 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
             )}
         </Layer>
       </Stage>
+
+      {/* World View Controls */}
+      {isWorldView && (
+        <div className="absolute bottom-4 right-4 z-50">
+            <button
+                className="bg-neutral-800 text-white border border-neutral-600 hover:bg-neutral-700 px-4 py-2 rounded shadow flex items-center gap-2"
+                onClick={centerOnPCTokens}
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+                </svg>
+                Center on Party
+            </button>
+        </div>
+      )}
     </div>
   );
 };
