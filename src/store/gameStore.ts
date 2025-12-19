@@ -207,6 +207,7 @@ export interface ExploredRegion {
  * @property gridType - Visual style: 'LINES', 'DOTS', or 'HIDDEN'
  * @property map - Background map configuration (null if no map loaded)
  * @property exploredRegions - Areas PC tokens have previously seen (for dimmed fog)
+ * @property isDaylightMode - Whether daylight mode is enabled (disables fog of war)
  * @property isCalibrating - Whether map calibration mode is active
  * @property toast - Current toast notification (null if none visible)
  *
@@ -240,6 +241,9 @@ export interface ExploredRegion {
  * **Explored Fog Actions:**
  * @property addExploredRegion - Adds newly explored area to history
  * @property clearExploredRegions - Resets exploration (new map/session)
+ *
+ * **Daylight Mode Actions:**
+ * @property setDaylightMode - Toggle daylight mode (disables fog of war for outdoor areas)
  *
  * **Bulk State Actions:**
  * @property setState - Bulk state update (for load/sync operations)
@@ -278,6 +282,8 @@ export interface GameState {
   setGridType: (type: GridType) => void;
   addExploredRegion: (region: ExploredRegion) => void;
   clearExploredRegions: () => void;
+  isDaylightMode: boolean;
+  setDaylightMode: (enabled: boolean) => void;
   toast: ToastMessage | null;
   showToast: (message: string, type: 'error' | 'success' | 'info') => void;
   clearToast: () => void;
@@ -364,6 +370,7 @@ export const useGameStore = create<GameState>((set) => ({
   gridType: 'LINES',
   map: null,
   exploredRegions: [],
+  isDaylightMode: false,
   isCalibrating: false,
   toast: null,
 
@@ -413,6 +420,9 @@ export const useGameStore = create<GameState>((set) => ({
     exploredRegions: [...state.exploredRegions, region]
   })),
   clearExploredRegions: () => set({ exploredRegions: [] }),
+
+  // Daylight mode actions
+  setDaylightMode: (enabled: boolean) => set({ isDaylightMode: enabled }),
 
   // Bulk state actions
   setTokens: (tokens: Token[]) => set({ tokens }),

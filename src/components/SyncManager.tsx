@@ -116,7 +116,7 @@ type SyncAction =
   | { type: 'DRAWING_UPDATE'; payload: { id: string; changes: Partial<any> } }
   | { type: 'DRAWING_REMOVE'; payload: { id: string } }
   | { type: 'MAP_UPDATE'; payload: any }
-  | { type: 'GRID_UPDATE'; payload: { gridSize?: number; gridType?: string } };
+  | { type: 'GRID_UPDATE'; payload: { gridSize?: number; gridType?: string; isDaylightMode?: boolean } };
 
 /**
  * SyncManager handles real-time state synchronization between windows
@@ -205,7 +205,8 @@ const SyncManager = () => {
               drawings: [...action.payload.drawings],
               gridSize: action.payload.gridSize,
               gridType: action.payload.gridType,
-              map: action.payload.map ? { ...action.payload.map } : null
+              map: action.payload.map ? { ...action.payload.map } : null,
+              isDaylightMode: action.payload.isDaylightMode
             };
             break;
 
@@ -272,6 +273,7 @@ const SyncManager = () => {
             useGameStore.setState({
               ...(action.payload.gridSize !== undefined && { gridSize: action.payload.gridSize }),
               ...(action.payload.gridType !== undefined && { gridType: action.payload.gridType as GridType }),
+              ...(action.payload.isDaylightMode !== undefined && { isDaylightMode: action.payload.isDaylightMode }),
             });
             break;
 
@@ -354,7 +356,8 @@ const SyncManager = () => {
           drawings: [...state.drawings],
           gridSize: state.gridSize,
           gridType: state.gridType,
-          map: state.map ? { ...state.map } : null
+          map: state.map ? { ...state.map } : null,
+          isDaylightMode: state.isDaylightMode
         };
       };
 
@@ -391,7 +394,8 @@ const SyncManager = () => {
               gridSize: currentState.gridSize,
               gridType: currentState.gridType,
               map: currentState.map,
-              exploredRegions: currentState.exploredRegions
+              exploredRegions: currentState.exploredRegions,
+              isDaylightMode: currentState.isDaylightMode
             }
           });
           return actions;
@@ -496,6 +500,9 @@ const SyncManager = () => {
         if (prevState.gridType !== currentState.gridType) {
           gridChanges.gridType = currentState.gridType;
         }
+        if (prevState.isDaylightMode !== currentState.isDaylightMode) {
+          gridChanges.isDaylightMode = currentState.isDaylightMode;
+        }
         if (Object.keys(gridChanges).length > 0) {
           actions.push({ type: 'GRID_UPDATE', payload: gridChanges });
         }
@@ -535,7 +542,8 @@ const SyncManager = () => {
           drawings: [...state.drawings],
           gridSize: state.gridSize,
           gridType: state.gridType,
-          map: mapClone
+          map: mapClone,
+          isDaylightMode: state.isDaylightMode
         };
       };
 
@@ -557,7 +565,8 @@ const SyncManager = () => {
             gridSize: currentState.gridSize,
             gridType: currentState.gridType,
             map: currentState.map,
-            exploredRegions: currentState.exploredRegions
+            exploredRegions: currentState.exploredRegions,
+            isDaylightMode: currentState.isDaylightMode
           }
         };
         // Send initial state to World View
@@ -580,7 +589,8 @@ const SyncManager = () => {
           drawings: [...currentState.drawings],
           gridSize: currentState.gridSize,
           gridType: currentState.gridType,
-          map: mapClone
+          map: mapClone,
+          isDaylightMode: currentState.isDaylightMode
         };
       };
 
