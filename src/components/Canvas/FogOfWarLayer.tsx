@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect, useRef } from 'react';
 import { Shape, Group } from 'react-konva';
-import { Token, Drawing, MapConfig } from '../../store/gameStore';
+import { Token, Drawing, MapConfig, useGameStore } from '../../store/gameStore';
 import URLImage from './URLImage';
 
 interface FogOfWarLayerProps {
@@ -54,6 +54,14 @@ import { BLUR_FILTERS } from './CanvasManager';
  * - CPU usage: ~80% → ~15% (static scenes)
  */
 const FogOfWarLayer = ({ tokens, drawings, gridSize, map }: FogOfWarLayerProps) => {
+  // Get explored regions and actions from store
+  const exploredRegions = useGameStore((state) => state.exploredRegions);
+  const addExploredRegion = useGameStore((state) => state.addExploredRegion);
+
+  // Track last update time for throttling exploration tracking
+  const lastExploreUpdateRef = useRef<number>(0);
+  const EXPLORE_UPDATE_INTERVAL = 1000; // Update explored regions every 1 second
+
   // Extract PC tokens with vision (memoized to prevent unnecessary recalculations)
   const pcTokens = useMemo(
     () => tokens.filter((t) => t.type === 'PC' && (t.visionRadius ?? 0) > 0),
@@ -110,23 +118,61 @@ const FogOfWarLayer = ({ tokens, drawings, gridSize, map }: FogOfWarLayerProps) 
     gridSize
   ]);
 
+  // Save current vision to explored regions periodically
+  // Triggers when token positions change (not just when pcTokens array reference changes)
+  useEffect(() => {
+    const now = Date.now();
+    if (now - lastExploreUpdateRef.current < EXPLORE_UPDATE_INTERVAL) {
+      return; // Throttle updates
+    }
+
+    // Skip if no PC tokens with vision
+    if (pcTokens.length === 0) {
+      return;
+    }
+
+    // Add current visibility to explored regions
+    let regionsAdded = 0;
+    pcTokens.forEach((token) => {
+      const polygon = visibilityCache.get(token.id);
+      if (polygon && polygon.length > 0) {
+        addExploredRegion({
+          points: polygon,
+          timestamp: now
+        });
+        regionsAdded++;
+      }
+    });
+
+    // Debug: Log when regions are added
+    if (regionsAdded > 0) {
+      console.log(`[FogOfWar] Added ${regionsAdded} explored region(s). Total: ${exploredRegions.length + regionsAdded}`);
+    }
+
+    lastExploreUpdateRef.current = now;
+  }, [tokens, pcTokens, visibilityCache, addExploredRegion]);
+
   if (!map) return null;
 
   return (
     <Group listening={false}>
       {/*
-        Destination-Out Strategy:
-        1. Render the Blurred Map (The "Fog") as the base of this group.
-        2. Render Vision Polygons with destination-out.
-        3. This "erases" the Fog where vision exists, revealing the Sharp Map underneath.
-        4. Since it uses "erase" (Cutout), multiple vision polygons effectively UNION (A U B).
+        Three-State Fog Strategy (Explored Fog of War):
+        1. Render fully dark/blurred fog (UNEXPLORED)
+        2. Cut out explored areas with semi-transparent erase (EXPLORED - dimmed)
+        3. Cut out current vision with fully opaque erase (CURRENT VISION - clear)
+
+        This creates three distinct states:
+        - Unexplored: Full fog (dark + blurred)
+        - Explored: Dimmed map (slightly visible through partial erase)
+        - Current Vision: Clear map (fully visible)
       */}
       <Group>
-        {/* The Blurred Map (Fog) */}
+        {/* Layer 1: Full Fog (Unexplored Areas) */}
         <URLImage
-            key="bg-map-blurred"
-            name="map-image-blurred"
-            id="map-blurred"
+            key="bg-map-unexplored"
+            name="map-image-unexplored"
+            id="map-unexplored"
             src={map.src}
             x={map.x}
             y={map.y}
@@ -137,11 +183,33 @@ const FogOfWarLayer = ({ tokens, drawings, gridSize, map }: FogOfWarLayerProps) 
             draggable={false}
             listening={false}
             filters={BLUR_FILTERS}
-            blurRadius={60}
+            blurRadius={20}
             brightness={-0.94}
         />
 
-        {/* The Vision "Holes" (Composite: Destination Out) */}
+        {/* Layer 2: Explored Areas (Partial Erase for Dimmed Effect) */}
+        {exploredRegions.map((region, index) => (
+          <Shape
+            key={`explored-${index}`}
+            sceneFunc={(ctx) => {
+              if (region.points.length === 0) return;
+              ctx.beginPath();
+              ctx.moveTo(region.points[0].x, region.points[0].y);
+              for (let i = 1; i < region.points.length; i++) {
+                ctx.lineTo(region.points[i].x, region.points[i].y);
+              }
+              ctx.closePath();
+              // Semi-transparent black = partially erases fog = dimmed map shows through
+              // Higher alpha = more fog erased = lighter/more visible
+              // 0.8 = erases 80% of fog, leaves 20% = nicely dimmed effect
+              ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+              ctx.fill();
+            }}
+            globalCompositeOperation="destination-out"
+          />
+        ))}
+
+        {/* Layer 3: Current Vision (Full Erase for Clear Map) */}
         {pcTokens.map((token) => {
             const tokenCenterX = token.x + (gridSize * token.scale) / 2;
             const tokenCenterY = token.y + (gridSize * token.scale) / 2;

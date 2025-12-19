@@ -60,7 +60,8 @@ const Sidebar = () => {
     const {
         setMap, gridType, setGridType,
         map, updateMapPosition, updateMapScale,
-        isCalibrating, setIsCalibrating, showToast
+        isCalibrating, setIsCalibrating, showToast,
+        isDaylightMode, setDaylightMode
     } = useGameStore();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const processingHandleRef = useRef<ProcessingHandle | null>(null);
@@ -203,6 +204,22 @@ const Sidebar = () => {
                             <option value="DOTS">Dots</option>
                             <option value="HIDDEN">Hidden</option>
                         </select>
+                    </div>
+
+                    {/* Daylight Mode Toggle */}
+                    <div>
+                        <label className="flex items-center justify-between cursor-pointer">
+                            <span className="text-xs uppercase font-semibold" style={{ color: 'var(--app-text-secondary)' }}>Daylight Mode</span>
+                            <input
+                                type="checkbox"
+                                checked={isDaylightMode}
+                                onChange={(e) => setDaylightMode(e.target.checked)}
+                                className="w-4 h-4 rounded cursor-pointer"
+                            />
+                        </label>
+                        <p className="text-xs mt-1" style={{ color: 'var(--app-text-muted)' }}>
+                            {isDaylightMode ? '☀️ Fog of War disabled' : '🌙 Fog of War enabled'}
+                        </p>
                     </div>
 
                     {/* Map Calibration */}

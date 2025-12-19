@@ -116,7 +116,7 @@ type SyncAction =
   | { type: 'DRAWING_UPDATE'; payload: { id: string; changes: Partial<any> } }
   | { type: 'DRAWING_REMOVE'; payload: { id: string } }
   | { type: 'MAP_UPDATE'; payload: any }
-  | { type: 'GRID_UPDATE'; payload: { gridSize?: number; gridType?: string } };
+  | { type: 'GRID_UPDATE'; payload: { gridSize?: number; gridType?: string; isDaylightMode?: boolean } };
 
 /**
  * SyncManager handles real-time state synchronization between windows
@@ -170,6 +170,9 @@ const SyncManager = () => {
   // Track previous state for diffing
   const prevStateRef = useRef<any>(null);
 
+  // Track previous state for World View changes (bidirectional sync)
+  const worldViewPrevStateRef = useRef<any>(null);
+
   useEffect(() => {
     // Skip if ipcRenderer is not available (e.g., in browser testing)
     if (!window.ipcRenderer) {
@@ -183,7 +186,8 @@ const SyncManager = () => {
 
     if (isWorldView) {
       // ============================================================
-      // CONSUMER MODE: World View receives and applies delta updates
+      // BIDIRECTIONAL MODE: World View receives updates AND can send updates
+      // (Enables DM to demonstrate token movement on projector)
       // ============================================================
 
       const handleSyncAction = (_event: any, action: SyncAction) => {
@@ -193,6 +197,17 @@ const SyncManager = () => {
           case 'FULL_SYNC':
             // Replace entire state (used on initial load or campaign load)
             useGameStore.setState(action.payload);
+
+            // Initialize World View's previous state for bidirectional sync
+            // This allows World View to detect changes made locally (e.g., token drags)
+            worldViewPrevStateRef.current = {
+              tokens: [...action.payload.tokens],
+              drawings: [...action.payload.drawings],
+              gridSize: action.payload.gridSize,
+              gridType: action.payload.gridType,
+              map: action.payload.map ? { ...action.payload.map } : null,
+              isDaylightMode: action.payload.isDaylightMode
+            };
             break;
 
           case 'TOKEN_ADD':
@@ -206,11 +221,16 @@ const SyncManager = () => {
             const currentToken = store.tokens.find(t => t.id === id);
             if (currentToken) {
               // Only update if token exists
-              useGameStore.setState({
-                tokens: store.tokens.map(t =>
-                  t.id === id ? { ...t, ...changes } : t
-                )
-              });
+              const newTokens = store.tokens.map(t =>
+                t.id === id ? { ...t, ...changes } : t
+              );
+              useGameStore.setState({ tokens: newTokens });
+
+              // Update World View's prevState to prevent echoing this change back
+              // This avoids infinite loops where World View sends back updates it just received
+              if (worldViewPrevStateRef.current) {
+                worldViewPrevStateRef.current.tokens = [...newTokens];
+              }
             }
             break;
 
@@ -253,6 +273,7 @@ const SyncManager = () => {
             useGameStore.setState({
               ...(action.payload.gridSize !== undefined && { gridSize: action.payload.gridSize }),
               ...(action.payload.gridType !== undefined && { gridType: action.payload.gridType as GridType }),
+              ...(action.payload.isDaylightMode !== undefined && { isDaylightMode: action.payload.isDaylightMode }),
             });
             break;
 
@@ -264,8 +285,91 @@ const SyncManager = () => {
       // Listen for IPC messages from main process
       window.ipcRenderer.on('SYNC_WORLD_STATE', handleSyncAction);
 
+      // Request initial state from Architect View when World View mounts
+      // This ensures World View has the current game state even if no changes
+      // have occurred since it opened
+      window.ipcRenderer.send('REQUEST_INITIAL_STATE');
+
+      // ============================================================
+      // BIDIRECTIONAL SYNC: World View can also send token updates
+      // (Allows DM to demonstrate movement on projector)
+      // ============================================================
+
+      /**
+       * Detect changes made in World View and send to Architect View
+       * Only syncs token positions to avoid conflicts with other properties
+       */
+      const detectWorldViewChanges = (prevState: any, currentState: any): SyncAction[] => {
+        const actions: SyncAction[] = [];
+
+        // Skip if no previous state (initial load)
+        if (!prevState) {
+          return actions;
+        }
+
+        // Check for token position changes (most common in World View)
+        const prevTokenMap = new Map(prevState.tokens.map((t: any) => [t.id, t]));
+        const currentTokenMap = new Map(currentState.tokens.map((t: any) => [t.id, t]));
+
+        // Updated tokens - only send position changes
+        currentState.tokens.forEach((token: any) => {
+          const prevToken = prevTokenMap.get(token.id);
+          if (prevToken) {
+            const changes: any = {};
+
+            // Only sync position changes from World View
+            // Avoid syncing other properties to prevent conflicts with Architect View
+            if (!isEqual(token.x, prevToken.x)) {
+              changes.x = token.x;
+            }
+            if (!isEqual(token.y, prevToken.y)) {
+              changes.y = token.y;
+            }
+
+            if (Object.keys(changes).length > 0) {
+              actions.push({
+                type: 'TOKEN_UPDATE',
+                payload: { id: token.id, changes }
+              });
+            }
+          }
+        });
+
+        return actions;
+      };
+
+      /**
+       * Handle World View store updates and send to Architect View
+       */
+      const handleWorldViewUpdate = (state: any) => {
+        // Detect what changed
+        const actions = detectWorldViewChanges(worldViewPrevStateRef.current, state);
+
+        // Send each action via IPC to Architect View
+        actions.forEach(action => {
+          window.ipcRenderer.send('SYNC_FROM_WORLD_VIEW', action);
+        });
+
+        // Update previous state reference
+        worldViewPrevStateRef.current = {
+          tokens: [...state.tokens],
+          drawings: [...state.drawings],
+          gridSize: state.gridSize,
+          gridType: state.gridType,
+          map: state.map ? { ...state.map } : null,
+          isDaylightMode: state.isDaylightMode
+        };
+      };
+
+      // Throttle World View updates to prevent IPC flooding
+      const throttledWorldViewSync = throttle(handleWorldViewUpdate, 32);
+
+      // Subscribe to World View's store changes
+      const unsubWorldView = useGameStore.subscribe(throttledWorldViewSync);
+
       // Cleanup function
       return () => {
+        unsubWorldView();
         // Note: Current preload implementation may not support proper cleanup
         // Listeners are cleaned up when window closes
       };
@@ -289,7 +393,9 @@ const SyncManager = () => {
               drawings: currentState.drawings,
               gridSize: currentState.gridSize,
               gridType: currentState.gridType,
-              map: currentState.map
+              map: currentState.map,
+              exploredRegions: currentState.exploredRegions,
+              isDaylightMode: currentState.isDaylightMode
             }
           });
           return actions;
@@ -394,6 +500,9 @@ const SyncManager = () => {
         if (prevState.gridType !== currentState.gridType) {
           gridChanges.gridType = currentState.gridType;
         }
+        if (prevState.isDaylightMode !== currentState.isDaylightMode) {
+          gridChanges.isDaylightMode = currentState.isDaylightMode;
+        }
         if (Object.keys(gridChanges).length > 0) {
           actions.push({ type: 'GRID_UPDATE', payload: gridChanges });
         }
@@ -433,7 +542,8 @@ const SyncManager = () => {
           drawings: [...state.drawings],
           gridSize: state.gridSize,
           gridType: state.gridType,
-          map: mapClone
+          map: mapClone,
+          isDaylightMode: state.isDaylightMode
         };
       };
 
@@ -443,8 +553,54 @@ const SyncManager = () => {
 
       const unsub = useGameStore.subscribe(throttledSync);
 
+      // Listen for initial state requests from World View
+      // When World View opens, it sends REQUEST_INITIAL_STATE to get current game state
+      const handleInitialStateRequest = () => {
+        const currentState = useGameStore.getState();
+        const initialSyncAction: SyncAction = {
+          type: 'FULL_SYNC',
+          payload: {
+            tokens: currentState.tokens,
+            drawings: currentState.drawings,
+            gridSize: currentState.gridSize,
+            gridType: currentState.gridType,
+            map: currentState.map,
+            exploredRegions: currentState.exploredRegions,
+            isDaylightMode: currentState.isDaylightMode
+          }
+        };
+        // Send initial state to World View
+        window.ipcRenderer.send('SYNC_WORLD_STATE', initialSyncAction);
+
+        // Initialize prevStateRef so subsequent changes are detected correctly
+        let mapClone = null;
+        if (currentState.map) {
+          try {
+            mapClone = typeof structuredClone !== 'undefined'
+              ? structuredClone(currentState.map)
+              : JSON.parse(JSON.stringify(currentState.map));
+          } catch (err) {
+            mapClone = { ...currentState.map };
+          }
+        }
+
+        prevStateRef.current = {
+          tokens: [...currentState.tokens],
+          drawings: [...currentState.drawings],
+          gridSize: currentState.gridSize,
+          gridType: currentState.gridType,
+          map: mapClone,
+          isDaylightMode: currentState.isDaylightMode
+        };
+      };
+
+      window.ipcRenderer.on('REQUEST_INITIAL_STATE', handleInitialStateRequest);
+
       // Cleanup function (unsubscribe on unmount)
-      return () => unsub();
+      return () => {
+        unsub();
+        // Note: IPC listener cleanup depends on preload implementation
+      };
     }
   }, []); // Empty deps = run once on mount
 
