@@ -119,10 +119,16 @@ const FogOfWarLayer = ({ tokens, drawings, gridSize, map }: FogOfWarLayerProps) 
   ]);
 
   // Save current vision to explored regions periodically
+  // Triggers when token positions change (not just when pcTokens array reference changes)
   useEffect(() => {
     const now = Date.now();
     if (now - lastExploreUpdateRef.current < EXPLORE_UPDATE_INTERVAL) {
       return; // Throttle updates
+    }
+
+    // Skip if no PC tokens with vision
+    if (pcTokens.length === 0) {
+      return;
     }
 
     // Add current visibility to explored regions
@@ -137,7 +143,7 @@ const FogOfWarLayer = ({ tokens, drawings, gridSize, map }: FogOfWarLayerProps) 
     });
 
     lastExploreUpdateRef.current = now;
-  }, [pcTokens, visibilityCache, addExploredRegion]);
+  }, [tokens, pcTokens, visibilityCache, addExploredRegion]);
 
   if (!map) return null;
 

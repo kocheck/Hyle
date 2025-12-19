@@ -197,6 +197,16 @@ const SyncManager = () => {
           case 'FULL_SYNC':
             // Replace entire state (used on initial load or campaign load)
             useGameStore.setState(action.payload);
+
+            // Initialize World View's previous state for bidirectional sync
+            // This allows World View to detect changes made locally (e.g., token drags)
+            worldViewPrevStateRef.current = {
+              tokens: [...action.payload.tokens],
+              drawings: [...action.payload.drawings],
+              gridSize: action.payload.gridSize,
+              gridType: action.payload.gridType,
+              map: action.payload.map ? { ...action.payload.map } : null
+            };
             break;
 
           case 'TOKEN_ADD':
@@ -210,11 +220,16 @@ const SyncManager = () => {
             const currentToken = store.tokens.find(t => t.id === id);
             if (currentToken) {
               // Only update if token exists
-              useGameStore.setState({
-                tokens: store.tokens.map(t =>
-                  t.id === id ? { ...t, ...changes } : t
-                )
-              });
+              const newTokens = store.tokens.map(t =>
+                t.id === id ? { ...t, ...changes } : t
+              );
+              useGameStore.setState({ tokens: newTokens });
+
+              // Update World View's prevState to prevent echoing this change back
+              // This avoids infinite loops where World View sends back updates it just received
+              if (worldViewPrevStateRef.current) {
+                worldViewPrevStateRef.current.tokens = [...newTokens];
+              }
             }
             break;
 
