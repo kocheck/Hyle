@@ -219,10 +219,18 @@ const ResourceMonitor = () => {
       };
 
       // Intercept on (incoming messages)
-      // LIMITATION: Wrapped listeners cannot be properly removed via `off()` because the
-      // reference stored by IPC is the wrapped version, not the original. This can lead
-      // to memory leaks if code attempts to remove listeners dynamically. For production
-      // use, consider maintaining a WeakMap of original-to-wrapped listener mappings.
+      // ⚠️ CRITICAL LIMITATION: This IPC method interception creates wrapped listeners that
+      // cannot be properly removed via `off()`, leading to MEMORY LEAKS. When a listener is
+      // registered while ResourceMonitor is active, it gets wrapped, and the IPC system stores
+      // the wrapped version. Subsequent attempts to remove the listener will fail because the
+      // reference doesn't match. Additionally, after unmount, listeners registered during
+      // monitoring will break or continue tracking metrics.
+      //
+      // This makes the current implementation UNSUITABLE FOR PRODUCTION USE in its current form.
+      // 
+      // To fix this, implement a WeakMap to maintain original-to-wrapped listener mappings:
+      // const listenerMap = new WeakMap<Function, Function>();
+      // Then store the mapping and use it for proper cleanup in the `off()` interceptor.
       window.ipcRenderer.on = function(channel: string, listener: any) {
         const wrappedListener = (...args: any[]) => {
           if (isTracking) {

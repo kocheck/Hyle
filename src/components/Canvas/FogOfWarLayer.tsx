@@ -61,12 +61,6 @@ const FogOfWarLayer = ({ tokens, drawings, gridSize, map }: FogOfWarLayerProps) 
   );
 
   // Extract walls from drawings (memoized to prevent unnecessary recalculations)
-  // Use a stable string representation of wall drawings to avoid recalculation when unrelated drawings change
-  const wallDrawingsKey = useMemo(() => {
-    const wallDrawings = drawings.filter((d) => d.tool === 'wall');
-    return wallDrawings.map(d => `${d.id}:${d.points.join(',')}`).join('|');
-  }, [drawings]);
-
   const walls: WallSegment[] = useMemo(() => {
     const wallSegments: WallSegment[] = [];
     drawings
@@ -82,7 +76,7 @@ const FogOfWarLayer = ({ tokens, drawings, gridSize, map }: FogOfWarLayerProps) 
         }
       });
     return wallSegments;
-  }, [wallDrawingsKey]);
+  }, [drawings]);
 
   /**
    * Cache visibility polygons per token

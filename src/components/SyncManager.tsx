@@ -26,10 +26,50 @@ function throttle<T extends (...args: any[]) => void>(func: T, limit: number): T
 /**
  * Deep equality check for simple objects with primitive values and arrays
  * More reliable than JSON.stringify which can fail due to property ordering
+ * 
+ * Note: This function handles Date, RegExp, Map, and Set objects, but has
+ * limitations with other built-in object types. For complex object graphs
+ * or circular references, consider using a specialized equality library.
  */
 function isEqual(obj1: any, obj2: any): boolean {
   if (obj1 === obj2) return true;
   if (obj1 == null || obj2 == null) return false;
+  
+  // Handle Date objects
+  if (obj1 instanceof Date && obj2 instanceof Date) {
+    return obj1.getTime() === obj2.getTime();
+  }
+  
+  // Handle RegExp objects
+  if (obj1 instanceof RegExp && obj2 instanceof RegExp) {
+    return obj1.toString() === obj2.toString();
+  }
+  
+  // Handle Map objects
+  if (obj1 instanceof Map && obj2 instanceof Map) {
+    if (obj1.size !== obj2.size) return false;
+    for (const [key, value] of obj1) {
+      if (!obj2.has(key) || !isEqual(value, obj2.get(key))) {
+        return false;
+      }
+    }
+    return true;
+  }
+  
+  // Handle Set objects
+  if (obj1 instanceof Set && obj2 instanceof Set) {
+    if (obj1.size !== obj2.size) return false;
+    for (const value of obj1) {
+      if (!obj2.has(value)) return false;
+    }
+    return true;
+  }
+  
+  // If one is a special object type and the other isn't, they're not equal
+  if ((obj1 instanceof Date || obj1 instanceof RegExp || obj1 instanceof Map || obj1 instanceof Set) ||
+      (obj2 instanceof Date || obj2 instanceof RegExp || obj2 instanceof Map || obj2 instanceof Set)) {
+    return false;
+  }
   
   // Handle arrays
   if (Array.isArray(obj1) && Array.isArray(obj2)) {
@@ -369,13 +409,14 @@ const SyncManager = () => {
           window.ipcRenderer.send('SYNC_WORLD_STATE', action);
         });
 
-        // Update previous state reference
+        // Update previous state reference with deep copies
+        // Deep clone map to ensure nested property changes are detected
         prevStateRef.current = {
           tokens: [...state.tokens],
           drawings: [...state.drawings],
           gridSize: state.gridSize,
           gridType: state.gridType,
-          map: state.map ? { ...state.map } : null
+          map: state.map ? JSON.parse(JSON.stringify(state.map)) : null
         };
       };
 

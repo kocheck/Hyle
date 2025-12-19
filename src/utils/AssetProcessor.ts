@@ -176,6 +176,9 @@ function processImageWithWorker(
 
         case 'COMPLETE':
           try {
+            // Check cancellation flag before processing completion
+            if (isCancelled) return;
+
             // Send buffer to main process for file storage
             if (!window.ipcRenderer) {
               throw new Error('IPC not available for asset processing');
@@ -190,6 +193,9 @@ function processImageWithWorker(
               webpFileName
             );
 
+            // Check cancellation again after async IPC operation
+            if (isCancelled) return;
+
             // Complete progress
             if (onProgress) {
               onProgress(100);
@@ -203,6 +209,9 @@ function processImageWithWorker(
             rejectPromise = null; // Clear to prevent double-rejection
             resolve(filePath as string);
           } catch (error) {
+            // Check cancellation before rejecting with error
+            if (isCancelled) return;
+
             // Cleanup and reject
             if (worker) {
               worker.terminate();
@@ -388,8 +397,12 @@ export const processBatch = (
   
   const fileProgress = new Map<number, number>();
   const handles: ProcessingHandle[] = [];
+  let isCancelled = false;
 
   const updateOverallProgress = () => {
+    // Don't update progress if batch processing has been cancelled
+    if (isCancelled) return;
+    
     const total = Array.from(fileProgress.values()).reduce((sum, p) => sum + p, 0);
     const overall = Math.round(total / totalFiles);
     if (onProgress) {
@@ -400,6 +413,9 @@ export const processBatch = (
   // Process all files in parallel
   const promises = files.map((file, index) => {
     const handle = processImage(file, type, (progress) => {
+      // Don't update progress if batch processing has been cancelled
+      if (isCancelled) return;
+      
       fileProgress.set(index, progress);
       updateOverallProgress();
     });
@@ -410,6 +426,8 @@ export const processBatch = (
   return {
     promise: Promise.all(promises),
     cancel: () => {
+      // Set cancellation flag to prevent further progress updates
+      isCancelled = true;
       // Cancel all workers
       handles.forEach(handle => handle.cancel());
       // Clear progress tracking and handle references to avoid stale state
