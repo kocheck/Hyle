@@ -1,7 +1,7 @@
 import Konva from 'konva';
 import { Stage, Layer, Line, Rect, Transformer } from 'react-konva';
 import { KonvaEventObject } from 'konva/lib/Node';
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { processImage, ProcessingHandle } from '../../utils/AssetProcessor';
 import { snapToGrid } from '../../utils/grid';
 import { useGameStore } from '../../store/gameStore';
@@ -11,6 +11,7 @@ import TokenErrorBoundary from './TokenErrorBoundary';
 import AssetProcessingErrorBoundary from '../AssetProcessingErrorBoundary';
 import FogOfWarLayer from './FogOfWarLayer';
 import Minimap from './Minimap';
+import MinimapErrorBoundary from './MinimapErrorBoundary';
 
 import URLImage from './URLImage';
 
@@ -738,15 +739,16 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
   };
 
   // Calculate visible bounds in CANVAS coordinates (unscaled)
+  // Memoized to prevent recalculation on every render
   // The Stage is transformed by scale and position (-x, -y).
   // Visible region top-left: -position.x / scale, -position.y / scale
   // Visible region dimensions: size.width / scale, size.height / scale
-  const visibleBounds = {
+  const visibleBounds = useMemo(() => ({
       x: -position.x / scale,
       y: -position.y / scale,
       width: size.width / scale,
       height: size.height / scale
-  };
+  }), [position.x, position.y, scale, size.width, size.height]);
 
   const handleWheel = (e: KonvaEventObject<WheelEvent>) => {
       e.evt.preventDefault();
@@ -1257,14 +1259,16 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
           </div>
 
           {/* Minimap for Navigation */}
-          <Minimap
-            position={position}
-            scale={scale}
-            viewportSize={size}
-            map={map}
-            tokens={tokens}
-            onNavigate={navigateToWorldPosition}
-          />
+          <MinimapErrorBoundary>
+            <Minimap
+              position={position}
+              scale={scale}
+              viewportSize={size}
+              map={map}
+              tokens={tokens}
+              onNavigate={navigateToWorldPosition}
+            />
+          </MinimapErrorBoundary>
         </>
       )}
     </div>

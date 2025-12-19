@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo, useCallback, memo } from 'react';
 
 interface MinimapProps {
   /** Current viewport position (stage x, y) */
@@ -28,8 +28,17 @@ interface MinimapProps {
   onNavigate: (worldX: number, worldY: number) => void;
 }
 
+interface WorldBounds {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
 const MINIMAP_SIZE = 200; // px
 const MINIMAP_PADDING = 16; // px from edges
+const DEFAULT_BOUNDS_SIZE = 2000; // Default world bounds when no map/tokens
+const TOKEN_PADDING = 500; // Padding around tokens when calculating bounds
 
 /**
  * Minimap component for World View navigation
@@ -39,10 +48,74 @@ const MINIMAP_PADDING = 16; // px from edges
  * - Current viewport rectangle
  * - PC token positions (green dots)
  * - Click to navigate
+ *
+ * **Performance Optimizations:**
+ * - Uses React.memo to prevent re-renders when props haven't changed
+ * - Memoizes world bounds calculation (expensive operation)
+ * - Memoizes click handler to prevent function recreation
+ * - Only re-draws canvas when relevant props change
  */
-const Minimap = ({ position, scale, viewportSize, map, tokens, onNavigate }: MinimapProps) => {
+const Minimap = memo(({ position, scale, viewportSize, map, tokens, onNavigate }: MinimapProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  // Memoize PC tokens list to avoid filtering on every render
+  const pcTokens = useMemo(() =>
+    tokens.filter(t => t.type === 'PC'),
+    [tokens]
+  );
+
+  // Memoize world bounds calculation (used by both rendering and click handling)
+  const worldBounds = useMemo<WorldBounds>(() => {
+    // If map exists, use map bounds
+    if (map) {
+      return {
+        minX: map.x,
+        minY: map.y,
+        maxX: map.x + map.width * map.scale,
+        maxY: map.y + map.height * map.scale,
+      };
+    }
+
+    // No map: calculate bounds from PC tokens
+    if (pcTokens.length > 0) {
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+      pcTokens.forEach(t => {
+        minX = Math.min(minX, t.x);
+        minY = Math.min(minY, t.y);
+        maxX = Math.max(maxX, t.x + 100 * t.scale);
+        maxY = Math.max(maxY, t.y + 100 * t.scale);
+      });
+
+      return {
+        minX: minX - TOKEN_PADDING,
+        minY: minY - TOKEN_PADDING,
+        maxX: maxX + TOKEN_PADDING,
+        maxY: maxY + TOKEN_PADDING,
+      };
+    }
+
+    // No map or tokens: use default bounds
+    return {
+      minX: 0,
+      minY: 0,
+      maxX: DEFAULT_BOUNDS_SIZE,
+      maxY: DEFAULT_BOUNDS_SIZE,
+    };
+  }, [map, pcTokens]);
+
+  // Memoize minimap scale calculation
+  const minimapScale = useMemo(() => {
+    const worldWidth = worldBounds.maxX - worldBounds.minX;
+    const worldHeight = worldBounds.maxY - worldBounds.minY;
+
+    return Math.min(
+      MINIMAP_SIZE / worldWidth,
+      MINIMAP_SIZE / worldHeight
+    );
+  }, [worldBounds]);
+
+  // Canvas rendering effect - only runs when dependencies change
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -52,54 +125,6 @@ const Minimap = ({ position, scale, viewportSize, map, tokens, onNavigate }: Min
 
     // Clear canvas
     ctx.clearRect(0, 0, MINIMAP_SIZE, MINIMAP_SIZE);
-
-    // Calculate world bounds (what area to show on minimap)
-    let worldBounds = {
-      minX: 0,
-      minY: 0,
-      maxX: 2000,
-      maxY: 2000,
-    };
-
-    if (map) {
-      // If map exists, use map bounds as the minimap bounds
-      worldBounds = {
-        minX: map.x,
-        minY: map.y,
-        maxX: map.x + map.width * map.scale,
-        maxY: map.y + map.height * map.scale,
-      };
-    } else {
-      // No map: calculate bounds from tokens
-      const pcTokens = tokens.filter(t => t.type === 'PC');
-      if (pcTokens.length > 0) {
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        pcTokens.forEach(t => {
-          minX = Math.min(minX, t.x);
-          minY = Math.min(minY, t.y);
-          maxX = Math.max(maxX, t.x + 100 * t.scale);
-          maxY = Math.max(maxY, t.y + 100 * t.scale);
-        });
-
-        // Add padding
-        const padding = 500;
-        worldBounds = {
-          minX: minX - padding,
-          minY: minY - padding,
-          maxX: maxX + padding,
-          maxY: maxY + padding,
-        };
-      }
-    }
-
-    const worldWidth = worldBounds.maxX - worldBounds.minX;
-    const worldHeight = worldBounds.maxY - worldBounds.minY;
-
-    // Calculate minimap scale to fit world bounds in minimap canvas
-    const minimapScale = Math.min(
-      MINIMAP_SIZE / worldWidth,
-      MINIMAP_SIZE / worldHeight
-    );
 
     // Helper to convert world coordinates to minimap coordinates
     const worldToMinimap = (worldX: number, worldY: number) => ({
@@ -131,7 +156,6 @@ const Minimap = ({ position, scale, viewportSize, map, tokens, onNavigate }: Min
     }
 
     // Draw PC tokens (green dots)
-    const pcTokens = tokens.filter(t => t.type === 'PC');
     pcTokens.forEach(token => {
       const pos = worldToMinimap(token.x, token.y);
       ctx.fillStyle = '#22c55e'; // green-500
@@ -141,7 +165,6 @@ const Minimap = ({ position, scale, viewportSize, map, tokens, onNavigate }: Min
     });
 
     // Draw current viewport rectangle
-    // Viewport top-left in world coords: (-position.x / scale, -position.y / scale)
     const viewportWorldX = -position.x / scale;
     const viewportWorldY = -position.y / scale;
     const viewportWorldWidth = viewportSize.width / scale;
@@ -170,9 +193,10 @@ const Minimap = ({ position, scale, viewportSize, map, tokens, onNavigate }: Min
       viewportBottomRight.y - viewportTopLeft.y
     );
 
-  }, [position, scale, viewportSize, map, tokens]);
+  }, [position, scale, viewportSize, map, pcTokens, worldBounds, minimapScale]);
 
-  const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  // Memoized click handler to prevent function recreation on every render
+  const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -180,55 +204,12 @@ const Minimap = ({ position, scale, viewportSize, map, tokens, onNavigate }: Min
     const clickX = e.clientX - rect.left;
     const clickY = e.clientY - rect.top;
 
-    // Calculate world bounds (same as in useEffect)
-    let worldBounds = {
-      minX: 0,
-      minY: 0,
-      maxX: 2000,
-      maxY: 2000,
-    };
-
-    if (map) {
-      worldBounds = {
-        minX: map.x,
-        minY: map.y,
-        maxX: map.x + map.width * map.scale,
-        maxY: map.y + map.height * map.scale,
-      };
-    } else {
-      const pcTokens = tokens.filter(t => t.type === 'PC');
-      if (pcTokens.length > 0) {
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        pcTokens.forEach(t => {
-          minX = Math.min(minX, t.x);
-          minY = Math.min(minY, t.y);
-          maxX = Math.max(maxX, t.x + 100 * t.scale);
-          maxY = Math.max(maxY, t.y + 100 * t.scale);
-        });
-
-        const padding = 500;
-        worldBounds = {
-          minX: minX - padding,
-          minY: minY - padding,
-          maxX: maxX + padding,
-          maxY: maxY + padding,
-        };
-      }
-    }
-
-    const worldWidth = worldBounds.maxX - worldBounds.minX;
-    const worldHeight = worldBounds.maxY - worldBounds.minY;
-    const minimapScale = Math.min(
-      MINIMAP_SIZE / worldWidth,
-      MINIMAP_SIZE / worldHeight
-    );
-
-    // Convert minimap click to world coordinates
+    // Convert minimap click to world coordinates using memoized values
     const worldX = clickX / minimapScale + worldBounds.minX;
     const worldY = clickY / minimapScale + worldBounds.minY;
 
     onNavigate(worldX, worldY);
-  };
+  }, [worldBounds, minimapScale, onNavigate]);
 
   return (
     <div
@@ -250,6 +231,9 @@ const Minimap = ({ position, scale, viewportSize, map, tokens, onNavigate }: Min
       </div>
     </div>
   );
-};
+});
+
+// Display name for React DevTools
+Minimap.displayName = 'Minimap';
 
 export default Minimap;
