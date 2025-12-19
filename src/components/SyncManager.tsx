@@ -264,6 +264,11 @@ const SyncManager = () => {
       // Listen for IPC messages from main process
       window.ipcRenderer.on('SYNC_WORLD_STATE', handleSyncAction);
 
+      // Request initial state from Architect View when World View mounts
+      // This ensures World View has the current game state even if no changes
+      // have occurred since it opened
+      window.ipcRenderer.send('REQUEST_INITIAL_STATE');
+
       // Cleanup function
       return () => {
         // Note: Current preload implementation may not support proper cleanup
@@ -443,8 +448,51 @@ const SyncManager = () => {
 
       const unsub = useGameStore.subscribe(throttledSync);
 
+      // Listen for initial state requests from World View
+      // When World View opens, it sends REQUEST_INITIAL_STATE to get current game state
+      const handleInitialStateRequest = () => {
+        const currentState = useGameStore.getState();
+        const initialSyncAction: SyncAction = {
+          type: 'FULL_SYNC',
+          payload: {
+            tokens: currentState.tokens,
+            drawings: currentState.drawings,
+            gridSize: currentState.gridSize,
+            gridType: currentState.gridType,
+            map: currentState.map
+          }
+        };
+        // Send initial state to World View
+        window.ipcRenderer.send('SYNC_WORLD_STATE', initialSyncAction);
+
+        // Initialize prevStateRef so subsequent changes are detected correctly
+        let mapClone = null;
+        if (currentState.map) {
+          try {
+            mapClone = typeof structuredClone !== 'undefined'
+              ? structuredClone(currentState.map)
+              : JSON.parse(JSON.stringify(currentState.map));
+          } catch (err) {
+            mapClone = { ...currentState.map };
+          }
+        }
+
+        prevStateRef.current = {
+          tokens: [...currentState.tokens],
+          drawings: [...currentState.drawings],
+          gridSize: currentState.gridSize,
+          gridType: currentState.gridType,
+          map: mapClone
+        };
+      };
+
+      window.ipcRenderer.on('REQUEST_INITIAL_STATE', handleInitialStateRequest);
+
       // Cleanup function (unsubscribe on unmount)
-      return () => unsub();
+      return () => {
+        unsub();
+        // Note: IPC listener cleanup depends on preload implementation
+      };
     }
   }, []); // Empty deps = run once on mount
 

@@ -330,6 +330,26 @@ app.whenReady().then(() => {
   ipcMain.on('create-world-window', createWorldWindow)
 
   /**
+   * IPC handler: REQUEST_INITIAL_STATE
+   *
+   * When World View opens, it requests the current game state from Architect View.
+   * This ensures World View displays the current map/tokens even if no state changes
+   * have occurred since it opened.
+   *
+   * **Data flow:**
+   * 1. World View opens and sends REQUEST_INITIAL_STATE
+   * 2. Main process relays request to Architect View
+   * 3. Architect View responds with FULL_SYNC containing current state
+   * 4. Main process broadcasts FULL_SYNC to World View
+   */
+  ipcMain.on('REQUEST_INITIAL_STATE', (_event: IpcMainEvent) => {
+    // Relay request to main window (Architect View)
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('REQUEST_INITIAL_STATE')
+    }
+  })
+
+  /**
    * IPC handler: SYNC_WORLD_STATE
    *
    * Broadcasts state changes from Architect Window to World Window.
