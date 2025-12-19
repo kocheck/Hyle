@@ -59,6 +59,8 @@ function isEqual(obj1: any, obj2: any): boolean {
   // Handle Set objects
   if (obj1 instanceof Set && obj2 instanceof Set) {
     if (obj1.size !== obj2.size) return false;
+    // Since sizes are equal, we only need to check if obj2 contains all values from obj1
+    // (if a value is missing, sizes wouldn't match)
     for (const value of obj1) {
       if (!obj2.has(value)) return false;
     }
@@ -411,12 +413,27 @@ const SyncManager = () => {
 
         // Update previous state reference with deep copies
         // Deep clone map to ensure nested property changes are detected
+        // Using structuredClone if available, fallback to JSON for broader compatibility
+        let mapClone = null;
+        if (state.map) {
+          try {
+            // structuredClone is more efficient and handles more types than JSON
+            mapClone = typeof structuredClone !== 'undefined' 
+              ? structuredClone(state.map)
+              : JSON.parse(JSON.stringify(state.map));
+          } catch (err) {
+            console.warn('[SyncManager] Failed to clone map state:', err);
+            // Fallback to shallow copy if deep cloning fails
+            mapClone = { ...state.map };
+          }
+        }
+        
         prevStateRef.current = {
           tokens: [...state.tokens],
           drawings: [...state.drawings],
           gridSize: state.gridSize,
           gridType: state.gridType,
-          map: state.map ? JSON.parse(JSON.stringify(state.map)) : null
+          map: mapClone
         };
       };
 
