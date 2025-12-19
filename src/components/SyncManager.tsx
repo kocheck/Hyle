@@ -40,8 +40,11 @@ function isEqual(obj1: any, obj2: any): boolean {
     return true;
   }
   
+  // If one is array and other is not, they're not equal
+  if (Array.isArray(obj1) || Array.isArray(obj2)) return false;
+  
+  // Handle objects
   if (typeof obj1 !== 'object' || typeof obj2 !== 'object') return false;
-  if (Array.isArray(obj1) !== Array.isArray(obj2)) return false;
   
   const keys1 = Object.keys(obj1);
   const keys2 = Object.keys(obj2);
