@@ -66,7 +66,9 @@ class AssetProcessingErrorBoundary extends Component<Props, State> {
   }
 
   handleRetry = () => {
-    // Reset error state to allow retry
+    // Reset error state to dismiss the error message
+    // Note: This does not retry the failed operation. The user must
+    // manually re-upload or re-crop the image after dismissing.
     this.setState({
       hasError: false,
       error: null,
@@ -134,10 +136,10 @@ class AssetProcessingErrorBoundary extends Component<Props, State> {
               onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#45a049'}
               onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#4CAF50'}
             >
-              Try Again
+              Dismiss
             </button>
             <span style={{ marginLeft: '10px', color: '#666', fontSize: '14px' }}>
-              or refresh the page if the problem persists
+              Please re-upload or re-crop your image to try again
             </span>
           </div>
         </div>
