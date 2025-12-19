@@ -430,7 +430,7 @@ export const useGameStore = create<GameState>((set) => ({
     // Remove oldest regions first to prevent unbounded memory growth
     if (newRegions.length > MAX_EXPLORED_REGIONS) {
       return {
-        exploredRegions: newRegions.slice(newRegions.length - MAX_EXPLORED_REGIONS)
+        exploredRegions: newRegions.slice(-MAX_EXPLORED_REGIONS)
       };
     }
     

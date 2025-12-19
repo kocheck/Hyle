@@ -535,8 +535,11 @@ const SyncManager = () => {
               ? structuredClone(state.map)
               : JSON.parse(JSON.stringify(state.map));
           } catch (err) {
-            console.error('[SyncManager] Failed to deep clone map state, falling back to shallow copy. ' +
-              'This may cause missed updates for nested map properties.', err);
+            console.error(
+              `[SyncManager] Failed to deep clone map state, falling back to shallow copy. ` +
+              `This may cause missed updates for nested map properties.`,
+              err
+            );
             // Fallback to shallow copy if deep cloning fails
             // Note: MapConfig is currently a flat object, so shallow copy is sufficient
             // If MapConfig gains nested properties in the future, this will need revisiting
