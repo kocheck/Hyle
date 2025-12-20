@@ -88,7 +88,7 @@ const MapNavigator: React.FC = () => {
                             role="button"
                             tabIndex={0}
                             aria-label={`${isActive ? 'Current map: ' : 'Switch to '}${map.name}`}
-                            aria-current={isActive ? 'true' : undefined}
+                            aria-current={isActive ? 'page' : undefined}
                             className={`
                                 group flex items-center justify-between p-2 rounded cursor-pointer transition
                                 ${isActive
