@@ -206,7 +206,7 @@ const Sidebar = () => {
             {/* Campaign Navigation */}
             <MapNavigator />
 
-            <div className="w-full h-px bg-[var(--app-border)] my-6"></div>
+            <div className="w-full h-px bg-[var(--app-border-default)] my-6"></div>
 
             <div className="mb-8">
                 <h3 className="text-sm mb-3 uppercase font-bold tracking-wider" style={{ color: 'var(--app-text-secondary)' }}>Map Settings</h3>
@@ -324,7 +324,7 @@ const Sidebar = () => {
                 </div>
 
                 {(!tokenLibrary || tokenLibrary.length === 0) ? (
-                    <div className="text-center text-xs py-4 opacity-50 italic">
+                    <div className="text-center text-xs py-4 italic" style={{ color: 'var(--app-text-muted)' }}>
                         No tokens in library. Upload or drag & drop to map.
                     </div>
                 ) : (

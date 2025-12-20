@@ -55,7 +55,7 @@ const MapNavigator: React.FC = () => {
         <div className="mb-6">
             <h2 className="text-xl font-bold mb-4 flex justify-between items-center">
                 <span>Campaign</span>
-                <span className="text-xs font-normal opacity-60 text-right max-w-[100px] truncate" title={campaign.name}>
+                <span className="text-xs font-normal text-right max-w-[100px] truncate" title={campaign.name} style={{ color: 'var(--app-text-muted)' }}>
                     {campaign.name}
                 </span>
             </h2>
@@ -70,7 +70,7 @@ const MapNavigator: React.FC = () => {
                                 group flex items-center justify-between p-2 rounded cursor-pointer transition
                                 ${isActive
                                     ? 'bg-[var(--app-accent-bg)] border border-[var(--app-accent-border)]'
-                                    : 'bg-[var(--app-bg-secondary)] hover:bg-[var(--app-bg-hover)]'
+                                    : 'bg-[var(--app-bg-subtle)] hover:bg-[var(--app-bg-hover)]'
                                 }
                             `}
                             onClick={() => switchMap(map.id)}
@@ -86,7 +86,7 @@ const MapNavigator: React.FC = () => {
                                         onChange={(e) => setEditName(e.target.value)}
                                         onBlur={handleFinishEdit}
                                         onKeyDown={handleKeyDown}
-                                        className="bg-[var(--app-bg-primary)] text-[var(--app-text-primary)] px-1 rounded w-full border border-[var(--app-border)] text-sm"
+                                        className="bg-[var(--app-bg-base)] text-[var(--app-text-primary)] px-1 rounded w-full border border-[var(--app-border-default)] text-sm"
                                         autoFocus
                                         onClick={(e) => e.stopPropagation()}
                                     />
