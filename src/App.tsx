@@ -5,6 +5,7 @@ import { ThemeManager } from './components/ThemeManager'
 import Sidebar from './components/Sidebar'
 import Toast from './components/Toast'
 import ConfirmDialog from './components/ConfirmDialog'
+import PreferencesDialog from './components/PreferencesDialog'
 import TokenInspector from './components/TokenInspector'
 import ResourceMonitor from './components/ResourceMonitor'
 import { useGameStore } from './store/gameStore'
@@ -90,6 +91,9 @@ function App() {
   // Selected tokens state (for TokenInspector)
   const [selectedTokenIds, setSelectedTokenIds] = useState<string[]>([]);
 
+  // Preferences dialog state
+  const [showPreferences, setShowPreferences] = useState(false);
+
   // Resource Monitor state (from store)
   const showResourceMonitor = useGameStore((state) => state.showResourceMonitor);
 
@@ -171,14 +175,20 @@ function App() {
         useGameStore.getState().setShowResourceMonitor(!useGameStore.getState().showResourceMonitor);
     };
 
+    const handleOpenPreferences = () => {
+        setShowPreferences(true);
+    };
+
     window.ipcRenderer.on('MENU_SAVE_CAMPAIGN', handleSave);
     window.ipcRenderer.on('MENU_LOAD_CAMPAIGN', handleLoad);
     window.ipcRenderer.on('MENU_TOGGLE_RESOURCE_MONITOR', handleToggleMonitor);
+    window.ipcRenderer.on('MENU_OPEN_PREFERENCES', handleOpenPreferences);
 
     return () => {
         window.ipcRenderer.off('MENU_SAVE_CAMPAIGN', handleSave);
         window.ipcRenderer.off('MENU_LOAD_CAMPAIGN', handleLoad);
         window.ipcRenderer.off('MENU_TOGGLE_RESOURCE_MONITOR', handleToggleMonitor);
+        window.ipcRenderer.off('MENU_OPEN_PREFERENCES', handleOpenPreferences);
     };
   }, []); // Empty dependency array as handlers use getState()
 
@@ -189,6 +199,7 @@ function App() {
       <SyncManager />
       <Toast />
       <ConfirmDialog />
+      <PreferencesDialog isOpen={showPreferences} onClose={() => setShowPreferences(false)} />
 
       {/* Auto-save (Architect View only) */}
       {isArchitectView && <AutoSaveManager />}
