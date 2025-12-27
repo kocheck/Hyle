@@ -104,13 +104,6 @@ export interface ConfirmDialog {
 }
 
 /**
- * DungeonDialog represents the dungeon generator dialog state
- */
-export interface DungeonDialog {
-  isOpen: boolean;
-}
-
-/**
  * ExploredRegion represents an area that PC tokens have previously seen
  */
 export interface ExploredRegion {
@@ -175,7 +168,6 @@ export interface GameState {
   isCalibrating: boolean;
   toast: ToastMessage | null;
   confirmDialog: ConfirmDialog | null;
-  dungeonDialog: DungeonDialog | null;
   showResourceMonitor: boolean;
 
   // --- Campaign State ---
@@ -233,8 +225,6 @@ export interface GameState {
   clearToast: () => void;
   showConfirmDialog: (message: string, onConfirm: () => void, confirmText?: string) => void;
   clearConfirmDialog: () => void;
-  showDungeonDialog: () => void;
-  clearDungeonDialog: () => void;
   setShowResourceMonitor: (show: boolean) => void;
 }
 
@@ -257,7 +247,6 @@ export const useGameStore = create<GameState>((set, get) => {
     isCalibrating: false,
     toast: null,
     confirmDialog: null,
-    dungeonDialog: null,
     showResourceMonitor: false,
     campaign: initialCampaign,
 
@@ -514,8 +503,6 @@ export const useGameStore = create<GameState>((set, get) => {
     showConfirmDialog: (message: string, onConfirm: () => void, confirmText?: string) =>
       set({ confirmDialog: { message, onConfirm, confirmText } }),
     clearConfirmDialog: () => set({ confirmDialog: null }),
-    showDungeonDialog: () => set({ dungeonDialog: { isOpen: true } }),
-    clearDungeonDialog: () => set({ dungeonDialog: null }),
     setShowResourceMonitor: (show: boolean) => set({ showResourceMonitor: show }),
   };
 });
