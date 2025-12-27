@@ -6,6 +6,7 @@ import Sidebar from './components/Sidebar'
 import Toast from './components/Toast'
 import ConfirmDialog from './components/ConfirmDialog'
 import { DungeonGeneratorDialog } from './components/DungeonGeneratorDialog'
+import DungeonGeneratorErrorBoundary from './components/DungeonGeneratorErrorBoundary'
 import TokenInspector from './components/TokenInspector'
 import ResourceMonitor from './components/ResourceMonitor'
 import { useGameStore } from './store/gameStore'
@@ -190,7 +191,9 @@ function App() {
       <SyncManager />
       <Toast />
       <ConfirmDialog />
-      <DungeonGeneratorDialog />
+      <DungeonGeneratorErrorBoundary>
+        <DungeonGeneratorDialog />
+      </DungeonGeneratorErrorBoundary>
 
       {/* Auto-save (Architect View only) */}
       {isArchitectView && <AutoSaveManager />}

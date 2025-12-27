@@ -1,7 +1,12 @@
 import type { Drawing } from '../store/gameStore';
 
 /**
- * Room represents a rectangular room in the dungeon
+ * Room represents a rectangular bounding box for dungeon pieces
+ *
+ * @property x - Left edge X coordinate (pixels, grid-aligned)
+ * @property y - Top edge Y coordinate (pixels, grid-aligned)
+ * @property width - Width in pixels (multiple of gridSize)
+ * @property height - Height in pixels (multiple of gridSize)
  */
 interface Room {
   x: number;
@@ -11,7 +16,10 @@ interface Room {
 }
 
 /**
- * Point represents a 2D coordinate
+ * Point represents a 2D coordinate in canvas space
+ *
+ * @property x - X coordinate in pixels
+ * @property y - Y coordinate in pixels
  */
 interface Point {
   x: number;
@@ -19,12 +27,35 @@ interface Point {
 }
 
 /**
- * Direction for corridor connections
+ * Direction for corridor connections and doorway placement
+ * Maps to cardinal directions for intuitive room growth
  */
 type Direction = 'north' | 'south' | 'east' | 'west';
 
 /**
- * DungeonPiece represents a prefab room or corridor with its walls
+ * DungeonPiece represents a prefabricated layout component with known wall configurations
+ *
+ * Pieces are the building blocks of dungeons. Each piece has:
+ * - Defined bounds (position and size)
+ * - Wall segments for each cardinal direction
+ * - Type identifier for different generation rules
+ *
+ * **Wall Segment Format:**
+ * - undefined = no wall (open connection)
+ * - 2 points = solid wall [start, end]
+ * - 4 points = wall with doorway [leftStart, leftEnd, rightStart, rightEnd]
+ *
+ * @example
+ * // Room with solid north wall
+ * { north: [{ x: 0, y: 0 }, { x: 100, y: 0 }] }
+ *
+ * @example
+ * // Room with doorway in south wall
+ * { south: [{ x: 0, y: 100 }, { x: 25, y: 100 }, { x: 75, y: 100 }, { x: 100, y: 100 }] }
+ *
+ * @property type - 'room' or 'corridor' for generation rules
+ * @property bounds - Bounding box defining piece position and size
+ * @property wallSegments - Wall definitions for each cardinal direction
  */
 interface DungeonPiece {
   type: 'room' | 'corridor';
@@ -39,6 +70,28 @@ interface DungeonPiece {
 
 /**
  * RoomTemplate defines a reusable room type that can be instantiated
+ *
+ * The template system allows easy extension of room types. Each template:
+ * - Defines valid size constraints
+ * - Provides a factory function to create instances
+ * - Handles its own wall segment generation
+ *
+ * **Extension Point:** Add new templates in initializeRoomTemplates()
+ *
+ * @example
+ * // L-shaped room template
+ * {
+ *   type: 'l-shaped',
+ *   minSize: 4,
+ *   maxSize: 8,
+ *   createPiece: (x, y, widthCells, heightCells, gridSize) =>
+ *     this.createLShapedRoom(x, y, widthCells, heightCells, gridSize)
+ * }
+ *
+ * @property type - Unique identifier for this room type
+ * @property minSize - Minimum room size in grid cells
+ * @property maxSize - Maximum room size in grid cells
+ * @property createPiece - Factory function that creates a DungeonPiece instance
  */
 interface RoomTemplate {
   type: string;
@@ -49,14 +102,29 @@ interface RoomTemplate {
 
 /**
  * CorridorTemplate defines corridor specifications
+ *
+ * Corridors connect rooms and must be long enough to show visible walls
+ * after doorway creation (minimum 4 grid cells to have 2 cells per side).
+ *
+ * @property lengthInCells - How many grid cells long (default: 4)
+ * @property widthInCells - How many grid cells wide (default: 1)
  */
 interface CorridorTemplate {
-  lengthInCells: number; // How many grid cells long
-  widthInCells: number;  // How many grid cells wide (typically 1)
+  lengthInCells: number;
+  widthInCells: number;
 }
 
 /**
  * DungeonGeneratorOptions configures dungeon generation parameters
+ *
+ * @property numRooms - Target number of rooms to generate
+ * @property minRoomSize - Minimum room size in grid cells (default: 3)
+ * @property maxRoomSize - Maximum room size in grid cells (default: 8)
+ * @property gridSize - Size of one grid cell in pixels (default: 50)
+ * @property canvasWidth - Canvas width in pixels (default: 1920)
+ * @property canvasHeight - Canvas height in pixels (default: 1080)
+ * @property wallColor - Wall color hex code (default: '#ff0000')
+ * @property wallSize - Wall thickness in pixels (default: 8)
  */
 export interface DungeonGeneratorOptions {
   numRooms: number;
@@ -70,9 +138,59 @@ export interface DungeonGeneratorOptions {
 }
 
 /**
- * DungeonGenerator creates procedural dungeon layouts using a simple
- * room-and-corridor algorithm. Generated dungeons are returned as Drawing
- * objects that can be added to the gameStore.
+ * DungeonGenerator creates procedural dungeon layouts using an organic growth algorithm
+ *
+ * **Architecture:**
+ * - Template-based room system for extensibility
+ * - Organic growth algorithm (not random placement + pathfinding)
+ * - Grid-aligned positioning for precision
+ * - Prefab pieces with known wall configurations
+ * - Modular design for easy feature additions
+ *
+ * **Algorithm:**
+ * 1. Place first room at canvas center
+ * 2. Iteratively grow dungeon:
+ *    - Pick random existing room
+ *    - Try adding corridor + new room in unused direction
+ *    - Check collisions and retry if needed
+ * 3. Convert all pieces to Drawing objects
+ *
+ * **Key Features:**
+ * - All rooms are connected (no isolated rooms)
+ * - Walls are fully interactive (can be edited after generation)
+ * - Fog of War compatible (proper wall raycasting)
+ * - NPC pathfinding compatible (no walls inside rooms)
+ * - Performance optimized (prefabs, minimal points)
+ *
+ * **Extension Points:**
+ * - Add room templates in initializeRoomTemplates()
+ * - Modify corridor template for different corridor styles
+ * - Add parameters to DungeonGeneratorOptions
+ * - Customize wall colors, themes, or special room types
+ *
+ * @example
+ * // Basic usage
+ * const generator = new DungeonGenerator({
+ *   numRooms: 10,
+ *   minRoomSize: 3,
+ *   maxRoomSize: 8,
+ *   gridSize: 50,
+ *   wallColor: '#ff0000',
+ * });
+ * const drawings = generator.generate();
+ * drawings.forEach(drawing => addDrawing(drawing));
+ *
+ * @example
+ * // Advanced usage with theme
+ * const generator = new DungeonGenerator({
+ *   numRooms: 15,
+ *   minRoomSize: 4,
+ *   maxRoomSize: 12,
+ *   wallColor: '#8b4513', // Brown for cavern theme
+ *   wallSize: 10,
+ * });
+ *
+ * @see {@link docs/DUNGEON_GENERATOR.md} for detailed documentation
  */
 export class DungeonGenerator {
   private options: Required<DungeonGeneratorOptions>;
