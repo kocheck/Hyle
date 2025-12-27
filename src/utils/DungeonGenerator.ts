@@ -488,6 +488,8 @@ export class DungeonGenerator {
     const end = segment[1];
 
     // Split the wall around the doorway
+    const minSegmentLength = gridSize / 2; // Minimum wall segment length to keep
+
     if (direction === 'north' || direction === 'south') {
       // Horizontal wall - split left and right of doorway
       const doorwayLeft = centerX - doorwaySize / 2;
@@ -495,13 +497,15 @@ export class DungeonGenerator {
 
       // Keep left segment if it's long enough
       const leftSegment: Point[] = [];
-      if (start.x < doorwayLeft - 5) {
+      const leftLength = doorwayLeft - start.x;
+      if (leftLength >= minSegmentLength) {
         leftSegment.push(start, { x: doorwayLeft, y: start.y });
       }
 
       // Keep right segment if it's long enough
       const rightSegment: Point[] = [];
-      if (end.x > doorwayRight + 5) {
+      const rightLength = end.x - doorwayRight;
+      if (rightLength >= minSegmentLength) {
         rightSegment.push({ x: doorwayRight, y: end.y }, end);
       }
 
@@ -523,13 +527,15 @@ export class DungeonGenerator {
 
       // Keep top segment if it's long enough
       const topSegment: Point[] = [];
-      if (start.y < doorwayTop - 5) {
+      const topLength = doorwayTop - start.y;
+      if (topLength >= minSegmentLength) {
         topSegment.push(start, { x: start.x, y: doorwayTop });
       }
 
       // Keep bottom segment if it's long enough
       const bottomSegment: Point[] = [];
-      if (end.y > doorwayBottom + 5) {
+      const bottomLength = end.y - doorwayBottom;
+      if (bottomLength >= minSegmentLength) {
         bottomSegment.push({ x: end.x, y: doorwayBottom }, end);
       }
 
