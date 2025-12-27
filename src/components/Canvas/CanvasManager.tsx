@@ -623,6 +623,7 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
         const stage = e.target.getStage();
         let point = stage.getRelativePointerPosition();
         const cur = currentLine.current;
+        if (!cur) return;
 
         // Shift-key axis locking: Lock to horizontal or vertical
         if (e.evt.shiftKey && cur.points.length >= 2) {
@@ -640,8 +641,12 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
             }
         }
 
-        cur.points = cur.points.concat([point.x, point.y]);
-        setTempLine({...cur});
+        const updatedLine: Drawing = {
+            ...cur,
+            points: cur.points.concat([point.x, point.y])
+        };
+        currentLine.current = updatedLine;
+        setTempLine(updatedLine);
         return;
     }
 
