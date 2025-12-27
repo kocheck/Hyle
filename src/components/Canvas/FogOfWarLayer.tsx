@@ -2,6 +2,7 @@ import { useMemo, useEffect, useRef } from 'react';
 import { Shape, Group } from 'react-konva';
 import { Token, Drawing, MapConfig, useGameStore } from '../../store/gameStore';
 import URLImage from './URLImage';
+import { Point, WallSegment } from '../../types/geometry';
 
 interface FogOfWarLayerProps {
   tokens: Token[];
@@ -14,17 +15,6 @@ interface FogOfWarLayerProps {
     height: number;
   };
   map: MapConfig | null;
-}
-
-// ... helper interfaces ...
-interface Point {
-  x: number;
-  y: number;
-}
-
-interface WallSegment {
-  start: Point;
-  end: Point;
 }
 
 // ... logic ...

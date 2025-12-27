@@ -9,7 +9,7 @@ export interface WallToolPreferences {
   enableSmoothing: boolean;
   /** RDP epsilon value - higher = more aggressive simplification (pixels) */
   smoothingEpsilon: number;
-  /** Enable geometry snapping and fusing */
+  /** Enable geometry snapping */
   enableSnapping: boolean;
   /** Snap threshold - maximum distance for snapping (pixels) */
   snapThreshold: number;
