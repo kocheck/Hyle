@@ -32,7 +32,7 @@ export function LoadingOverlay() {
           <div className="inline-block animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-white"></div>
         </div>
         <h2 className="text-3xl font-bold text-white mb-2">Please Wait</h2>
-        <p className="text-xl text-gray-300">The Dungeon Master is preparing the next scene...</p>
+        <p className="text-xl text-gray-300">Narrator is currently wrestling a rogue plot bunny....</p>
       </div>
     </div>
   );
