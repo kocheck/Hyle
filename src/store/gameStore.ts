@@ -169,6 +169,7 @@ export interface GameState {
   toast: ToastMessage | null;
   confirmDialog: ConfirmDialog | null;
   showResourceMonitor: boolean;
+  isGamePaused: boolean;
 
   // --- Campaign State ---
   campaign: Campaign;
@@ -226,6 +227,7 @@ export interface GameState {
   showConfirmDialog: (message: string, onConfirm: () => void, confirmText?: string) => void;
   clearConfirmDialog: () => void;
   setShowResourceMonitor: (show: boolean) => void;
+  setIsGamePaused: (isPaused: boolean) => void;
 }
 
 export const useGameStore = create<GameState>((set, get) => {
@@ -248,6 +250,7 @@ export const useGameStore = create<GameState>((set, get) => {
     toast: null,
     confirmDialog: null,
     showResourceMonitor: false,
+    isGamePaused: false,
     campaign: initialCampaign,
 
     // --- Campaign Actions ---
@@ -504,5 +507,6 @@ export const useGameStore = create<GameState>((set, get) => {
       set({ confirmDialog: { message, onConfirm, confirmText } }),
     clearConfirmDialog: () => set({ confirmDialog: null }),
     setShowResourceMonitor: (show: boolean) => set({ showResourceMonitor: show }),
+    setIsGamePaused: (isPaused: boolean) => set({ isGamePaused: isPaused }),
   };
 });
