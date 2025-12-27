@@ -5,6 +5,7 @@ import { ThemeManager } from './components/ThemeManager'
 import Sidebar from './components/Sidebar'
 import Toast from './components/Toast'
 import ConfirmDialog from './components/ConfirmDialog'
+import { DungeonGeneratorDialog } from './components/DungeonGeneratorDialog'
 import TokenInspector from './components/TokenInspector'
 import ResourceMonitor from './components/ResourceMonitor'
 import { useGameStore } from './store/gameStore'
@@ -189,6 +190,7 @@ function App() {
       <SyncManager />
       <Toast />
       <ConfirmDialog />
+      <DungeonGeneratorDialog />
 
       {/* Auto-save (Architect View only) */}
       {isArchitectView && <AutoSaveManager />}
@@ -221,6 +223,11 @@ function App() {
            <button
              className={`btn btn-tool ${tool === 'wall' ? 'active' : ''}`}
              onClick={() => setTool('wall')}>Wall (W)</button>
+           <div className="toolbar-divider w-px mx-1"></div>
+           <button
+             className="btn btn-tool"
+             onClick={() => useGameStore.getState().showDungeonDialog()}
+             title="Generate a random dungeon">Dungeon Gen</button>
            <div className="toolbar-divider w-px mx-1"></div>
            <label className="flex items-center gap-2 cursor-pointer">
              <span className="text-sm font-medium">Color (I)</span>
