@@ -56,65 +56,241 @@ export class DungeonGenerator {
   }
 
   /**
-   * Generates a dungeon and returns wall drawings
+   * Generates a dungeon using organic growth algorithm
+   * Builds one room/corridor at a time for perfect alignment
    */
   public generate(): Drawing[] {
     this.rooms = [];
     const drawings: Drawing[] = [];
-
-    // Generate rooms using simple random placement with overlap checking
-    for (let i = 0; i < this.options.numRooms; i++) {
-      let attempts = 0;
-      const maxAttempts = 50;
-
-      while (attempts < maxAttempts) {
-        const room = this.generateRandomRoom();
-
-        if (this.rooms.length === 0 || !this.hasOverlap(room)) {
-          this.rooms.push(room);
-          break;
-        }
-
-        attempts++;
-      }
-    }
-
-    // Sort rooms by center position for better corridor connections
-    this.rooms.sort((a, b) => {
-      const centerA = a.x + a.width / 2;
-      const centerB = b.x + b.width / 2;
-      return centerA - centerB;
-    });
-
-    // Track doorways for each room
     const roomDoorways = new Map<Room, Point[]>();
-    for (const room of this.rooms) {
-      roomDoorways.set(room, []);
-    }
 
-    // Connect rooms with corridors and collect doorway positions
-    for (let i = 0; i < this.rooms.length - 1; i++) {
-      const { drawings: corridorDrawings, doorways } = this.createCorridor(
-        this.rooms[i],
-        this.rooms[i + 1]
-      );
+    // Start with the first room at a central location
+    const { canvasWidth, canvasHeight, gridSize } = this.options;
+    const firstRoom = this.createRoomAtPosition(
+      canvasWidth / 2 - (4 * gridSize) / 2,
+      canvasHeight / 2 - (4 * gridSize) / 2
+    );
+    this.rooms.push(firstRoom);
+    roomDoorways.set(firstRoom, []);
 
-      // Add corridor walls
-      drawings.push(...corridorDrawings);
+    // Grow the dungeon organically
+    for (let i = 1; i < this.options.numRooms; i++) {
+      // Pick a random existing room to grow from
+      const sourceRoom = this.rooms[Math.floor(Math.random() * this.rooms.length)];
 
-      // Record doorway positions for each room
-      for (const { room, point } of doorways) {
-        const roomDoors = roomDoorways.get(room) || [];
-        roomDoors.push(point);
-        roomDoorways.set(room, roomDoors);
+      // Try to add a new room adjacent to it
+      const result = this.tryAddAdjacentRoom(sourceRoom, roomDoorways);
+
+      if (result) {
+        const { newRoom, corridor, doorways } = result;
+
+        // Add the new room
+        this.rooms.push(newRoom);
+        roomDoorways.set(newRoom, []);
+
+        // Add corridor walls
+        drawings.push(...corridor);
+
+        // Record doorways for both rooms
+        for (const { room, point } of doorways) {
+          const doors = roomDoorways.get(room) || [];
+          doors.push(point);
+          roomDoorways.set(room, doors);
+        }
       }
     }
 
-    // Draw room walls with doorways
+    // Draw all room walls with their doorways
     for (const room of this.rooms) {
       const doorways = roomDoorways.get(room) || [];
       const roomWalls = this.createRoomWalls(room, doorways);
       drawings.push(...roomWalls);
+    }
+
+    return drawings;
+  }
+
+  /**
+   * Creates a room at a specific position with random size
+   */
+  private createRoomAtPosition(x: number, y: number): Room {
+    const { minRoomSize, maxRoomSize, gridSize } = this.options;
+
+    const widthCells = Math.floor(Math.random() * (maxRoomSize - minRoomSize + 1)) + minRoomSize;
+    const heightCells = Math.floor(Math.random() * (maxRoomSize - minRoomSize + 1)) + minRoomSize;
+
+    return {
+      x: Math.round(x / gridSize) * gridSize,
+      y: Math.round(y / gridSize) * gridSize,
+      width: widthCells * gridSize,
+      height: heightCells * gridSize,
+    };
+  }
+
+  /**
+   * Tries to add a new room adjacent to an existing room
+   * Returns the new room, corridor, and doorway info if successful
+   */
+  private tryAddAdjacentRoom(
+    sourceRoom: Room,
+    roomDoorways: Map<Room, Point[]>
+  ): { newRoom: Room; corridor: Drawing[]; doorways: { room: Room; point: Point }[] } | null {
+    const { gridSize } = this.options;
+    const corridorLength = gridSize * 2; // 2 grid cells for corridor
+
+    // Try all 4 directions: right, left, bottom, top
+    const directions = ['right', 'left', 'bottom', 'top'].sort(() => Math.random() - 0.5);
+
+    for (const direction of directions) {
+      let newRoom: Room;
+      let doorwaySource: Point;
+      let doorwayNew: Point;
+
+      // Calculate new room position based on direction
+      switch (direction) {
+        case 'right':
+          doorwaySource = {
+            x: sourceRoom.x + sourceRoom.width,
+            y: sourceRoom.y + sourceRoom.height / 2,
+          };
+          newRoom = this.createRoomAtPosition(
+            sourceRoom.x + sourceRoom.width + corridorLength,
+            sourceRoom.y + sourceRoom.height / 2 - gridSize * 2
+          );
+          doorwayNew = {
+            x: newRoom.x,
+            y: newRoom.y + newRoom.height / 2,
+          };
+          break;
+
+        case 'left':
+          doorwaySource = {
+            x: sourceRoom.x,
+            y: sourceRoom.y + sourceRoom.height / 2,
+          };
+          newRoom = this.createRoomAtPosition(
+            sourceRoom.x - corridorLength,
+            sourceRoom.y + sourceRoom.height / 2 - gridSize * 2
+          );
+          doorwayNew = {
+            x: newRoom.x + newRoom.width,
+            y: newRoom.y + newRoom.height / 2,
+          };
+          newRoom.x -= newRoom.width; // Adjust to be on the left
+          break;
+
+        case 'bottom':
+          doorwaySource = {
+            x: sourceRoom.x + sourceRoom.width / 2,
+            y: sourceRoom.y + sourceRoom.height,
+          };
+          newRoom = this.createRoomAtPosition(
+            sourceRoom.x + sourceRoom.width / 2 - gridSize * 2,
+            sourceRoom.y + sourceRoom.height + corridorLength
+          );
+          doorwayNew = {
+            x: newRoom.x + newRoom.width / 2,
+            y: newRoom.y,
+          };
+          break;
+
+        case 'top':
+          doorwaySource = {
+            x: sourceRoom.x + sourceRoom.width / 2,
+            y: sourceRoom.y,
+          };
+          newRoom = this.createRoomAtPosition(
+            sourceRoom.x + sourceRoom.width / 2 - gridSize * 2,
+            sourceRoom.y - corridorLength
+          );
+          doorwayNew = {
+            x: newRoom.x + newRoom.width / 2,
+            y: newRoom.y + newRoom.height,
+          };
+          newRoom.y -= newRoom.height; // Adjust to be on top
+          break;
+
+        default:
+          continue;
+      }
+
+      // Check if new room overlaps with existing rooms
+      if (!this.hasOverlap(newRoom)) {
+        // Create straight corridor between the rooms
+        const corridor = this.createStraightCorridor(doorwaySource, doorwayNew, direction);
+
+        return {
+          newRoom,
+          corridor,
+          doorways: [
+            { room: sourceRoom, point: doorwaySource },
+            { room: newRoom, point: doorwayNew },
+          ],
+        };
+      }
+    }
+
+    return null; // Couldn't find a valid position
+  }
+
+  /**
+   * Creates a straight corridor between two points
+   */
+  private createStraightCorridor(
+    start: Point,
+    end: Point,
+    direction: 'right' | 'left' | 'bottom' | 'top'
+  ): Drawing[] {
+    const { wallColor, wallSize, gridSize } = this.options;
+    const corridorWidth = gridSize;
+    const drawings: Drawing[] = [];
+
+    if (direction === 'right' || direction === 'left') {
+      // Horizontal corridor
+      const x1 = Math.min(start.x, end.x);
+      const x2 = Math.max(start.x, end.x);
+      const y = (start.y + end.y) / 2;
+
+      // Top wall
+      drawings.push({
+        id: crypto.randomUUID(),
+        tool: 'wall',
+        points: [x1, y - corridorWidth / 2, x2, y - corridorWidth / 2],
+        color: wallColor,
+        size: wallSize,
+      });
+
+      // Bottom wall
+      drawings.push({
+        id: crypto.randomUUID(),
+        tool: 'wall',
+        points: [x1, y + corridorWidth / 2, x2, y + corridorWidth / 2],
+        color: wallColor,
+        size: wallSize,
+      });
+    } else {
+      // Vertical corridor
+      const y1 = Math.min(start.y, end.y);
+      const y2 = Math.max(start.y, end.y);
+      const x = (start.x + end.x) / 2;
+
+      // Left wall
+      drawings.push({
+        id: crypto.randomUUID(),
+        tool: 'wall',
+        points: [x - corridorWidth / 2, y1, x - corridorWidth / 2, y2],
+        color: wallColor,
+        size: wallSize,
+      });
+
+      // Right wall
+      drawings.push({
+        id: crypto.randomUUID(),
+        tool: 'wall',
+        points: [x + corridorWidth / 2, y1, x + corridorWidth / 2, y2],
+        color: wallColor,
+        size: wallSize,
+      });
     }
 
     return drawings;
