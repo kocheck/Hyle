@@ -37,8 +37,7 @@ export const DungeonGeneratorDialog: React.FC = () => {
     const canvasWidth = window.innerWidth || 1920;
     const canvasHeight = window.innerHeight || 1080;
 
-    // Get current wall tool settings from the store
-    const state = useGameStore.getState();
+    // Use default wall settings
     // TODO: Once wall tool settings are in the store, use those instead of defaults
     const wallColor = '#ff0000'; // Default red
     const wallSize = 8; // Default size
