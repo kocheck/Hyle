@@ -549,69 +549,75 @@ export class DungeonGenerator {
     const end = segment[1];
 
     // Split the wall around the doorway - only remove the 1-grid-cell doorway
-    // Keep wall segments that are at least 1 grid cell long
+    // Keep ALL wall segments unless the entire wall IS the doorway
     if (direction === 'north' || direction === 'south') {
       // Horizontal wall - split left and right of doorway
       const doorwayLeft = centerX - doorwaySize / 2;
       const doorwayRight = centerX + doorwaySize / 2;
+      const wallWidth = end.x - start.x;
+
+      // Only remove wall if it's entirely a doorway (wall width <= doorway size)
+      if (wallWidth <= doorwaySize + 2) {
+        wallSegments[direction] = undefined;
+        return;
+      }
 
       const leftSegment: Point[] = [];
       const rightSegment: Point[] = [];
 
-      // Keep left segment only if it's at least 1 grid cell long
-      const leftLength = doorwayLeft - start.x;
-      if (leftLength >= gridSize) {
+      // Keep left segment if it exists (even if small)
+      if (doorwayLeft > start.x + 2) {
         leftSegment.push(start, { x: doorwayLeft, y: start.y });
       }
 
-      // Keep right segment only if it's at least 1 grid cell long
-      const rightLength = end.x - doorwayRight;
-      if (rightLength >= gridSize) {
+      // Keep right segment if it exists (even if small)
+      if (doorwayRight < end.x - 2) {
         rightSegment.push({ x: doorwayRight, y: end.y }, end);
       }
 
       // Combine segments
       if (leftSegment.length > 0 && rightSegment.length > 0) {
-        // Both segments exist - store as 4-point array
         wallSegments[direction] = [...leftSegment, ...rightSegment];
       } else if (leftSegment.length > 0) {
         wallSegments[direction] = leftSegment;
       } else if (rightSegment.length > 0) {
         wallSegments[direction] = rightSegment;
       } else {
-        // Entire wall is doorway
         wallSegments[direction] = undefined;
       }
     } else {
       // Vertical wall - split top and bottom of doorway
       const doorwayTop = centerY - doorwaySize / 2;
       const doorwayBottom = centerY + doorwaySize / 2;
+      const wallHeight = end.y - start.y;
+
+      // Only remove wall if it's entirely a doorway (wall height <= doorway size)
+      if (wallHeight <= doorwaySize + 2) {
+        wallSegments[direction] = undefined;
+        return;
+      }
 
       const topSegment: Point[] = [];
       const bottomSegment: Point[] = [];
 
-      // Keep top segment only if it's at least 1 grid cell long
-      const topLength = doorwayTop - start.y;
-      if (topLength >= gridSize) {
+      // Keep top segment if it exists (even if small)
+      if (doorwayTop > start.y + 2) {
         topSegment.push(start, { x: start.x, y: doorwayTop });
       }
 
-      // Keep bottom segment only if it's at least 1 grid cell long
-      const bottomLength = end.y - doorwayBottom;
-      if (bottomLength >= gridSize) {
+      // Keep bottom segment if it exists (even if small)
+      if (doorwayBottom < end.y - 2) {
         bottomSegment.push({ x: end.x, y: doorwayBottom }, end);
       }
 
       // Combine segments
       if (topSegment.length > 0 && bottomSegment.length > 0) {
-        // Both segments exist - store as 4-point array
         wallSegments[direction] = [...topSegment, ...bottomSegment];
       } else if (topSegment.length > 0) {
         wallSegments[direction] = topSegment;
       } else if (bottomSegment.length > 0) {
         wallSegments[direction] = bottomSegment;
       } else {
-        // Entire wall is doorway
         wallSegments[direction] = undefined;
       }
     }
