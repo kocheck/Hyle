@@ -55,6 +55,7 @@ import { processImage, ProcessingHandle } from '../utils/AssetProcessor';
 import MapNavigator from './MapNavigator';
 import AddToLibraryDialog from './AssetLibrary/AddToLibraryDialog';
 import LibraryManager from './AssetLibrary/LibraryManager';
+import ToggleSwitch from './ToggleSwitch';
 
 /**
  * Sidebar component provides map upload, grid settings, and token library
@@ -258,18 +259,12 @@ const Sidebar = () => {
 
                     {/* Daylight Mode Toggle */}
                     <div>
-                        <label className="flex items-center justify-between cursor-pointer">
-                            <span className="text-xs uppercase font-semibold" style={{ color: 'var(--app-text-secondary)' }}>Daylight Mode</span>
-                            <input
-                                type="checkbox"
-                                checked={isDaylightMode}
-                                onChange={(e) => setDaylightMode(e.target.checked)}
-                                className="w-4 h-4 rounded cursor-pointer"
-                            />
-                        </label>
-                        <p className="text-xs mt-1" style={{ color: 'var(--app-text-muted)' }}>
-                            {isDaylightMode ? '☀️ Fog of War disabled' : '🌙 Fog of War enabled'}
-                        </p>
+                        <ToggleSwitch
+                            checked={isDaylightMode}
+                            onChange={(checked) => setDaylightMode(checked)}
+                            label="Daylight Mode"
+                            description={isDaylightMode ? '☀️ Fog of War disabled' : '🌙 Fog of War enabled'}
+                        />
                     </div>
 
                     {/* Map Calibration */}
