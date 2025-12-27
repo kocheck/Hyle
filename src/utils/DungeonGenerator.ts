@@ -115,7 +115,7 @@ export class DungeonGenerator {
 
       let added = false;
       for (const direction of availableDirs) {
-        const result = this.tryAddPieceInDirection(sourcePiece, direction, pieces);
+        const result = this.tryAddPieceInDirection(sourcePiece, direction, pieces, sourcePiece);
 
         if (result) {
           const { corridor, newRoom } = result;
@@ -310,7 +310,8 @@ export class DungeonGenerator {
   private tryAddPieceInDirection(
     sourcePiece: DungeonPiece,
     direction: Direction,
-    existingPieces: DungeonPiece[]
+    existingPieces: DungeonPiece[],
+    excludeFromCollision?: DungeonPiece
   ): { corridor: DungeonPiece; newRoom: DungeonPiece } | null {
     const { bounds } = sourcePiece;
     const { gridSize } = this.options;
@@ -387,8 +388,12 @@ export class DungeonGenerator {
     // Realign wall segments after position adjustment
     this.updateWallSegments(newRoom);
 
-    // Check for collisions
-    if (this.piecesOverlap(corridor, existingPieces) || this.piecesOverlap(newRoom, existingPieces)) {
+    // Check for collisions (exclude source piece since corridor connects to it)
+    const piecesToCheck = excludeFromCollision
+      ? existingPieces.filter(p => p !== excludeFromCollision)
+      : existingPieces;
+
+    if (this.piecesOverlap(corridor, piecesToCheck) || this.piecesOverlap(newRoom, piecesToCheck)) {
       return null;
     }
 
