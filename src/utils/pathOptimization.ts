@@ -1,19 +1,13 @@
 /**
  * Path Optimization Utilities
  *
- * Provides path smoothing and geometry fusing for wall tool refinement.
+ * Provides path smoothing and geometry snapping for wall tool refinement.
  * Includes Ramer-Douglas-Peucker algorithm for path simplification.
  */
 
-export interface Point {
-  x: number;
-  y: number;
-}
+import { Point, WallSegment } from '../types/geometry';
 
-export interface WallSegment {
-  start: Point;
-  end: Point;
-}
+export type { Point, WallSegment };
 
 /**
  * Ramer-Douglas-Peucker algorithm for path simplification
@@ -114,17 +108,26 @@ function distance(p1: Point, p2: Point): number {
 }
 
 /**
- * Calculate distance from point to line segment
+ * Calculate distance from point to line segment and return the closest point
  * (accounts for segment endpoints, not just infinite line)
+ * 
+ * @returns Object with distance and the closest point on the segment
  */
-export function pointToSegmentDistance(point: Point, segStart: Point, segEnd: Point): number {
+function pointToSegmentDistanceWithPoint(
+  point: Point,
+  segStart: Point,
+  segEnd: Point
+): { distance: number; closestPoint: Point } {
   const dx = segEnd.x - segStart.x;
   const dy = segEnd.y - segStart.y;
   const lengthSquared = dx * dx + dy * dy;
 
   if (lengthSquared === 0) {
     // Segment is actually a point
-    return distance(point, segStart);
+    return {
+      distance: distance(point, segStart),
+      closestPoint: segStart,
+    };
   }
 
   // Calculate projection parameter t
@@ -142,14 +145,17 @@ export function pointToSegmentDistance(point: Point, segStart: Point, segEnd: Po
     y: segStart.y + t * dy,
   };
 
-  return distance(point, closestPoint);
+  return {
+    distance: distance(point, closestPoint),
+    closestPoint,
+  };
 }
 
 /**
  * Find the closest point on a path to a given point
  * Returns the closest point and the segment index it belongs to
  */
-export function findClosestPointOnPath(
+function findClosestPointOnPath(
   point: Point,
   pathPoints: number[]
 ): { point: Point; segmentIndex: number; distance: number } | null {
@@ -166,27 +172,12 @@ export function findClosestPointOnPath(
     const segStart = { x: pathPoints[i], y: pathPoints[i + 1] };
     const segEnd = { x: pathPoints[i + 2], y: pathPoints[i + 3] };
 
-    const dist = pointToSegmentDistance(point, segStart, segEnd);
+    const result = pointToSegmentDistanceWithPoint(point, segStart, segEnd);
 
-    if (dist < minDistance) {
-      minDistance = dist;
+    if (result.distance < minDistance) {
+      minDistance = result.distance;
+      closestPoint = result.closestPoint;
       closestSegmentIndex = i / 2;
-
-      // Calculate the actual closest point on this segment
-      const dx = segEnd.x - segStart.x;
-      const dy = segEnd.y - segStart.y;
-      const lengthSquared = dx * dx + dy * dy;
-
-      let t = 0;
-      if (lengthSquared !== 0) {
-        t = ((point.x - segStart.x) * dx + (point.y - segStart.y) * dy) / lengthSquared;
-        t = Math.max(0, Math.min(1, t));
-      }
-
-      closestPoint = {
-        x: segStart.x + t * dx,
-        y: segStart.y + t * dy,
-      };
     }
   }
 
@@ -232,42 +223,4 @@ export function snapPointToPaths(
   }
 
   return { point: bestSnapPoint, snapped, pathIndex };
-}
-
-/**
- * Check if two paths are close enough to be considered overlapping
- * Used for geometry fusing decisions
- */
-export function arePathsOverlapping(
-  path1: number[],
-  path2: number[],
-  threshold: number
-): boolean {
-  // Check if endpoints of path1 are close to path2
-  if (path1.length < 4 || path2.length < 4) {
-    return false;
-  }
-
-  const start1 = { x: path1[0], y: path1[1] };
-  const end1 = { x: path1[path1.length - 2], y: path1[path1.length - 1] };
-
-  const startResult = findClosestPointOnPath(start1, path2);
-  const endResult = findClosestPointOnPath(end1, path2);
-
-  return (
-    startResult !== null &&
-    endResult !== null &&
-    startResult.distance < threshold &&
-    endResult.distance < threshold
-  );
-}
-
-/**
- * Merge two paths into one (used when paths overlap significantly)
- * This is a simple concatenation - more sophisticated merging could be added
- */
-export function mergePaths(basePath: number[], newPath: number[]): number[] {
-  // Simple merge: concatenate the paths
-  // More sophisticated logic could interpolate or reorder points
-  return [...basePath, ...newPath];
 }

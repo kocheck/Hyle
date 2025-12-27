@@ -156,7 +156,7 @@ const PreferencesDialog = ({ isOpen, onClose }: PreferencesDialogProps) => {
                 className="font-medium"
                 style={{ color: 'var(--app-text)' }}
               >
-                Geometry Snapping & Fusing
+                Geometry Snapping
               </label>
               <input
                 id="enable-snapping"
@@ -167,8 +167,8 @@ const PreferencesDialog = ({ isOpen, onClose }: PreferencesDialogProps) => {
               />
             </div>
             <p className="text-sm mb-3" style={{ color: 'var(--app-text-muted)' }}>
-              Automatically snaps new walls to existing walls when drawn nearby, and fuses
-              overlapping geometry to optimize memory usage.
+              Automatically snaps new wall endpoints to existing walls when drawn nearby,
+              creating clean, connected wall networks.
             </p>
 
             {wallTool.enableSnapping && (

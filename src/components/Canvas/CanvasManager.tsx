@@ -735,8 +735,9 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
 
              // Apply geometry snapping for wall tool (if enabled)
              if (processedLine.tool === 'wall' && wallToolPrefs.enableSnapping) {
-                 const existingWalls = drawings.filter(d => d.tool === 'wall');
-                 const existingWallPaths = existingWalls.map(w => w.points);
+                 const existingWallPaths = drawings
+                     .filter(d => d.tool === 'wall')
+                     .map(w => w.points);
 
                  if (existingWallPaths.length > 0 && processedLine.points.length >= 4) {
                      const points = [...processedLine.points];
