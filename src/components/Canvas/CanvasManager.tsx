@@ -624,6 +624,9 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
         let point = stage.getRelativePointerPosition();
         const cur = currentLine.current;
 
+        // Guard against null currentLine
+        if (!cur) return;
+
         // Shift-key axis locking: Lock to horizontal or vertical
         if (e.evt.shiftKey && cur.points.length >= 2) {
             const startX = cur.points[0];
