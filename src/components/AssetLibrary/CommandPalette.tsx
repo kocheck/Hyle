@@ -32,6 +32,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { fuzzySearch } from '../../utils/fuzzySearch';
+import { addLibraryTokenToMap } from '../../utils/tokenHelpers';
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -65,32 +66,14 @@ const CommandPalette = ({ isOpen, onClose }: CommandPaletteProps) => {
    * Uses useCallback to prevent stale closure issues
    */
   const handleSelectItem = useCallback((itemId: string) => {
-    const currentTokenLibrary = useGameStore.getState().campaign.tokenLibrary;
-    const currentMap = useGameStore.getState().map;
+    const { campaign: { tokenLibrary: currentTokenLibrary }, map: currentMap, addToken } = useGameStore.getState();
     const item = currentTokenLibrary.find(i => i.id === itemId);
     if (!item) return;
 
-    // Calculate center of current viewport or map
-    // Default to (500, 500) if no map loaded
-    const centerX = currentMap ? currentMap.x + (currentMap.width * currentMap.scale) / 2 : 500;
-    const centerY = currentMap ? currentMap.y + (currentMap.height * currentMap.scale) / 2 : 500;
-
-    // Create token from library item
-    const newToken = {
-      id: crypto.randomUUID(),
-      x: centerX,
-      y: centerY,
-      src: item.src,
-      scale: item.defaultScale || 1,
-      type: item.defaultType,
-      visionRadius: item.defaultVisionRadius,
-      name: item.name,
-    };
-
-    addToken(newToken);
+    addLibraryTokenToMap(item, addToken, currentMap);
     onClose();
     setQuery(''); // Reset search
-  }, [addToken, onClose]);
+  }, [onClose]);
 
   // Auto-focus search input when modal opens
   useEffect(() => {

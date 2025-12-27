@@ -24,6 +24,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { fuzzySearch, filterByCategory, getCategories } from '../../utils/fuzzySearch';
 import { processImage, ProcessingHandle } from '../../utils/AssetProcessor';
+import { addLibraryTokenToMap } from '../../utils/tokenHelpers';
 import AddToLibraryDialog from './AddToLibraryDialog';
 
 interface LibraryManagerProps {
@@ -292,21 +293,8 @@ const LibraryManager = ({ isOpen, onClose }: LibraryManagerProps) => {
                     {/* Keyboard-accessible add button */}
                     <button
                       onClick={() => {
-                        // Trigger drag-drop equivalent: add token to center of map
                         const { addToken, map } = useGameStore.getState();
-                        const centerX = map ? map.x + (map.width * map.scale) / 2 : 500;
-                        const centerY = map ? map.y + (map.height * map.scale) / 2 : 500;
-                        
-                        addToken({
-                          id: crypto.randomUUID(),
-                          x: centerX,
-                          y: centerY,
-                          src: item.src,
-                          scale: item.defaultScale || 1,
-                          type: item.defaultType,
-                          visionRadius: item.defaultVisionRadius,
-                          name: item.name,
-                        });
+                        addLibraryTokenToMap(item, addToken, map);
                         showToast(`Added ${item.name} to map`, 'success');
                       }}
                       className="w-full mt-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded text-white text-xs font-medium"
