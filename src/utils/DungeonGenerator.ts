@@ -372,30 +372,37 @@ export class DungeonGenerator {
     const { bounds } = sourcePiece;
     const { gridSize } = this.options;
 
-    // Calculate connection point on source piece
+    // Calculate connection point on source piece and snap to grid
     let connX: number, connY: number;
 
     switch (direction) {
       case 'north':
-        connX = bounds.x + bounds.width / 2;
+        connX = Math.round((bounds.x + bounds.width / 2) / gridSize) * gridSize;
         connY = bounds.y;
         break;
       case 'south':
-        connX = bounds.x + bounds.width / 2;
+        connX = Math.round((bounds.x + bounds.width / 2) / gridSize) * gridSize;
         connY = bounds.y + bounds.height;
         break;
       case 'east':
         connX = bounds.x + bounds.width;
-        connY = bounds.y + bounds.height / 2;
+        connY = Math.round((bounds.y + bounds.height / 2) / gridSize) * gridSize;
         break;
       case 'west':
         connX = bounds.x;
-        connY = bounds.y + bounds.height / 2;
+        connY = Math.round((bounds.y + bounds.height / 2) / gridSize) * gridSize;
         break;
     }
 
     // Create corridor
     const corridor = this.createCorridorPiece(connX, connY, direction);
+
+    // Grid-snap corridor position for proper alignment
+    corridor.bounds.x = Math.round(corridor.bounds.x / gridSize) * gridSize;
+    corridor.bounds.y = Math.round(corridor.bounds.y / gridSize) * gridSize;
+
+    // Update corridor wall segments after snapping
+    this.updateWallSegments(corridor);
 
     // Calculate new room position at end of corridor
     const { bounds: corrBounds } = corridor;
@@ -458,29 +465,30 @@ export class DungeonGenerator {
     }
 
     // Calculate exact doorway positions AFTER grid snapping
-    // Source room doorway remains at corridor connection point
-    const sourceRoomDoorway = { x: connX, y: connY };
-
-    // Recalculate new room doorway position based on grid-aligned position
+    // Both doorways must be grid-aligned for proper wall removal
+    let sourceRoomDoorwayX: number, sourceRoomDoorwayY: number;
     let newRoomDoorwayX: number, newRoomDoorwayY: number;
+
     switch (direction) {
       case 'north':
-        newRoomDoorwayX = newRoom.bounds.x + newRoom.bounds.width / 2;
-        newRoomDoorwayY = newRoom.bounds.y + newRoom.bounds.height;
-        break;
       case 'south':
-        newRoomDoorwayX = newRoom.bounds.x + newRoom.bounds.width / 2;
-        newRoomDoorwayY = newRoom.bounds.y;
+        // Horizontal alignment - doorway X must be on grid
+        sourceRoomDoorwayX = Math.round((bounds.x + bounds.width / 2) / gridSize) * gridSize;
+        sourceRoomDoorwayY = direction === 'north' ? bounds.y : bounds.y + bounds.height;
+        newRoomDoorwayX = Math.round((newRoom.bounds.x + newRoom.bounds.width / 2) / gridSize) * gridSize;
+        newRoomDoorwayY = direction === 'north' ? newRoom.bounds.y + newRoom.bounds.height : newRoom.bounds.y;
         break;
       case 'east':
-        newRoomDoorwayX = newRoom.bounds.x;
-        newRoomDoorwayY = newRoom.bounds.y + newRoom.bounds.height / 2;
-        break;
       case 'west':
-        newRoomDoorwayX = newRoom.bounds.x + newRoom.bounds.width;
-        newRoomDoorwayY = newRoom.bounds.y + newRoom.bounds.height / 2;
+        // Vertical alignment - doorway Y must be on grid
+        sourceRoomDoorwayX = direction === 'east' ? bounds.x + bounds.width : bounds.x;
+        sourceRoomDoorwayY = Math.round((bounds.y + bounds.height / 2) / gridSize) * gridSize;
+        newRoomDoorwayX = direction === 'east' ? newRoom.bounds.x : newRoom.bounds.x + newRoom.bounds.width;
+        newRoomDoorwayY = Math.round((newRoom.bounds.y + newRoom.bounds.height / 2) / gridSize) * gridSize;
         break;
     }
+
+    const sourceRoomDoorway = { x: sourceRoomDoorwayX, y: sourceRoomDoorwayY };
     const newRoomDoorway = { x: newRoomDoorwayX, y: newRoomDoorwayY };
 
     // Remove wall segments where pieces connect using exact positions
@@ -512,6 +520,7 @@ export class DungeonGenerator {
     const { bounds, wallSegments } = piece;
     const { gridSize } = this.options;
     const doorwaySize = gridSize; // Opening size (1 grid cell)
+    const minSegmentSize = gridSize / 4; // Minimum meaningful segment size
 
     // Use exact doorway position if provided, otherwise calculate from bounds
     let centerX: number, centerY: number;
@@ -520,23 +529,17 @@ export class DungeonGenerator {
       centerX = doorwayPosition.x;
       centerY = doorwayPosition.y;
     } else {
-      // Fallback: calculate the center point where the doorway should be
+      // Fallback: calculate grid-aligned center point where the doorway should be
       switch (direction) {
         case 'north':
-          centerX = bounds.x + bounds.width / 2;
-          centerY = bounds.y;
-          break;
         case 'south':
-          centerX = bounds.x + bounds.width / 2;
-          centerY = bounds.y + bounds.height;
+          centerX = Math.round((bounds.x + bounds.width / 2) / gridSize) * gridSize;
+          centerY = direction === 'north' ? bounds.y : bounds.y + bounds.height;
           break;
         case 'east':
-          centerX = bounds.x + bounds.width;
-          centerY = bounds.y + bounds.height / 2;
-          break;
         case 'west':
-          centerX = bounds.x;
-          centerY = bounds.y + bounds.height / 2;
+          centerX = direction === 'east' ? bounds.x + bounds.width : bounds.x;
+          centerY = Math.round((bounds.y + bounds.height / 2) / gridSize) * gridSize;
           break;
       }
     }
@@ -554,10 +557,10 @@ export class DungeonGenerator {
       // Horizontal wall - split left and right of doorway
       const doorwayLeft = centerX - doorwaySize / 2;
       const doorwayRight = centerX + doorwaySize / 2;
-      const wallWidth = end.x - start.x;
+      const wallWidth = Math.abs(end.x - start.x);
 
-      // Only remove wall if it's entirely a doorway (wall width <= doorway size)
-      if (wallWidth <= doorwaySize + 2) {
+      // Only remove wall if it's entirely a doorway
+      if (wallWidth <= doorwaySize + minSegmentSize) {
         wallSegments[direction] = undefined;
         return;
       }
@@ -565,13 +568,15 @@ export class DungeonGenerator {
       const leftSegment: Point[] = [];
       const rightSegment: Point[] = [];
 
-      // Keep left segment if it exists (even if small)
-      if (doorwayLeft > start.x + 2) {
+      // Keep left segment if it's meaningful
+      const leftLength = Math.abs(doorwayLeft - start.x);
+      if (leftLength > minSegmentSize) {
         leftSegment.push(start, { x: doorwayLeft, y: start.y });
       }
 
-      // Keep right segment if it exists (even if small)
-      if (doorwayRight < end.x - 2) {
+      // Keep right segment if it's meaningful
+      const rightLength = Math.abs(end.x - doorwayRight);
+      if (rightLength > minSegmentSize) {
         rightSegment.push({ x: doorwayRight, y: end.y }, end);
       }
 
@@ -589,10 +594,10 @@ export class DungeonGenerator {
       // Vertical wall - split top and bottom of doorway
       const doorwayTop = centerY - doorwaySize / 2;
       const doorwayBottom = centerY + doorwaySize / 2;
-      const wallHeight = end.y - start.y;
+      const wallHeight = Math.abs(end.y - start.y);
 
-      // Only remove wall if it's entirely a doorway (wall height <= doorway size)
-      if (wallHeight <= doorwaySize + 2) {
+      // Only remove wall if it's entirely a doorway
+      if (wallHeight <= doorwaySize + minSegmentSize) {
         wallSegments[direction] = undefined;
         return;
       }
@@ -600,13 +605,15 @@ export class DungeonGenerator {
       const topSegment: Point[] = [];
       const bottomSegment: Point[] = [];
 
-      // Keep top segment if it exists (even if small)
-      if (doorwayTop > start.y + 2) {
+      // Keep top segment if it's meaningful
+      const topLength = Math.abs(doorwayTop - start.y);
+      if (topLength > minSegmentSize) {
         topSegment.push(start, { x: start.x, y: doorwayTop });
       }
 
-      // Keep bottom segment if it exists (even if small)
-      if (doorwayBottom < end.y - 2) {
+      // Keep bottom segment if it's meaningful
+      const bottomLength = Math.abs(end.y - doorwayBottom);
+      if (bottomLength > minSegmentSize) {
         bottomSegment.push({ x: end.x, y: doorwayBottom }, end);
       }
 
