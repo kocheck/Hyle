@@ -4,7 +4,9 @@ import { KonvaEventObject } from 'konva/lib/Node';
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { processImage, ProcessingHandle } from '../../utils/AssetProcessor';
 import { snapToGrid } from '../../utils/grid';
-import { useGameStore } from '../../store/gameStore';
+import { useGameStore, Drawing } from '../../store/gameStore';
+import { usePreferencesStore } from '../../store/preferencesStore';
+import { simplifyPath, snapPointToPaths, arePathsOverlapping } from '../../utils/pathOptimization';
 import GridOverlay from './GridOverlay';
 import ImageCropper from '../ImageCropper';
 import TokenErrorBoundary from './TokenErrorBoundary';
@@ -129,6 +131,9 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
   const gridSize = useGameStore(s => s.gridSize);
   const gridType = useGameStore(s => s.gridType);
   const isCalibrating = useGameStore(s => s.isCalibrating);
+
+  // Preferences
+  const wallToolPrefs = usePreferencesStore(s => s.wallTool);
 
   // Actions - these are stable
   const addToken = useGameStore(s => s.addToken);
@@ -712,7 +717,47 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
          if (!isDrawing.current) return;
          isDrawing.current = false;
          if (tempLine) {
-             addDrawing(tempLine);
+             let processedLine = { ...tempLine };
+
+             // Apply path smoothing for wall tool (if enabled)
+             if (processedLine.tool === 'wall' && wallToolPrefs.enableSmoothing) {
+                 const originalPoints = processedLine.points;
+                 const smoothedPoints = simplifyPath(originalPoints, wallToolPrefs.smoothingEpsilon);
+
+                 // Only use smoothed version if it has enough points
+                 if (smoothedPoints.length >= wallToolPrefs.minPoints * 2) {
+                     processedLine.points = smoothedPoints;
+                 }
+             }
+
+             // Apply geometry snapping for wall tool (if enabled)
+             if (processedLine.tool === 'wall' && wallToolPrefs.enableSnapping) {
+                 const existingWalls = drawings.filter(d => d.tool === 'wall');
+                 const existingWallPaths = existingWalls.map(w => w.points);
+
+                 if (existingWallPaths.length > 0 && processedLine.points.length >= 4) {
+                     // Snap start point
+                     const startPoint = { x: processedLine.points[0], y: processedLine.points[1] };
+                     const startSnap = snapPointToPaths(startPoint, existingWallPaths, wallToolPrefs.snapThreshold);
+
+                     if (startSnap.snapped) {
+                         processedLine.points[0] = startSnap.point.x;
+                         processedLine.points[1] = startSnap.point.y;
+                     }
+
+                     // Snap end point
+                     const endIdx = processedLine.points.length - 2;
+                     const endPoint = { x: processedLine.points[endIdx], y: processedLine.points[endIdx + 1] };
+                     const endSnap = snapPointToPaths(endPoint, existingWallPaths, wallToolPrefs.snapThreshold);
+
+                     if (endSnap.snapped) {
+                         processedLine.points[endIdx] = endSnap.point.x;
+                         processedLine.points[endIdx + 1] = endSnap.point.y;
+                     }
+                 }
+             }
+
+             addDrawing(processedLine);
              setTempLine(null);
          }
          return;
@@ -1014,9 +1059,9 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
                     globalCompositeOperation={
                         line.tool === 'eraser' ? 'destination-out' : 'source-over'
                     }
-                    draggable={tool === 'select'}
+                    draggable={tool === 'select' && line.tool !== 'wall'}
                     onClick={(e) => {
-                        if (tool === 'select') {
+                        if (tool === 'select' && line.tool !== 'wall') {
                             e.evt.stopPropagation();
                             if (e.evt.shiftKey) {
                                 if (selectedIds.includes(line.id)) {

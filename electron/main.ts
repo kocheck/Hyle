@@ -126,6 +126,15 @@ function buildApplicationMenu() {
           }
         },
         { type: 'separator' },
+        {
+          label: 'Preferences...',
+          accelerator: 'CmdOrCtrl+,',
+          click: () => {
+             const win = BrowserWindow.getFocusedWindow();
+             if (win) win.webContents.send('MENU_OPEN_PREFERENCES');
+          }
+        },
+        { type: 'separator' },
         process.platform === 'darwin'
           ? ({ role: 'close' } as const)
           : ({ role: 'quit' } as const),
