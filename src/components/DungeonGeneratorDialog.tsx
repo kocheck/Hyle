@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useGameStore } from '../store/gameStore';
+
 import { DungeonGenerator } from '../utils/DungeonGenerator';
+
+import { useGameStore } from '../store/gameStore';
 
 /**
  * DungeonGeneratorDialog is a modal that allows users to configure and
@@ -8,6 +10,8 @@ import { DungeonGenerator } from '../utils/DungeonGenerator';
  */
 export const DungeonGeneratorDialog: React.FC = () => {
   const addDrawing = useGameStore((state) => state.addDrawing);
+  const removeDrawings = useGameStore((state) => state.removeDrawings);
+  const existingDrawings = useGameStore((state) => state.drawings);
   const gridSize = useGameStore((state) => state.gridSize);
   const clearDungeonDialog = useGameStore((state) => state.clearDungeonDialog);
   const dungeonDialog = useGameStore((state) => state.dungeonDialog);
@@ -58,8 +62,7 @@ export const DungeonGeneratorDialog: React.FC = () => {
 
     // Clear existing drawings if requested
     if (clearCanvas) {
-      const state = useGameStore.getState();
-      state.removeDrawings(state.drawings.map(d => d.id));
+      removeDrawings(existingDrawings.map(d => d.id));
     }
 
     // Add all generated wall drawings to the store
