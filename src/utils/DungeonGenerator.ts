@@ -93,10 +93,19 @@ export class DungeonGenerator {
     usedDirections.set(firstRoom, new Set());
 
     // Grow the dungeon organically
-    for (let i = 1; i < this.options.numRooms; i++) {
-      // Pick a random existing piece to grow from
-      const sourceIndex = Math.floor(Math.random() * pieces.length);
-      const sourcePiece = pieces[sourceIndex];
+    const maxRetries = this.options.numRooms * 10; // Prevent infinite loops
+    let retries = 0;
+    let roomsAdded = 1; // We already have the first room
+
+    while (roomsAdded < this.options.numRooms && retries < maxRetries) {
+      retries++;
+
+      // Pick a random existing room piece to grow from
+      // Filter to only room pieces (rooms are at even indices after the first room)
+      const roomPieces = pieces.filter((_, idx) => idx === 0 || idx % 2 === 0);
+      if (roomPieces.length === 0) break;
+
+      const sourcePiece = roomPieces[Math.floor(Math.random() * roomPieces.length)];
       const usedDirs = usedDirections.get(sourcePiece) || new Set();
 
       // Try all available directions
@@ -120,13 +129,15 @@ export class DungeonGenerator {
           usedDirections.set(newRoom, new Set([this.getOppositeDirection(direction)]));
 
           added = true;
+          roomsAdded++;
+          retries = 0; // Reset retry counter on success
           break;
         }
       }
 
-      // If we couldn't add to this piece, try another
-      if (!added && pieces.length < this.options.numRooms) {
-        i--;
+      // If we've tried many times without success, give up
+      if (!added && retries >= maxRetries / 2) {
+        break;
       }
     }
 
