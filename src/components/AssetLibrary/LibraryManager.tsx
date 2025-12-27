@@ -87,15 +87,21 @@ const LibraryManager = ({ isOpen, onClose }: LibraryManagerProps) => {
 
       // Read the processed file back as blob so thumbnails and saved assets
       // are generated from the optimized image, not the original upload
-      const response = await fetch(src);
-      const blob = await response.blob();
+      try {
+        const response = await fetch(src);
+        const blob = await response.blob();
 
-      setPendingImage({
-        src,
-        blob,
-        name: file.name.split('.')[0] || 'New Asset',
-      });
-      setIsAddDialogOpen(true);
+        setPendingImage({
+          src,
+          blob,
+          name: file.name.split('.')[0] || 'New Asset',
+        });
+        setIsAddDialogOpen(true);
+      } catch (fetchErr) {
+        console.error('[LibraryManager] Failed to read processed file:', fetchErr);
+        showToast('Failed to read processed image', 'error');
+        processingHandleRef.current = null;
+      }
     } catch (err) {
       console.error('[LibraryManager] Failed to process upload:', err);
       showToast('Failed to process image', 'error');
@@ -287,8 +293,7 @@ const LibraryManager = ({ isOpen, onClose }: LibraryManagerProps) => {
                     <button
                       onClick={() => {
                         // Trigger drag-drop equivalent: add token to center of map
-                        const addToken = useGameStore.getState().addToken;
-                        const map = useGameStore.getState().map;
+                        const { addToken, map } = useGameStore.getState();
                         const centerX = map ? map.x + (map.width * map.scale) / 2 : 500;
                         const centerY = map ? map.y + (map.height * map.scale) / 2 : 500;
                         
