@@ -10,8 +10,11 @@ import ConfirmDialog from './components/ConfirmDialog'
 import TokenInspector from './components/TokenInspector'
 import ResourceMonitor from './components/ResourceMonitor'
 import { useGameStore } from './store/gameStore'
+import type { TokenLibraryItem } from './store/gameStore'
 import { useWindowType } from './utils/useWindowType'
-import AutoSaveManager from './components/AutoSaveManager';
+import AutoSaveManager from './components/AutoSaveManager'
+import CommandPalette from './components/AssetLibrary/CommandPalette'
+import { useCommandPalette } from './hooks/useCommandPalette';
 
 /**
  * App is the root component for Hyle's dual-window architecture
@@ -92,6 +95,9 @@ function App() {
   // Selected tokens state (for TokenInspector)
   const [selectedTokenIds, setSelectedTokenIds] = useState<string[]>([]);
 
+  // Command Palette state (Cmd+P)
+  const [isPaletteOpen, setPaletteOpen] = useCommandPalette();
+
   // Resource Monitor state (from store)
   const showResourceMonitor = useGameStore((state) => state.showResourceMonitor);
 
@@ -119,6 +125,45 @@ function App() {
     ),
     [selectedTokenIds, tokens]
   );
+
+  // Load library index on startup (Architect View only)
+  useEffect(() => {
+    if (!isArchitectView || !window.ipcRenderer) return;
+
+    const loadLibrary = async () => {
+      try {
+        // @ts-ignore
+        const libraryItems = await window.ipcRenderer.invoke('LOAD_LIBRARY_INDEX');
+
+        // Update store with loaded library items
+        if (libraryItems && Array.isArray(libraryItems)) {
+          useGameStore.setState((state) => {
+            const currentLibrary = state.campaign.tokenLibrary;
+
+            // Merge with existing library (avoid duplicates by ID)
+            const existingIds = new Set(currentLibrary.map((item) => item.id));
+            const newItems = (libraryItems as TokenLibraryItem[]).filter((item) => !existingIds.has(item.id));
+
+            if (newItems.length === 0) {
+              return state;
+            }
+
+            return {
+              campaign: {
+                ...state.campaign,
+                tokenLibrary: [...currentLibrary, ...newItems],
+              },
+            };
+          });
+        }
+      } catch (error) {
+        console.error('[App] Failed to load library index:', error);
+        // Don't show toast - this is a non-critical error on startup
+      }
+    };
+
+    loadLibrary();
+  }, [isArchitectView]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -290,6 +335,14 @@ function App() {
         {/* Token Inspector (only show in Architect View when tokens selected) */}
         {isArchitectView && selectedTokensOnly.length > 0 && (
           <TokenInspector selectedTokenIds={selectedTokensOnly} />
+        )}
+
+        {/* Command Palette: Quick asset search (Cmd+P, Architect View only) */}
+        {isArchitectView && (
+          <CommandPalette
+            isOpen={isPaletteOpen}
+            onClose={() => setPaletteOpen(false)}
+          />
         )}
       </div>
     </div>

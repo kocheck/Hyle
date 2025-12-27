@@ -64,15 +64,27 @@ export interface MapData {
 }
 
 /**
- * TokenLibraryItem represents a reusable token template in the campaign library
+ * TokenLibraryItem represents a reusable token in the persistent library
+ *
+ * The library persists across campaigns and sessions, allowing users to
+ * build a collection of frequently-used tokens (monsters, NPCs, props).
+ *
+ * **Storage:**
+ * - Full-size images: userData/library/assets/{id}.webp
+ * - Thumbnails: userData/library/assets/thumb-{id}.webp
+ * - Metadata index: userData/library/index.json
  */
 export interface TokenLibraryItem {
   id: string;
   name: string;
-  src: string;
-  defaultScale: number;
-  defaultVisionRadius?: number;
-  defaultType?: 'PC' | 'NPC';
+  src: string; // file:// URL to full-size image
+  thumbnailSrc: string; // file:// URL to 128x128 thumbnail
+  category: string; // e.g., "Monsters", "NPCs", "Props", "Custom"
+  tags: string[]; // For fuzzy search (e.g., ["dragon", "red", "large"])
+  dateAdded: number; // Timestamp (Date.now())
+  defaultScale?: number; // Optional default scale when placed
+  defaultVisionRadius?: number; // Optional default vision radius
+  defaultType?: 'PC' | 'NPC'; // Optional default token type
 }
 
 /**

@@ -20,6 +20,11 @@
  * - 'SAVE_ASSET_TEMP': Saves processed asset to temp directory
  * - 'SAVE_CAMPAIGN': Serializes campaign to .hyle ZIP file
  * - 'LOAD_CAMPAIGN': Deserializes .hyle file and restores assets
+ * - 'SELECT_LIBRARY_PATH': Opens directory picker for library location
+ * - 'SAVE_ASSET_TO_LIBRARY': Saves asset to persistent library
+ * - 'LOAD_LIBRARY_INDEX': Loads library metadata index
+ * - 'DELETE_LIBRARY_ASSET': Removes asset from library
+ * - 'UPDATE_LIBRARY_METADATA': Updates library asset metadata
  *
  * See ARCHITECTURE.md for complete IPC documentation.
  */
@@ -171,7 +176,7 @@ function buildApplicationMenu() {
         },
         {
             label: 'Performance Monitor',
-            accelerator: 'CmdOrCtrl+P',
+            accelerator: 'CmdOrCtrl+Shift+M',
             click: () => {
                 const win = BrowserWindow.getFocusedWindow();
                 if (win) win.webContents.send('MENU_TOGGLE_RESOURCE_MONITOR');
@@ -804,6 +809,216 @@ let currentCampaignPath: string | null = null;
   */
  ipcMain.handle('GET_PAUSE_STATE', () => {
    return isGamePaused
+ })
+
+ /**
+  * IPC handler: SELECT_LIBRARY_PATH
+  *
+  * Opens a native directory picker dialog for user to select their token library location.
+  * This allows users to choose where their persistent token library will be stored.
+  *
+  * @returns Selected directory path, or null if user cancelled
+  */
+ ipcMain.handle('SELECT_LIBRARY_PATH', async () => {
+   const result = await dialog.showOpenDialog({
+     properties: ['openDirectory', 'createDirectory'],
+     title: 'Select Token Library Location'
+   });
+   if (result.canceled) return null;
+   return result.filePaths[0];
+ })
+
+ /**
+  * IPC handler: SAVE_ASSET_TO_LIBRARY
+  *
+  * Saves a token asset to the persistent library directory.
+  * Creates both full-size and thumbnail versions of the image.
+  *
+  * **Note on concurrency:**
+  * This handler uses a read-modify-write pattern for index.json which could
+  * result in lost updates if multiple saves happen simultaneously. Since this
+  * application is designed for single-user local use, concurrent access is not
+  * expected. If concurrent operations become a requirement, consider implementing
+  * a file locking mechanism or atomic update pattern.
+  *
+  * @param fullSizeBuffer - Full-resolution WebP image as ArrayBuffer
+  * @param thumbnailBuffer - 128x128 thumbnail WebP image as ArrayBuffer
+  * @param metadata - Asset metadata (id, name, category, tags)
+  * @returns Complete TokenLibraryItem with file:// URLs
+  */
+ ipcMain.handle('SAVE_ASSET_TO_LIBRARY', async (
+   _event: IpcMainInvokeEvent,
+   {
+     fullSizeBuffer,
+     thumbnailBuffer,
+     metadata
+   }: {
+     fullSizeBuffer: ArrayBuffer;
+     thumbnailBuffer: ArrayBuffer;
+     metadata: {
+       id: string;
+       name: string;
+       category: string;
+       tags: string[];
+     };
+   }
+ ) => {
+   const libraryPath = path.join(app.getPath('userData'), 'library', 'assets');
+   await fs.mkdir(libraryPath, { recursive: true });
+
+   // Save full-size image
+   const filename = `${metadata.id}.webp`;
+   const fullPath = path.join(libraryPath, filename);
+   await fs.writeFile(fullPath, Buffer.from(fullSizeBuffer));
+
+   // Save thumbnail
+   const thumbFilename = `thumb-${metadata.id}.webp`;
+   const thumbPath = path.join(libraryPath, thumbFilename);
+   await fs.writeFile(thumbPath, Buffer.from(thumbnailBuffer));
+
+   // Update index.json
+   const indexPath = path.join(app.getPath('userData'), 'library', 'index.json');
+   let index: { items: unknown[] } = { items: [] };
+
+   try {
+     const indexData = await fs.readFile(indexPath, 'utf-8');
+     index = JSON.parse(indexData);
+     
+     // Validate index structure to prevent runtime errors on corruption
+     if (!index.items || !Array.isArray(index.items)) {
+       console.warn('[MAIN] Invalid index.json structure, resetting to empty array');
+       index.items = [];
+     }
+   } catch {
+     // Index doesn't exist yet, use empty array
+   }
+
+   const newItem = {
+     ...metadata,
+     src: `file://${fullPath}`,
+     thumbnailSrc: `file://${thumbPath}`,
+     dateAdded: Date.now()
+   };
+
+   index.items.push(newItem);
+   await fs.writeFile(indexPath, JSON.stringify(index, null, 2));
+
+   return newItem;
+ })
+
+ /**
+  * IPC handler: LOAD_LIBRARY_INDEX
+  *
+  * Loads the library metadata index from disk.
+  * Returns empty array if index doesn't exist yet.
+  *
+  * @returns Array of TokenLibraryItem objects
+  */
+ ipcMain.handle('LOAD_LIBRARY_INDEX', async () => {
+   const indexPath = path.join(app.getPath('userData'), 'library', 'index.json');
+
+   try {
+     const data = await fs.readFile(indexPath, 'utf-8');
+     const index = JSON.parse(data);
+     return index.items || [];
+   } catch {
+     // Index doesn't exist or is corrupted
+     return [];
+   }
+ })
+
+ /**
+  * IPC handler: DELETE_LIBRARY_ASSET
+  *
+  * Removes an asset from the library (both files and metadata).
+  * Deletes full-size image, thumbnail, and updates index.json.
+  *
+  * **Note on concurrency:**
+  * This handler uses a read-modify-write pattern for index.json which could
+  * result in lost updates if multiple operations happen simultaneously. Since
+  * this application is designed for single-user local use, concurrent access
+  * is not expected. If concurrent operations become a requirement, consider
+  * implementing a file locking mechanism or atomic update pattern.
+  *
+  * @param assetId - UUID of the asset to delete
+  * @returns true if successful
+  */
+ ipcMain.handle('DELETE_LIBRARY_ASSET', async (_event: IpcMainInvokeEvent, assetId: string) => {
+   const libraryPath = path.join(app.getPath('userData'), 'library', 'assets');
+
+   try {
+     // Delete full-size image
+     await fs.unlink(path.join(libraryPath, `${assetId}.webp`));
+
+     // Delete thumbnail
+     await fs.unlink(path.join(libraryPath, `thumb-${assetId}.webp`));
+   } catch (err) {
+     console.error('[MAIN] Failed to delete library asset files:', err);
+     // Continue to update index even if files don't exist
+   }
+
+   // Update index.json
+   const indexPath = path.join(app.getPath('userData'), 'library', 'index.json');
+
+   try {
+     const data = await fs.readFile(indexPath, 'utf-8');
+     const index = JSON.parse(data);
+
+     // Validate index structure before modifying
+     if (!index.items || !Array.isArray(index.items)) {
+       console.warn('[MAIN] Invalid index.json structure during delete');
+       index.items = [];
+     }
+
+     index.items = index.items.filter((item: { id: string }) => item.id !== assetId);
+     await fs.writeFile(indexPath, JSON.stringify(index, null, 2));
+   } catch (err) {
+     console.error('[MAIN] Failed to update library index:', err);
+     throw err;
+   }
+
+   return true;
+ })
+
+ /**
+  * IPC handler: UPDATE_LIBRARY_METADATA
+  *
+  * Updates metadata for a library asset (name, category, tags).
+  * Does not modify the asset files themselves.
+  *
+  * @param assetId - UUID of the asset to update
+  * @param updates - Partial metadata updates
+  * @returns Updated TokenLibraryItem
+  */
+ ipcMain.handle('UPDATE_LIBRARY_METADATA', async (
+   _event: IpcMainInvokeEvent,
+   assetId: string,
+   updates: { name?: string; category?: string; tags?: string[] }
+ ) => {
+   const indexPath = path.join(app.getPath('userData'), 'library', 'index.json');
+
+   const data = await fs.readFile(indexPath, 'utf-8');
+   const index = JSON.parse(data);
+
+   if (!index.items) {
+     throw new Error('Library index is corrupted');
+   }
+
+   const itemIndex = index.items.findIndex((item: { id: string }) => item.id === assetId);
+
+   if (itemIndex === -1) {
+     throw new Error(`Asset ${assetId} not found in library`);
+   }
+
+   // Apply updates
+   index.items[itemIndex] = {
+     ...index.items[itemIndex],
+     ...updates
+   };
+
+   await fs.writeFile(indexPath, JSON.stringify(index, null, 2));
+
+   return index.items[itemIndex];
  })
 
   /**
