@@ -16,8 +16,8 @@
  * **Keyboard shortcuts:**
  * - Cmd+P / Ctrl+P: Open palette
  * - Escape: Close palette
- * - Enter: Select highlighted item (first result)
- * - Arrow Up/Down: Navigate results (future enhancement)
+ * - Enter: Select highlighted item
+ * - Arrow Up/Down: Navigate results
  *
  * **Search algorithm:**
  * Uses fuzzySearch() utility which scores items based on:
@@ -29,9 +29,10 @@
  * @component
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { fuzzySearch } from '../../utils/fuzzySearch';
+import { addLibraryTokenToMap } from '../../utils/tokenHelpers';
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -40,6 +41,7 @@ interface CommandPaletteProps {
 
 const CommandPalette = ({ isOpen, onClose }: CommandPaletteProps) => {
   const [query, setQuery] = useState('');
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Store selectors
@@ -47,8 +49,34 @@ const CommandPalette = ({ isOpen, onClose }: CommandPaletteProps) => {
   const addToken = useGameStore(state => state.addToken);
   const map = useGameStore(state => state.map);
 
-  // Fuzzy search results
-  const results = fuzzySearch(tokenLibrary, query);
+  // Fuzzy search results (memoized to avoid re-running on every render)
+  const results = useMemo(
+    () => fuzzySearch(tokenLibrary, query),
+    [tokenLibrary, query]
+  );
+
+  // Reset selected index when results change
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [results]);
+
+  /**
+   * Handles item selection
+   * Adds token to map at center position
+   * Uses useCallback to prevent stale closure issues
+   */
+  const handleSelectItem = useCallback((itemId: string) => {
+    const state = useGameStore.getState();
+    const currentTokenLibrary = state.campaign.tokenLibrary;
+    const currentMap = state.map;
+    
+    const item = currentTokenLibrary.find(i => i.id === itemId);
+    if (!item) return;
+
+    addLibraryTokenToMap(item, addToken, currentMap);
+    onClose();
+    setQuery(''); // Reset search
+  }, [addToken, onClose]);
 
   // Auto-focus search input when modal opens
   useEffect(() => {
@@ -57,7 +85,7 @@ const CommandPalette = ({ isOpen, onClose }: CommandPaletteProps) => {
     }
   }, [isOpen]);
 
-  // Handle Escape key to close
+  // Handle Escape key to close and arrow keys for navigation
   useEffect(() => {
     if (!isOpen) return;
 
@@ -65,54 +93,37 @@ const CommandPalette = ({ isOpen, onClose }: CommandPaletteProps) => {
       if (e.key === 'Escape') {
         onClose();
       } else if (e.key === 'Enter' && results.length > 0) {
-        // Select first result on Enter
-        handleSelectItem(results[0].id);
+        // Select highlighted result on Enter
+        handleSelectItem(results[selectedIndex].id);
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedIndex(prev => Math.min(prev + 1, results.length - 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedIndex(prev => Math.max(prev - 1, 0));
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, results, onClose]);
-
-  /**
-   * Handles item selection
-   * Adds token to map at center position
-   */
-  const handleSelectItem = (itemId: string) => {
-    const item = tokenLibrary.find(i => i.id === itemId);
-    if (!item) return;
-
-    // Calculate center of current viewport or map
-    // Default to (500, 500) if no map loaded
-    const centerX = map ? map.x + (map.width * map.scale) / 2 : 500;
-    const centerY = map ? map.y + (map.height * map.scale) / 2 : 500;
-
-    // Create token from library item
-    const newToken = {
-      id: crypto.randomUUID(),
-      x: centerX,
-      y: centerY,
-      src: item.src,
-      scale: item.defaultScale || 1,
-      type: item.defaultType,
-      visionRadius: item.defaultVisionRadius,
-      name: item.name,
-    };
-
-    addToken(newToken);
-    onClose();
-    setQuery(''); // Reset search
-  };
+  }, [isOpen, results, onClose, handleSelectItem, selectedIndex]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-32 bg-black/50">
+    <div 
+      className="fixed inset-0 z-50 flex items-start justify-center pt-32 bg-black/50"
+      onClick={onClose}
+    >
       {/* Modal content */}
-      <div className="w-full max-w-2xl bg-neutral-900 rounded-lg shadow-2xl overflow-hidden">
+      <div 
+        className="w-full max-w-2xl bg-neutral-900 rounded-lg shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Search input */}
         <div className="p-4 border-b border-neutral-700">
           <input
+            aria-label="Search library assets"
             ref={searchInputRef}
             type="text"
             value={query}
@@ -139,12 +150,24 @@ const CommandPalette = ({ isOpen, onClose }: CommandPaletteProps) => {
               )}
             </div>
           ) : (
-            <ul className="divide-y divide-neutral-800">
-              {results.map((item) => (
+            <ul className="divide-y divide-neutral-800" role="listbox">
+              {results.map((item, index) => (
                 <li
                   key={item.id}
+                  role="option"
+                  aria-selected={index === selectedIndex}
                   onClick={() => handleSelectItem(item.id)}
-                  className="flex items-center gap-4 p-4 hover:bg-neutral-800 cursor-pointer transition-colors"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleSelectItem(item.id);
+                    }
+                  }}
+                  className={`flex items-center gap-4 p-4 cursor-pointer transition-colors ${
+                    index === selectedIndex 
+                      ? 'bg-neutral-700' 
+                      : 'hover:bg-neutral-800'
+                  }`}
                 >
                   {/* Thumbnail */}
                   <img
@@ -190,7 +213,7 @@ const CommandPalette = ({ isOpen, onClose }: CommandPaletteProps) => {
 
         {/* Footer */}
         <div className="p-3 bg-neutral-800 border-t border-neutral-700 flex justify-between text-xs text-neutral-400">
-          <span>Press <kbd className="px-2 py-1 bg-neutral-700 rounded">↵</kbd> to select first result</span>
+          <span>Press <kbd className="px-2 py-1 bg-neutral-700 rounded">↑↓</kbd> to navigate | <kbd className="px-2 py-1 bg-neutral-700 rounded">↵</kbd> to select</span>
           <span>Press <kbd className="px-2 py-1 bg-neutral-700 rounded">Esc</kbd> to close</span>
         </div>
       </div>
