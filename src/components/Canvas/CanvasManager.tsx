@@ -1310,15 +1310,6 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
             )}
         </Layer>
 
-        {/* Layer 2.5: Doors (Rendered after walls, before tokens) */}
-        <Layer>
-          <DoorLayer
-            doors={doors}
-            isWorldView={isWorldView}
-            onToggleDoor={toggleDoor}
-          />
-        </Layer>
-
         {/* Layer 3: Tokens & UI */}
         <Layer>
             {isAltPressed && tokens.filter(t => itemsForDuplication.includes(t.id)).map(ghostToken => (
@@ -1460,6 +1451,15 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
                 }}
             />
             )}
+        </Layer>
+
+        {/* Layer 4: Doors (Rendered on top of everything for visibility in World View) */}
+        <Layer>
+          <DoorLayer
+            doors={doors}
+            isWorldView={isWorldView}
+            onToggleDoor={toggleDoor}
+          />
         </Layer>
       </Stage>
 
