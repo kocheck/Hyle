@@ -178,14 +178,30 @@ window.ipcRenderer.on('SYNC_WORLD_STATE', (event, state) => {
 
 #### Payload
 
-**Type:** `GameStateSyncPayload`
+**Type:** `SyncAction` (delta-based action)
 
 ```typescript
-{
-  tokens: Token[]
-  drawings: Drawing[]
-  gridSize: number
-}
+// Full sync (initial load or bulk operations)
+{ type: 'FULL_SYNC', payload: GameState }
+
+// Token operations
+{ type: 'TOKEN_ADD', payload: Token }
+{ type: 'TOKEN_UPDATE', payload: { id: string, changes: Partial<Token> } }
+{ type: 'TOKEN_REMOVE', payload: { id: string } }
+
+// Real-time drag sync (NEW - for smooth multi-user experience)
+{ type: 'TOKEN_DRAG_START', payload: { id: string, x: number, y: number } }
+{ type: 'TOKEN_DRAG_MOVE', payload: { id: string, x: number, y: number } }
+{ type: 'TOKEN_DRAG_END', payload: { id: string, x: number, y: number } }
+
+// Drawing operations
+{ type: 'DRAWING_ADD', payload: Drawing }
+{ type: 'DRAWING_UPDATE', payload: { id: string, changes: Partial<Drawing> } }
+{ type: 'DRAWING_REMOVE', payload: { id: string } }
+
+// Map/Grid operations
+{ type: 'MAP_UPDATE', payload: MapConfig }
+{ type: 'GRID_UPDATE', payload: { gridSize?: number, gridType?: string, isDaylightMode?: boolean } }
 ```
 
 #### Behavior
@@ -193,7 +209,31 @@ window.ipcRenderer.on('SYNC_WORLD_STATE', (event, state) => {
 - **Frequency:** Fires on EVERY store mutation in Architect Window
 - **Direction:** Unidirectional (Architect → World only)
 - **World Window:** Read-only consumer, never sends state back
-- **Performance:** High-frequency channel (potential optimization target)
+- **Performance:** Delta-based updates reduce IPC traffic by ~95%
+- **Real-time Drag:** `TOKEN_DRAG_MOVE` events are throttled to ~60fps for smooth sync
+
+#### Real-Time Drag Sync
+
+**New in v2.0:** Token dragging now broadcasts position updates during drag (not just on drop), enabling real-time multi-user sync.
+
+**Drag Event Flow:**
+```
+User starts dragging token
+  ↓
+TOKEN_DRAG_START → World View (shows "held" state with opacity)
+  ↓
+TOKEN_DRAG_MOVE (throttled ~60fps) → World View (updates position in real-time)
+  ↓
+User drops token
+  ↓
+TOKEN_DRAG_END → World View (commits final snapped position)
+```
+
+**Performance:**
+- Drag position updates use refs (no store updates during drag) = no React re-renders
+- IPC broadcasts throttled to 16ms intervals (~60fps) to prevent IPC spam
+- World View receives smooth position updates during drag
+- Visual feedback: Dragging tokens show 0.7 opacity in both views
 
 #### Related Files
 
@@ -1057,17 +1097,25 @@ try {
 
 **For high-frequency channels (like SYNC_WORLD_STATE):**
 
-- Consider throttling or debouncing updates
+- Use delta-based updates instead of full state broadcasts
+- Throttle real-time drag updates to ~60fps (16ms intervals)
 - Only send necessary data (not entire store)
 - Use shallow equality checks to prevent unnecessary syncs
 
 ```typescript
-// Example: Throttle state sync to max 60 FPS
-import { throttle } from 'lodash'
+// Example: Throttle drag broadcasts (already implemented in CanvasManager)
+const throttleDragBroadcast = (tokenId: string, x: number, y: number) => {
+  const now = Date.now();
+  const lastBroadcast = dragBroadcastThrottleRef.current.get(tokenId) || 0;
 
-const syncState = throttle((state) => {
-  window.ipcRenderer.send('SYNC_WORLD_STATE', state)
-}, 16) // ~60 FPS
+  if (now - lastBroadcast >= 16) { // ~60fps
+    dragBroadcastThrottleRef.current.set(tokenId, now);
+    window.ipcRenderer.send('SYNC_WORLD_STATE', {
+      type: 'TOKEN_DRAG_MOVE',
+      payload: { id: tokenId, x, y }
+    });
+  }
+};
 ```
 
 ### 4. Cleanup

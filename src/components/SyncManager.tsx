@@ -26,7 +26,7 @@ function throttle<T extends (...args: any[]) => void>(func: T, limit: number): T
 /**
  * Deep equality check for simple objects with primitive values and arrays
  * More reliable than JSON.stringify which can fail due to property ordering
- * 
+ *
  * Note: This function handles Date, RegExp, Map, and Set objects, but has
  * limitations with other built-in object types. For complex object graphs
  * or circular references, consider using a specialized equality library.
@@ -34,17 +34,17 @@ function throttle<T extends (...args: any[]) => void>(func: T, limit: number): T
 function isEqual(obj1: any, obj2: any): boolean {
   if (obj1 === obj2) return true;
   if (obj1 == null || obj2 == null) return false;
-  
+
   // Handle Date objects
   if (obj1 instanceof Date && obj2 instanceof Date) {
     return obj1.getTime() === obj2.getTime();
   }
-  
+
   // Handle RegExp objects
   if (obj1 instanceof RegExp && obj2 instanceof RegExp) {
     return obj1.toString() === obj2.toString();
   }
-  
+
   // Handle Map objects
   if (obj1 instanceof Map && obj2 instanceof Map) {
     if (obj1.size !== obj2.size) return false;
@@ -55,7 +55,7 @@ function isEqual(obj1: any, obj2: any): boolean {
     }
     return true;
   }
-  
+
   // Handle Set objects
   if (obj1 instanceof Set && obj2 instanceof Set) {
     if (obj1.size !== obj2.size) return false;
@@ -66,13 +66,13 @@ function isEqual(obj1: any, obj2: any): boolean {
     }
     return true;
   }
-  
+
   // If one is a special object type and the other isn't, they're not equal
   if ((obj1 instanceof Date || obj1 instanceof RegExp || obj1 instanceof Map || obj1 instanceof Set) ||
       (obj2 instanceof Date || obj2 instanceof RegExp || obj2 instanceof Map || obj2 instanceof Set)) {
     return false;
   }
-  
+
   // Handle arrays
   if (Array.isArray(obj1) && Array.isArray(obj2)) {
     if (obj1.length !== obj2.length) return false;
@@ -81,26 +81,26 @@ function isEqual(obj1: any, obj2: any): boolean {
     }
     return true;
   }
-  
+
   // If one is array and other is not, they're not equal
   if (Array.isArray(obj1) || Array.isArray(obj2)) return false;
-  
+
   // Handle objects
   if (typeof obj1 !== 'object' || typeof obj2 !== 'object') return false;
-  
+
   const keys1 = Object.keys(obj1);
   const keys2 = Object.keys(obj2);
-  
+
   if (keys1.length !== keys2.length) return false;
-  
+
   // Use Set for O(1) lookup instead of includes() for O(n) lookup
   const keys2Set = new Set(keys2);
-  
+
   for (const key of keys1) {
     if (!keys2Set.has(key)) return false;
     if (!isEqual(obj1[key], obj2[key])) return false;
   }
-  
+
   return true;
 }
 
@@ -112,6 +112,9 @@ type SyncAction =
   | { type: 'TOKEN_ADD'; payload: any }
   | { type: 'TOKEN_UPDATE'; payload: { id: string; changes: Partial<any> } }
   | { type: 'TOKEN_REMOVE'; payload: { id: string } }
+  | { type: 'TOKEN_DRAG_START'; payload: { id: string; x: number; y: number } }
+  | { type: 'TOKEN_DRAG_MOVE'; payload: { id: string; x: number; y: number } }
+  | { type: 'TOKEN_DRAG_END'; payload: { id: string; x: number; y: number } }
   | { type: 'DRAWING_ADD'; payload: any }
   | { type: 'DRAWING_UPDATE'; payload: { id: string; changes: Partial<any> } }
   | { type: 'DRAWING_REMOVE'; payload: { id: string } }
@@ -237,6 +240,54 @@ const SyncManager = () => {
           case 'TOKEN_REMOVE':
             // Remove token from array
             store.removeToken(action.payload.id);
+            break;
+
+          case 'TOKEN_DRAG_START':
+            // Token drag started - update position temporarily (for visual feedback)
+            // This allows World View to show the token moving in real-time
+            const { id: dragStartId, x: dragStartX, y: dragStartY } = action.payload;
+            const dragStartToken = store.tokens.find(t => t.id === dragStartId);
+            if (dragStartToken) {
+              const newTokens = store.tokens.map(t =>
+                t.id === dragStartId ? { ...t, x: dragStartX, y: dragStartY } : t
+              );
+              useGameStore.setState({ tokens: newTokens });
+              // Update prevState to prevent echo
+              if (worldViewPrevStateRef.current) {
+                worldViewPrevStateRef.current.tokens = [...newTokens];
+              }
+            }
+            break;
+
+          case 'TOKEN_DRAG_MOVE':
+            // Token is being dragged - update position in real-time (throttled from Architect)
+            // This provides smooth visual feedback during drag
+            const { id: dragMoveId, x: dragMoveX, y: dragMoveY } = action.payload;
+            const dragMoveToken = store.tokens.find(t => t.id === dragMoveId);
+            if (dragMoveToken) {
+              const newTokens = store.tokens.map(t =>
+                t.id === dragMoveId ? { ...t, x: dragMoveX, y: dragMoveY } : t
+              );
+              useGameStore.setState({ tokens: newTokens });
+              // Update prevState to prevent echo
+              if (worldViewPrevStateRef.current) {
+                worldViewPrevStateRef.current.tokens = [...newTokens];
+              }
+            }
+            break;
+
+          case 'TOKEN_DRAG_END':
+            // Token drag ended - final position update (snapped to grid)
+            // This is the authoritative position update
+            const { id: dragEndId, x: dragEndX, y: dragEndY } = action.payload;
+            store.updateTokenPosition(dragEndId, dragEndX, dragEndY);
+            // Update prevState to prevent echo
+            if (worldViewPrevStateRef.current) {
+              const updatedTokens = store.tokens.map(t =>
+                t.id === dragEndId ? { ...t, x: dragEndX, y: dragEndY } : t
+              );
+              worldViewPrevStateRef.current.tokens = [...updatedTokens];
+            }
             break;
 
           case 'DRAWING_ADD':
@@ -531,7 +582,7 @@ const SyncManager = () => {
         if (state.map) {
           try {
             // structuredClone is more efficient and handles more types than JSON
-            mapClone = typeof structuredClone !== 'undefined' 
+            mapClone = typeof structuredClone !== 'undefined'
               ? structuredClone(state.map)
               : JSON.parse(JSON.stringify(state.map));
           } catch (err) {
@@ -546,7 +597,7 @@ const SyncManager = () => {
             mapClone = { ...state.map };
           }
         }
-        
+
         prevStateRef.current = {
           tokens: [...state.tokens],
           drawings: [...state.drawings],
