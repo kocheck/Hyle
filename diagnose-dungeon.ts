@@ -8,7 +8,7 @@
  * Requires: tsx package (npx will install it automatically)
  */
 
-import { DungeonGenerator } from './src/utils/DungeonGenerator.js';
+import { DungeonGenerator } from './src/utils/DungeonGenerator';
 
 console.log('='.repeat(60));
 console.log('DUNGEON GENERATOR DIAGNOSTIC TOOL');

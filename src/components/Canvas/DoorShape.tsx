@@ -77,7 +77,7 @@ const DoorShape = ({ door, isWorldView, onToggle }: DoorShapeProps) => {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [door.isOpen, animationProgress]); // Include animationProgress for proper closure
+  }, [door.isOpen]); // animationProgress is intentionally excluded - it's managed by the animation loop, not a dependency
 
   const handleClick = () => {
     // Only allow toggling in DM mode (not World View)
