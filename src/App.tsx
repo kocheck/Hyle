@@ -15,7 +15,8 @@ import type { TokenLibraryItem } from './store/gameStore'
 import { useWindowType } from './utils/useWindowType'
 import AutoSaveManager from './components/AutoSaveManager'
 import CommandPalette from './components/AssetLibrary/CommandPalette'
-import { useCommandPalette } from './hooks/useCommandPalette';
+import { useCommandPalette } from './hooks/useCommandPalette'
+import { getStorage } from './services/storage';
 
 /**
  * App is the root component for Hyle's dual-window architecture
@@ -130,12 +131,12 @@ function App() {
 
   // Load library index on startup (Architect View only)
   useEffect(() => {
-    if (!isArchitectView || !window.ipcRenderer) return;
+    if (!isArchitectView) return;
 
     const loadLibrary = async () => {
       try {
-        // @ts-ignore
-        const libraryItems = await window.ipcRenderer.invoke('LOAD_LIBRARY_INDEX');
+        const storage = getStorage();
+        const libraryItems = await storage.loadLibraryIndex();
 
         // Update store with loaded library items
         if (libraryItems && Array.isArray(libraryItems)) {
@@ -144,7 +145,7 @@ function App() {
 
             // Merge with existing library (avoid duplicates by ID)
             const existingIds = new Set(currentLibrary.map((item) => item.id));
-            const newItems = (libraryItems as TokenLibraryItem[]).filter((item) => !existingIds.has(item.id));
+            const newItems = libraryItems.filter((item) => !existingIds.has(item.id));
 
             if (newItems.length === 0) {
               return state;
@@ -201,7 +202,7 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isArchitectView]);
 
-  // Handle Menu Commands (IPC)
+  // Handle Menu Commands (Electron IPC)
   useEffect(() => {
     if (!window.ipcRenderer) return;
 
@@ -210,8 +211,8 @@ function App() {
             const store = useGameStore.getState();
             store.syncActiveMapToCampaign();
             const campaignToSave = useGameStore.getState().campaign;
-            // @ts-ignore
-            const result = await window.ipcRenderer.invoke('SAVE_CAMPAIGN', campaignToSave);
+            const storage = getStorage();
+            const result = await storage.saveCampaign(campaignToSave);
             if (result) store.showToast('Campaign Saved Successfully!', 'success');
         } catch (e) {
             console.error(e);
@@ -221,8 +222,8 @@ function App() {
 
     const handleLoad = async () => {
         try {
-            // @ts-ignore
-            const campaign = await window.ipcRenderer.invoke('LOAD_CAMPAIGN');
+            const storage = getStorage();
+            const campaign = await storage.loadCampaign();
             if (campaign) {
                 useGameStore.getState().loadCampaign(campaign);
                 useGameStore.getState().showToast('Campaign Loaded!', 'success');

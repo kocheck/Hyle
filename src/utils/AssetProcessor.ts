@@ -1,3 +1,5 @@
+import { getStorage } from '../services/storage';
+
 /**
  * Type of asset being processed - determines maximum dimensions
  *
@@ -176,18 +178,10 @@ function processImageWithWorker(
 
         case 'COMPLETE':
           try {
-            // Send buffer to main process for file storage
-            if (!window.ipcRenderer) {
-              throw new Error('IPC not available for asset processing');
-            }
-
+            // Send buffer to storage service for temp asset storage
             const webpFileName = file.name.replace(/\.[^/.]+$/, "") + ".webp";
-
-            const filePath = await window.ipcRenderer.invoke(
-              'SAVE_ASSET_TEMP',
-              message.buffer,
-              webpFileName
-            );
+            const storage = getStorage();
+            const filePath = await storage.saveAssetTemp(message.buffer, webpFileName);
 
             // Check cancellation after async IPC operation
             if (isCancelled) return;
@@ -330,21 +324,15 @@ async function processImageMainThread(
 
   if (onProgress) onProgress(80);
 
-  // 5. Send to main process for file storage
-  if (!window.ipcRenderer) {
-    throw new Error('IPC not available for asset processing');
-  }
+  // 5. Send to storage service for temp asset storage
   const buffer = await blob.arrayBuffer();
-
-  const filePath = await window.ipcRenderer.invoke(
-    'SAVE_ASSET_TEMP',
-    buffer,
-    file.name.replace(/\.[^/.]+$/, "") + ".webp"
-  );
+  const webpFileName = file.name.replace(/\.[^/.]+$/, "") + ".webp";
+  const storage = getStorage();
+  const filePath = await storage.saveAssetTemp(buffer, webpFileName);
 
   if (onProgress) onProgress(100);
 
-  return filePath as string;
+  return filePath;
 }
 
 /**

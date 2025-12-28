@@ -145,8 +145,18 @@ class PrivacyErrorBoundary extends Component<Props, State> {
    */
   private async sanitizeAndSetError(error: Error, errorInfo: ErrorInfo): Promise<void> {
     try {
-      // Get the system username for sanitization
-      const username = await window.errorReporting.getUsername();
+      // Get the system username for sanitization (platform-agnostic)
+      let username = '[USER]'; // Default fallback
+      try {
+        if (window.errorReporting?.getUsername) {
+          username = await window.errorReporting.getUsername();
+        } else {
+          // Web environment - use generic placeholder
+          username = '[BROWSER_USER]';
+        }
+      } catch (usernameError) {
+        console.warn('[PrivacyErrorBoundary] Failed to get username, using fallback', usernameError);
+      }
 
       // Create a combined error with component stack
       const combinedError = new Error(error.message);
