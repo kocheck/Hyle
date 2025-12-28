@@ -161,8 +161,8 @@ export interface Door {
  * They provide visual indication of level transitions in multi-floor dungeons.
  *
  * @property id - Unique identifier
- * @property x - Top-left position X in world coordinates
- * @property y - Top-left position Y in world coordinates
+ * @property x - Center position X in world coordinates
+ * @property y - Center position Y in world coordinates
  * @property direction - Which compass direction the stairs face ('north', 'south', 'east', 'west')
  * @property type - Whether stairs go up or down ('up' or 'down')
  * @property width - Width in pixels (typically 2 * gridSize for 2-cell width)
