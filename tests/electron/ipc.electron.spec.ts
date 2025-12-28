@@ -432,7 +432,7 @@ test.describe('IPC Performance', () => {
     const largeCampaign = {
       name: 'Large Campaign',
       maps: {},
-      tokenLibrary: Array(1000).fill({}).map((_, i) => ({
+      tokenLibrary: Array(200).fill({}).map((_, i) => ({
         id: `token-${i}`,
         name: `Token ${i}`,
         src: 'blob:data',

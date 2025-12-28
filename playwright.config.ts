@@ -21,7 +21,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined, // Controlled parallelism in CI
 
   // Global timeout settings
-  timeout: 30000, // 30s per test
+  timeout: 45000, // 45s per test (accounts for auto-save tests that wait ~31s)
   expect: {
     timeout: 10000, // 10s for assertions
   },

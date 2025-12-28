@@ -209,12 +209,12 @@ export async function createCampaignWithData(
 }
 
 /**
- * Wait for auto-save to complete
- *
- * Waits for the auto-save interval (default 30s) and verifies save occurred.
+ * Waits for the auto-save interval plus a 1s buffer (default effective wait ~31s)
+ * and optionally verifies that a save occurred.
  *
  * @param page - Playwright Page object
- * @param intervalMs - Auto-save interval in milliseconds (default 30000)
+ * @param intervalMs - Auto-save interval in milliseconds (default 30000); the function
+ *   waits for intervalMs + 1000ms to account for timing variations
  */
 export async function waitForAutoSave(page: Page, intervalMs: number = 30000) {
   // Wait for auto-save interval

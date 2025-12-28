@@ -88,6 +88,11 @@ test.describe('Campaign State Persistence', () => {
   });
 
   test('should trigger auto-save after 30 seconds of inactivity', async ({ page }) => {
+    // Note: This test waits for the full 30-second auto-save interval (plus 1 second buffer),
+    // which makes it slow and potentially flaky. Consider adding a mechanism to mock or
+    // speed up the auto-save timer for tests, or add a data-testid attribute to manually
+    // trigger auto-save for testing purposes.
+    
     // Create campaign
     await createNewCampaign(page, 'Auto-Save Test');
 

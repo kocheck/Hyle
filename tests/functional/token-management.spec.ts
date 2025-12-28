@@ -590,6 +590,10 @@ test.describe('Token Performance', () => {
     ).toHaveCount(50);
 
     // Test drag performance
+    // Note: This measures total elapsed time including test execution overhead
+    // (hover action, mouse operations), not just the pure drag operation performance.
+    // For more precise performance measurements, consider using Playwright's
+    // performance timing APIs or isolating the drag operation timing.
     const firstToken = tokens.first();
     const startTime = Date.now();
 
