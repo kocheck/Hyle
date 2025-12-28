@@ -95,23 +95,34 @@ export function ThemeManager() {
             }
           }
 
-          // Subscribe to cross-tab theme changes (for multi-window sync)
-          const themeChannel = new BroadcastChannel('hyle-theme-sync')
-          const handleCrossTabThemeChange = (event: MessageEvent) => {
-            if (event.data?.type === 'THEME_CHANGED') {
-              const newMode = event.data.mode as 'light' | 'dark' | 'system'
-              const newTheme = resolveEffectiveTheme(newMode)
-              applyTheme(newTheme)
-            }
-          }
-
+          // Always listen for system theme changes
           mediaQuery.addEventListener('change', handleSystemThemeChange)
-          themeChannel.addEventListener('message', handleCrossTabThemeChange)
-          
-          cleanup = () => {
-            mediaQuery.removeEventListener('change', handleSystemThemeChange)
-            themeChannel.removeEventListener('message', handleCrossTabThemeChange)
-            themeChannel.close()
+
+          // Subscribe to cross-tab theme changes (for multi-window sync) when supported
+          let themeChannel: BroadcastChannel | null = null
+
+          if (typeof BroadcastChannel !== 'undefined') {
+            themeChannel = new BroadcastChannel('hyle-theme-sync')
+            const handleCrossTabThemeChange = (event: MessageEvent) => {
+              if (event.data?.type === 'THEME_CHANGED') {
+                const newMode = event.data.mode as 'light' | 'dark' | 'system'
+                const newTheme = resolveEffectiveTheme(newMode)
+                applyTheme(newTheme)
+              }
+            }
+
+            themeChannel.addEventListener('message', handleCrossTabThemeChange)
+
+            cleanup = () => {
+              mediaQuery.removeEventListener('change', handleSystemThemeChange)
+              themeChannel?.removeEventListener('message', handleCrossTabThemeChange)
+              themeChannel?.close()
+            }
+          } else {
+            // Fallback: only clean up system theme listener if BroadcastChannel is unavailable
+            cleanup = () => {
+              mediaQuery.removeEventListener('change', handleSystemThemeChange)
+            }
           }
         }
 
