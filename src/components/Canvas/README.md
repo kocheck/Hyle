@@ -254,12 +254,106 @@ if (e.dataTransfer.files.length > 0) {
 }
 ```
 
+**Pattern 4: Real-Time Token Dragging (Performance & Multi-User Sync)**
+```typescript
+// WHY: Avoid store updates during drag (60 updates/sec would spam IPC and cause lag)
+// WHY: Enable real-time sync so World View sees token movement during drag
+
+// REFS for mutable drag state (no re-renders)
+const dragPositionsRef = useRef<Map<string, { x: number, y: number }>>(new Map());
+const dragStartOffsetsRef = useRef<Map<string, { x: number, y: number }>>(new Map());
+const [draggingTokenIds, setDraggingTokenIds] = useState<Set<string>>(new Set());
+
+// On dragStart: Track dragging state, store offsets for multi-token drag
+const handleTokenDragStart = (e, tokenId) => {
+  // Check if token is in selection - if so, drag all selected tokens
+  const tokenIds = selectedIds.includes(tokenId) ? selectedIds : [tokenId];
+  setDraggingTokenIds(new Set(tokenIds));
+  // Store initial offsets for multi-token drag
+  dragStartOffsetsRef.current.set(tokenId, { x: 0, y: 0 });
+  // Broadcast TOKEN_DRAG_START to World View for all dragged tokens
+  tokenIds.forEach(id => {
+    const token = tokens.find(t => t.id === id);
+    if (token) {
+      window.ipcRenderer.send('SYNC_WORLD_STATE', {
+        type: 'TOKEN_DRAG_START',
+        payload: { id, x: token.x, y: token.y }
+      });
+    }
+  });
+};
+
+// On dragMove: Update ref (no store update), throttle IPC broadcast
+const handleTokenDragMove = (e, tokenId) => {
+  const x = e.target.x();
+  const y = e.target.y();
+
+  // Update local drag position (ref-based, no re-render)
+  dragPositionsRef.current.set(tokenId, { x, y });
+
+  // Throttled broadcast (~60fps) to World View
+  throttleDragBroadcast(tokenId, x, y);
+};
+
+// On dragEnd: Commit to store, broadcast final position
+const handleTokenDragEnd = (e, tokenId) => {
+  const snapped = snapToGrid(x, y, gridSize, width, height);
+
+  // Commit to store (triggers normal sync)
+  updateTokenPosition(tokenId, snapped.x, snapped.y);
+
+  // Broadcast TOKEN_DRAG_END to World View
+  window.ipcRenderer.send('SYNC_WORLD_STATE', {
+    type: 'TOKEN_DRAG_END',
+    payload: { id: tokenId, x: snapped.x, y: snapped.y }
+  });
+
+  // Clear drag state
+  dragPositionsRef.current.delete(tokenId);
+  setDraggingTokenIds(new Set());
+};
+
+// Render: Use drag position if available, otherwise use store position
+const dragPos = dragPositionsRef.current.get(token.id);
+const displayX = dragPos ? dragPos.x : token.x;
+const displayY = dragPos ? dragPos.y : token.y;
+const isDragging = draggingTokenIds.has(token.id);
+
+<URLImage
+  x={displayX}
+  y={displayY}
+  opacity={isDragging ? 0.7 : undefined}  // Visual feedback
+  onDragMove={(e) => handleTokenDragMove(e, token.id)}
+  // ... other props
+/>
+```
+
+**Key Benefits:**
+- **Performance:** No store updates during drag (refs only) = no React re-renders
+- **Real-time Sync:** World View sees token movement during drag (not just on drop)
+- **Visual Feedback:** Dragging tokens show reduced opacity (0.7) to indicate "held" state
+- **Multi-token Support:** Dragging selected tokens maintains relative positions
+
 #### URLImage Subcomponent
 
-**Purpose:** Renders token images with file:// → media:// conversion
+**Purpose:** Renders token images with file:// → media:// conversion and drag event handling
 
 ```typescript
-const URLImage = ({ src, x, y, width, height }: any) => {
+interface URLImageProps {
+  src: string;
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  draggable: boolean;
+  onDragStart?: (e: KonvaEventObject<DragEvent>) => void;
+  onDragMove?: (e: KonvaEventObject<DragEvent>) => void;  // NEW: Real-time drag tracking
+  onDragEnd?: (e: KonvaEventObject<DragEvent>) => void;
+  opacity?: number;  // Used for visual feedback during drag
+  // ... other props
+}
+
+const URLImage = ({ src, x, y, width, height, onDragMove, ...props }: URLImageProps) => {
   // Convert file:// to media:// (custom protocol handler)
   const safeSrc = src.startsWith('file:') ? src.replace('file:', 'media:') : src;
 
@@ -274,11 +368,20 @@ const URLImage = ({ src, x, y, width, height }: any) => {
       y={y}
       width={width}
       height={height}
-      draggable  // Konva built-in drag
+      draggable={props.draggable}
+      onDragStart={props.onDragStart}
+      onDragMove={onDragMove}  // NEW: Enables real-time drag tracking
+      onDragEnd={props.onDragEnd}
+      opacity={props.opacity}
+      // ... other props
     />
   );
 };
 ```
+
+**New Features:**
+- `onDragMove` prop enables real-time drag position tracking
+- Used for performance optimization (ref-based updates) and multi-user sync
 
 **Why media:// protocol?**
 Browsers block file:// URLs due to CORS security policy. Custom media:// protocol (registered in electron/main.ts) bypasses this by fetching file:// on main process side.

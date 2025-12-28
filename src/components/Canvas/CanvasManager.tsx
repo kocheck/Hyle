@@ -168,8 +168,15 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
   const selectionStart = useRef<{x: number, y: number} | null>(null);
 
   // Ghost / Duplication State
-  const [draggedItemIds, setDraggedItemIds] = useState<string[]>([]);
+  const [itemsForDuplication, setItemsForDuplication] = useState<string[]>([]);
   const [isAltPressed, setIsAltPressed] = useState(false);
+
+  // Real-time Drag Tracking (for performance and multi-user sync)
+  const dragPositionsRef = useRef<Map<string, { x: number, y: number }>>(new Map());
+  const [draggingTokenIds, setDraggingTokenIds] = useState<Set<string>>(new Set());
+  const dragBroadcastThrottleRef = useRef<Map<string, number>>(new Map());
+  const dragStartOffsetsRef = useRef<Map<string, { x: number, y: number }>>(new Map()); // For multi-token drag
+  const DRAG_BROADCAST_THROTTLE_MS = 16; // ~60fps
 
   // Navigation State
   const [isSpacePressed, setIsSpacePressed] = useState(false);
@@ -528,6 +535,170 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
         setPendingCrop(null);
     }
   };
+
+  // Throttle utility for drag broadcasts
+  const throttleDragBroadcast = useCallback((tokenId: string, x: number, y: number) => {
+    const now = Date.now();
+    const lastBroadcast = dragBroadcastThrottleRef.current.get(tokenId) || 0;
+
+    if (now - lastBroadcast >= DRAG_BROADCAST_THROTTLE_MS) {
+      dragBroadcastThrottleRef.current.set(tokenId, now);
+
+      // Broadcast to World View via IPC
+      if (window.ipcRenderer && !isWorldView) {
+        window.ipcRenderer.send('SYNC_WORLD_STATE', {
+          type: 'TOKEN_DRAG_MOVE',
+          payload: { id: tokenId, x, y }
+        });
+      }
+    }
+  }, [isWorldView]);
+
+  // Token Drag Handlers (Real-time sync)
+  const handleTokenDragStart = useCallback((_e: KonvaEventObject<DragEvent>, tokenId: string) => {
+    const tokenIds = selectedIds.includes(tokenId) ? selectedIds : [tokenId];
+    const primaryToken = tokens.find(t => t.id === tokenId);
+    if (!primaryToken) return;
+
+    // Track dragging state
+    setDraggingTokenIds(new Set(tokenIds));
+    setItemsForDuplication(tokenIds);
+
+    // Store initial offsets for multi-token drag
+    dragStartOffsetsRef.current.clear();
+
+    tokenIds.forEach(id => {
+      const token = tokens.find(t => t.id === id);
+      if (token) {
+        if (id === tokenId) {
+          dragStartOffsetsRef.current.set(id, { x: 0, y: 0 });
+        } else {
+          // Store offset from primary token
+          dragStartOffsetsRef.current.set(id, {
+            x: token.x - primaryToken.x,
+            y: token.y - primaryToken.y
+          });
+        }
+      }
+    });
+
+    // Broadcast drag start to World View
+    if (window.ipcRenderer && !isWorldView) {
+      tokenIds.forEach(id => {
+        const token = tokens.find(t => t.id === id);
+        if (token) {
+          window.ipcRenderer.send('SYNC_WORLD_STATE', {
+            type: 'TOKEN_DRAG_START',
+            payload: { id, x: token.x, y: token.y }
+          });
+        }
+      });
+    }
+  }, [selectedIds, tokens, isWorldView]);
+
+  const handleTokenDragMove = useCallback((e: KonvaEventObject<DragEvent>, tokenId: string) => {
+    const x = e.target.x();
+    const y = e.target.y();
+
+    // Update local drag position (no store update for performance)
+    dragPositionsRef.current.set(tokenId, { x, y });
+
+    // Throttled broadcast to World View
+    throttleDragBroadcast(tokenId, x, y);
+
+    // If dragging multiple tokens, update their relative positions
+    const tokenIds = selectedIds.includes(tokenId) ? selectedIds : [tokenId];
+    if (tokenIds.length > 1) {
+      tokenIds.forEach(id => {
+        if (id !== tokenId) {
+          const offset = dragStartOffsetsRef.current.get(id);
+          if (offset) {
+            const newX = x + offset.x;
+            const newY = y + offset.y;
+            dragPositionsRef.current.set(id, { x: newX, y: newY });
+            throttleDragBroadcast(id, newX, newY);
+          }
+        }
+      });
+    }
+  }, [selectedIds, throttleDragBroadcast]);
+
+  const handleTokenDragEnd = useCallback((e: KonvaEventObject<DragEvent>, tokenId: string) => {
+    const x = e.target.x();
+    const y = e.target.y();
+    const token = tokens.find(t => t.id === tokenId);
+    if (!token) return;
+
+    const width = gridSize * token.scale;
+    const height = gridSize * token.scale;
+    const snapped = snapToGrid(x, y, gridSize, width, height);
+
+    const tokenIds = selectedIds.includes(tokenId) ? selectedIds : [tokenId];
+
+    // Store committed positions to avoid redundant lookups and use fresh data
+    const committedPositions = new Map<string, { x: number, y: number }>();
+
+    // Handle multi-token drag end
+    if (tokenIds.length > 1) {
+      // Get current drag position for primary token (or fall back to stored position)
+      const dragPos = dragPositionsRef.current.get(tokenId) ?? { x: token.x, y: token.y };
+      const offsetX = snapped.x - dragPos.x;
+      const offsetY = snapped.y - dragPos.y;
+
+      tokenIds.forEach(id => {
+        const t = tokens.find(tk => tk.id === id);
+        if (t) {
+          const dragPosForToken = dragPositionsRef.current.get(id) ?? { x: t.x, y: t.y };
+          const newX = dragPosForToken.x + offsetX;
+          const newY = dragPosForToken.y + offsetY;
+          const snappedPos = snapToGrid(newX, newY, gridSize, gridSize * t.scale, gridSize * t.scale);
+          updateTokenPosition(id, snappedPos.x, snappedPos.y);
+          // Store the committed position
+          committedPositions.set(id, { x: snappedPos.x, y: snappedPos.y });
+        }
+      });
+    } else {
+      // Single token drag
+      updateTokenPosition(tokenId, snapped.x, snapped.y);
+      committedPositions.set(tokenId, { x: snapped.x, y: snapped.y });
+    }
+
+    // Broadcast drag end to World View with committed positions
+    if (window.ipcRenderer && !isWorldView) {
+      tokenIds.forEach(id => {
+        const pos = committedPositions.get(id);
+        if (pos) {
+          window.ipcRenderer.send('SYNC_WORLD_STATE', {
+            type: 'TOKEN_DRAG_END',
+            payload: { id, x: pos.x, y: pos.y }
+          });
+        }
+      });
+    }
+
+    // Clear drag state
+    tokenIds.forEach(id => {
+      dragPositionsRef.current.delete(id);
+      dragBroadcastThrottleRef.current.delete(id);
+      dragStartOffsetsRef.current.delete(id);
+    });
+    setDraggingTokenIds(new Set());
+    setItemsForDuplication([]);
+
+    // Duplication Logic (Option/Alt + Drag)
+    // BLOCKED in World View (players cannot duplicate tokens)
+    if (isAltPressed && !isWorldView) {
+      tokenIds.forEach(id => {
+        const t = tokens.find(tk => tk.id === id);
+        const pos = committedPositions.get(id);
+        if (t && pos) {
+          // Use the newly committed position for duplication
+          addToken({ ...t, id: crypto.randomUUID(), x: pos.x, y: pos.y });
+        }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- snapToGrid is imported from utils/grid and is a pure utility function with no dependencies
+  }, [selectedIds, tokens, gridSize, isAltPressed, isWorldView, updateTokenPosition, addToken]);
 
   // Drawing Handlers
   const handleMouseDown = (e: any) => {
@@ -1018,7 +1189,7 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
 
         {/* Layer 2: Drawings (Separate layer so Eraser doesn't erase map) */}
         <Layer>
-            {isAltPressed && drawings.filter(d => draggedItemIds.includes(d.id)).map(ghostLine => (
+            {isAltPressed && drawings.filter(d => itemsForDuplication.includes(d.id)).map(ghostLine => (
                 <Line
                     key={`ghost-${ghostLine.id}`}
                     id={`ghost-${ghostLine.id}`}
@@ -1070,9 +1241,9 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
                     }}
                     onDragStart={() => {
                          if (selectedIds.includes(line.id)) {
-                             setDraggedItemIds(selectedIds);
+                             setItemsForDuplication(selectedIds);
                          } else {
-                             setDraggedItemIds([line.id]);
+                             setItemsForDuplication([line.id]);
                          }
                      }}
                      onDragEnd={(e) => {
@@ -1111,7 +1282,7 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
                          // We should use `updateDrawingTransform`.
                          updateDrawingTransform(line.id, x, y, line.scale || 1);
 
-                         setDraggedItemIds([]);
+                         setItemsForDuplication([]);
                      }}
                 />
             ))}
@@ -1136,7 +1307,7 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
 
         {/* Layer 3: Tokens & UI */}
         <Layer>
-            {isAltPressed && tokens.filter(t => draggedItemIds.includes(t.id)).map(ghostToken => (
+            {isAltPressed && tokens.filter(t => itemsForDuplication.includes(t.id)).map(ghostToken => (
                 <URLImage
                    key={`ghost-${ghostToken.id}`}
                    id={`ghost-${ghostToken.id}`} // Unique ID
@@ -1156,18 +1327,26 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
                 />
             ))}
 
-            {tokens.map((token) => (
+            {tokens.map((token) => {
+                // Use drag position if available (for real-time visual feedback)
+                const dragPos = dragPositionsRef.current.get(token.id);
+                const displayX = dragPos ? dragPos.x : token.x;
+                const displayY = dragPos ? dragPos.y : token.y;
+                const isDragging = draggingTokenIds.has(token.id);
+
+                return (
                 <TokenErrorBoundary key={token.id} tokenId={token.id}>
                 <URLImage
                     key={token.id}
                     name="token"
                     id={token.id}
                     src={token.src}
-                    x={token.x}
-                    y={token.y}
+                    x={displayX}
+                    y={displayY}
                     width={gridSize * token.scale}
                     height={gridSize * token.scale}
                     draggable={tool === 'select'}
+                    opacity={isDragging ? 0.7 : undefined}
                     onSelect={(e) => {
                          if (tool === 'select') {
                              e.evt.stopPropagation();
@@ -1182,40 +1361,13 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
                              }
                          }
                     }}
-                     onDragStart={() => {
-                         if (selectedIds.includes(token.id)) {
-                             setDraggedItemIds(selectedIds);
-                         } else {
-                             setDraggedItemIds([token.id]);
-                         }
-                     }}
-                     onDragEnd={(e) => {
-                         const x = e.target.x();
-                         const y = e.target.y();
-                         const width = gridSize * token.scale;
-                         const height = gridSize * token.scale;
-                         const snapped = snapToGrid(x, y, gridSize, width, height);
-
-                         // Duplication Logic (Option/Alt + Drag)
-                         // BLOCKED in World View (players cannot duplicate tokens)
-                         // Use isAltPressed state for consistency instead of e.evt.altKey
-                         if (isAltPressed && !isWorldView) {
-                             const idsToDuplicate = selectedIds.includes(token.id) ? selectedIds : [token.id];
-                             idsToDuplicate.forEach(id => {
-                                 // Only duplicate tokens here; drawings are handled in their own handler.
-                                 const t = tokens.find(tk => tk.id === id);
-                                 if (t) {
-                                     addToken({ ...t, id: crypto.randomUUID(), x: snapped.x, y: snapped.y });
-                                 }
-                             });
-                         }
-
-                         updateTokenPosition(token.id, snapped.x, snapped.y);
-                         setDraggedItemIds([]);
-                     }}
+                     onDragStart={(e) => handleTokenDragStart(e, token.id)}
+                     onDragMove={(e) => handleTokenDragMove(e, token.id)}
+                     onDragEnd={(e) => handleTokenDragEnd(e, token.id)}
                 />
                 </TokenErrorBoundary>
-            ))}
+                );
+            })}
 
             {/* Selection Rect */}
             {selectionRect.isVisible && (
