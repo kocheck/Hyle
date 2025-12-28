@@ -139,6 +139,16 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
   const isDaylightMode = useGameStore(s => s.isDaylightMode);
   const activeVisionPolygons = useGameStore(s => s.activeVisionPolygons);
 
+  // DEBUG: Log critical state
+  console.log('[CanvasManager] State:', {
+    isWorldView,
+    isDaylightMode,
+    doorsCount: doors.length,
+    tokensCount: tokens.length,
+    pcTokensCount: tokens.filter(t => t.type === 'PC').length,
+    activeVisionPolygonsCount: activeVisionPolygons.length
+  });
+
   // Preferences
   const wallToolPrefs = usePreferencesStore(s => s.wallTool);
 
@@ -1185,7 +1195,10 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
         </Layer>
 
         {/* Fog of War Layer (World View only) - Renders Overlay */}
-        {isWorldView && !isDaylightMode && (
+        {(() => {
+          const shouldRenderFog = isWorldView && !isDaylightMode;
+          console.log('[CanvasManager] Fog condition:', { isWorldView, isDaylightMode, shouldRenderFog });
+          return shouldRenderFog ? (
              <Layer listening={false}>
               <FogOfWarLayer
                 tokens={tokens}
@@ -1196,7 +1209,8 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
                 map={map}
               />
             </Layer>
-        )}
+          ) : null;
+        })()}
 
         {/* Layer 2: Drawings (Separate layer so Eraser doesn't erase map) */}
         <Layer>
@@ -1323,11 +1337,16 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
         {/* Layer 3: Tokens, Doors & UI */}
         <Layer>
             {/* Doors (Rendered after fog layer so they're visible on top of fog) */}
-            <DoorLayer
-                doors={doors}
-                isWorldView={isWorldView}
-                onToggleDoor={toggleDoor}
-            />
+            {(() => {
+              console.log('[CanvasManager] About to render DoorLayer with', doors.length, 'doors');
+              return (
+                <DoorLayer
+                    doors={doors}
+                    isWorldView={isWorldView}
+                    onToggleDoor={toggleDoor}
+                />
+              );
+            })()}
 
             {isAltPressed && tokens.filter(t => itemsForDuplication.includes(t.id)).map(ghostToken => (
                 <URLImage
