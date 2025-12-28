@@ -413,7 +413,7 @@ export class DungeonGenerator {
     switch (direction) {
       case 'north':
         bounds = {
-          x: fromX - corridorWidth / 2,
+          x: Math.round((fromX - corridorWidth / 2) / gridSize) * gridSize,
           y: fromY - corridorLength,
           width: corridorWidth,
           height: corridorLength,
@@ -434,7 +434,7 @@ export class DungeonGenerator {
 
       case 'south':
         bounds = {
-          x: fromX - corridorWidth / 2,
+          x: Math.round((fromX - corridorWidth / 2) / gridSize) * gridSize,
           y: fromY,
           width: corridorWidth,
           height: corridorLength,
@@ -456,7 +456,7 @@ export class DungeonGenerator {
       case 'east':
         bounds = {
           x: fromX,
-          y: fromY - corridorWidth / 2,
+          y: Math.round((fromY - corridorWidth / 2) / gridSize) * gridSize,
           width: corridorLength,
           height: corridorWidth,
         };
@@ -477,7 +477,7 @@ export class DungeonGenerator {
       case 'west':
         bounds = {
           x: fromX - corridorLength,
-          y: fromY - corridorWidth / 2,
+          y: Math.round((fromY - corridorWidth / 2) / gridSize) * gridSize,
           width: corridorLength,
           height: corridorWidth,
         };
