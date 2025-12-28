@@ -1318,17 +1318,17 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
                 stairs={stairs}
                 isWorldView={isWorldView}
             />
+        </Layer>
 
-            {/* Doors (Architectural elements, rendered with walls but before tokens) */}
+        {/* Layer 3: Tokens, Doors & UI */}
+        <Layer>
+            {/* Doors (Rendered after fog layer so they're visible on top of fog) */}
             <DoorLayer
                 doors={doors}
                 isWorldView={isWorldView}
                 onToggleDoor={toggleDoor}
             />
-        </Layer>
 
-        {/* Layer 3: Tokens & UI */}
-        <Layer>
             {isAltPressed && tokens.filter(t => itemsForDuplication.includes(t.id)).map(ghostToken => (
                 <URLImage
                    key={`ghost-${ghostToken.id}`}
