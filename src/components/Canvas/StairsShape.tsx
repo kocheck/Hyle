@@ -22,7 +22,7 @@ interface StairsShapeProps {
  * @param stairs - Stairs object from gameStore
  * @param isWorldView - If true, player view (currently no difference from DM view)
  */
-const StairsShape = ({ stairs, isWorldView }: StairsShapeProps) => {
+const StairsShape = ({ stairs, isWorldView: _isWorldView }: StairsShapeProps) => {
   // Color scheme based on type
   const fillColor = stairs.type === 'up' ? '#c0c0c0' : '#808080'; // Light gray for up, dark gray for down
   const strokeColor = '#000000';
@@ -152,7 +152,7 @@ function renderDirectionalArrow(stairs: Stairs, arrowColor: string) {
  * For now, this is primarily handled by color and arrow color.
  * Could add text labels if needed in the future.
  */
-function renderTypeIndicator(stairs: Stairs) {
+function renderTypeIndicator(_stairs: Stairs) {
   // Optional: Could add "UP" or "DOWN" text here
   // For now, the arrow color (blue/red) indicates the type
   return null;

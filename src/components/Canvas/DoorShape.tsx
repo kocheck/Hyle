@@ -89,12 +89,6 @@ const DoorShape = ({ door, isWorldView, onToggle }: DoorShapeProps) => {
   const thickness = door.thickness ?? 12; // Thicker default for better visibility
   const halfSize = door.size / 2;
 
-  // Determine cursor style based on mode and lock state
-  let cursor = 'default';
-  if (!isWorldView) {
-    cursor = door.isLocked ? 'not-allowed' : 'pointer';
-  }
-
   return (
     <Group
       x={door.x}
@@ -105,8 +99,8 @@ const DoorShape = ({ door, isWorldView, onToggle }: DoorShapeProps) => {
     >
       {/* Render door with animated transition */}
       {animationProgress < 1
-        ? renderAnimatedDoor(door, halfSize, thickness, cursor, animationProgress)
-        : renderOpenDoor(door, halfSize, thickness, cursor)}
+        ? renderAnimatedDoor(door, halfSize, thickness, animationProgress)
+        : renderOpenDoor(door, halfSize, thickness)}
 
       {/* Lock icon overlay (shown when door is locked) */}
       {door.isLocked && renderLockIcon(door)}
@@ -123,10 +117,9 @@ const DoorShape = ({ door, isWorldView, onToggle }: DoorShapeProps) => {
  * @param door - Door object
  * @param halfSize - Half of door size
  * @param thickness - Door thickness
- * @param cursor - Cursor style
  * @param progress - Animation progress (0 = closed, 1 = open)
  */
-function renderAnimatedDoor(door: Door, halfSize: number, thickness: number, cursor: string, progress: number) {
+function renderAnimatedDoor(door: Door, halfSize: number, thickness: number, progress: number) {
   const swingAngle = 90 * progress; // Gradually increase swing angle from 0° to 90°
   const closedOpacity = 1 - progress; // Fade out closed door
   const openOpacity = progress; // Fade in open door
@@ -237,14 +230,13 @@ function renderSwingArc(door: Door, halfSize: number, thickness: number, swingAn
  *
  * The arc shows the door swung open to provide visual feedback that the door is accessible.
  */
-function renderOpenDoor(door: Door, halfSize: number, thickness: number, cursor: string) {
+function renderOpenDoor(door: Door, halfSize: number, thickness: number) {
   const swingAngle = 90; // Door swings 90 degrees when open
 
   // Calculate arc parameters based on swing direction
   let arcX = 0;
   let arcY = 0;
   let startAngle = 0;
-  let endAngle = swingAngle;
 
   if (door.orientation === 'horizontal') {
     // Horizontal door swings vertically
@@ -252,13 +244,11 @@ function renderOpenDoor(door: Door, halfSize: number, thickness: number, cursor:
       arcX = -halfSize;
       arcY = 0;
       startAngle = 0;
-      endAngle = 90;
     } else {
       // right
       arcX = halfSize;
       arcY = 0;
       startAngle = 90;
-      endAngle = 180;
     }
   } else {
     // Vertical door swings horizontally
@@ -266,13 +256,11 @@ function renderOpenDoor(door: Door, halfSize: number, thickness: number, cursor:
       arcX = 0;
       arcY = -halfSize;
       startAngle = 270;
-      endAngle = 360;
     } else {
       // down
       arcX = 0;
       arcY = halfSize;
       startAngle = 180;
-      endAngle = 270;
     }
   }
 
@@ -358,7 +346,6 @@ function renderOpenDoorEdge(door: Door, halfSize: number, thickness: number) {
  * Shows a simple padlock symbol to indicate the door is locked.
  */
 function renderLockIcon(door: Door) {
-  const lockSize = 8;
   const offsetY = door.orientation === 'horizontal' ? 6 : 0;
   const offsetX = door.orientation === 'vertical' ? 6 : 0;
 
