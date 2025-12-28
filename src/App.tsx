@@ -17,6 +17,7 @@ import CommandPalette from './components/AssetLibrary/CommandPalette'
 import { useCommandPalette } from './hooks/useCommandPalette'
 import { getStorage } from './services/storage';
 import { useIsMobile } from './hooks/useMediaQuery';
+import MobileToolbar from './components/MobileToolbar';
 
 /**
  * App is the root component for Hyle's dual-window architecture
@@ -304,8 +305,8 @@ function App() {
           onSelectionChange={setSelectedTokenIds}
         />
 
-        {/* Toolbar: Only render in Architect View (DM controls) */}
-        {isArchitectView && (
+        {/* Toolbar: Desktop or Mobile (Architect View only) */}
+        {isArchitectView && !isMobile && (
         <div className="toolbar fixed top-4 right-4 p-2 rounded shadow flex gap-2 z-50">
            {/* Play/Pause Button */}
            <button
@@ -395,6 +396,18 @@ function App() {
           <CommandPalette
             isOpen={isPaletteOpen}
             onClose={() => setPaletteOpen(false)}
+          />
+        )}
+
+        {/* Mobile Toolbar: Bottom navigation bar (Architect View only, mobile only) */}
+        {isArchitectView && isMobile && (
+          <MobileToolbar
+            tool={tool}
+            setTool={setTool}
+            color={color}
+            setColor={setColor}
+            isGamePaused={isGamePaused}
+            onPauseToggle={handlePauseToggle}
           />
         )}
       </div>
