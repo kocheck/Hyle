@@ -1,0 +1,147 @@
+name: E2E Tests (Playwright)
+
+on:
+  push:
+    branches: [main]
+  # Hybrid setup: CI runs only on main branch (post-merge)
+  # Developers run tests locally via pre-push hook
+  # To enable full CI with PR checks, uncomment below:
+  # pull_request:
+  #   branches: [main]
+
+# Cancel in-progress runs when new commit is pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ===== JOB 1: Web Tests (Sharded) =====
+  test-web:
+    name: Web Tests (Shard ${{ matrix.shardIndex }}/${{ matrix.shardTotal }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false # Run all shards even if one fails
+      matrix:
+        shardIndex: [1, 2, 3]
+        shardTotal: [3]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build web app
+        run: npm run build:web
+
+      - name: Run Playwright tests (Web-Chromium)
+        run: npx playwright test --project=Web-Chromium --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+        env:
+          CI: true
+
+      - name: Upload test results (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-web-shard-${{ matrix.shardIndex }}
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Upload trace files (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces-web-shard-${{ matrix.shardIndex }}
+          path: test-results/
+          retention-days: 7
+
+  # ===== JOB 2: Electron Tests (No Sharding) =====
+  test-electron:
+    name: Electron Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build Electron app
+        run: npm run build
+
+      - name: Run Playwright tests (Electron-App)
+        run: npx playwright test --project=Electron-App
+        env:
+          CI: true
+
+      - name: Upload test results (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-electron
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Upload trace files (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces-electron
+          path: test-results/
+          retention-days: 7
+
+  # ===== JOB 3: Merge Reports (Optional) =====
+  merge-reports:
+    name: Merge Test Reports
+    if: always()
+    needs: [test-web, test-electron]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Download all reports
+        uses: actions/download-artifact@v4
+        with:
+          path: all-reports/
+
+      - name: Merge HTML reports
+        run: |
+          npx playwright merge-reports --reporter html all-reports/playwright-report-*
+        continue-on-error: true
+
+      - name: Upload merged report
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-merged
+          path: playwright-report/
+          retention-days: 14
