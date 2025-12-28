@@ -83,9 +83,19 @@ const FogOfWarLayer = ({ tokens, drawings, doors, gridSize, visibleBounds, map }
     [tokens]
   );
 
+  // CRITICAL FIX: Serialize doors to detect when door states change (isOpen toggle)
+  // React's useMemo doesn't detect changes inside objects in arrays
+  // Without this, toggling a door open/closed won't update wall segments!
+  const doorsKey = useMemo(
+    () => doors.map(d => `${d.id}:${d.isOpen}:${d.x}:${d.y}`).join('|'),
+    [doors]
+  );
+
   // Extract walls from drawings AND closed doors (memoized to prevent unnecessary recalculations)
   const walls: WallSegment[] = useMemo(() => {
     const wallSegments: WallSegment[] = [];
+
+    console.log('[FogOfWarLayer] WALLS MEMO RECALCULATING');
 
     // Add static walls from drawings
     drawings
@@ -100,6 +110,9 @@ const FogOfWarLayer = ({ tokens, drawings, doors, gridSize, visibleBounds, map }
           });
         }
       });
+
+    const wallSegmentsFromDrawings = wallSegments.length;
+    console.log('[FogOfWarLayer] Wall segments from drawings:', wallSegmentsFromDrawings);
 
     // Add CLOSED doors as blocking walls
     // Open doors allow vision through, closed doors block it
@@ -123,9 +136,12 @@ const FogOfWarLayer = ({ tokens, drawings, doors, gridSize, visibleBounds, map }
         }
       });
 
+    const doorSegments = wallSegments.length - wallSegmentsFromDrawings;
+    console.log('[FogOfWarLayer] Wall segments from doors:', doorSegments);
     console.log('[FogOfWarLayer] Total wall segments:', wallSegments.length);
+
     return wallSegments;
-  }, [drawings, doors]);  // Re-calculate when drawings OR doors change
+  }, [drawings, doorsKey]);  // CRITICAL: Use doorsKey instead of doors for proper change detection
 
   // Serialize PC token properties for change detection
   // This allows useMemo to detect changes in token positions/vision even when array reference is stable
