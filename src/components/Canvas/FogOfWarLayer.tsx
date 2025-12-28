@@ -56,7 +56,11 @@ const FogOfWarLayer = ({ tokens, drawings, doors, gridSize, visibleBounds, map }
 
   // Extract PC tokens with vision (memoized to prevent unnecessary recalculations)
   const pcTokens = useMemo(
-    () => tokens.filter((t) => t.type === 'PC' && (t.visionRadius ?? 0) > 0),
+    () => {
+      const pcs = tokens.filter((t) => t.type === 'PC' && (t.visionRadius ?? 0) > 0);
+      console.log('[FogOfWarLayer] PC tokens with vision:', pcs.length, 'out of', tokens.length, 'total tokens');
+      return pcs;
+    },
     [tokens]
   );
 
@@ -80,9 +84,10 @@ const FogOfWarLayer = ({ tokens, drawings, doors, gridSize, visibleBounds, map }
 
     // Add CLOSED doors as blocking walls
     // Open doors allow vision through, closed doors block it
-    doors
-      .filter(door => !door.isOpen)  // Only closed doors block vision
-      .forEach(door => {
+    const closedDoors = doors.filter(door => !door.isOpen);
+    console.log('[FogOfWarLayer] Total doors:', doors.length, 'Closed doors:', closedDoors.length);
+
+    closedDoors.forEach(door => {
         const halfSize = door.size / 2;
         if (door.orientation === 'horizontal') {
           // Horizontal door: blocks east-west vision
@@ -99,6 +104,7 @@ const FogOfWarLayer = ({ tokens, drawings, doors, gridSize, visibleBounds, map }
         }
       });
 
+    console.log('[FogOfWarLayer] Total wall segments:', wallSegments.length);
     return wallSegments;
   }, [drawings, doors]);  // Re-calculate when drawings OR doors change
 
