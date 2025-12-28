@@ -23,11 +23,33 @@ Logs will show:
 - Are doors being received by the fog layer?
 - Are closed doors being converted to wall segments?
 
-### 2. DoorLayer.tsx Logging
-**Lines 30, 35**
+### 2. CanvasManager.tsx State Logging
+**Line 143**
 
 Logs will show:
 ```
+[CanvasManager] State: {
+  isWorldView: true/false,
+  isDaylightMode: true/false,
+  doorsCount: X,
+  tokensCount: X,
+  pcTokensCount: X,
+  activeVisionPolygonsCount: X
+}
+```
+
+**What to check:**
+- Is isWorldView true in World View?
+- Is isDaylightMode preventing fog render?
+- Are there doors in the store?
+- Are there PC tokens?
+
+### 3. DoorLayer.tsx Logging
+**Lines 30, 35, 1341 (CanvasManager)**
+
+Logs will show:
+```
+[CanvasManager] About to render DoorLayer with X doors
 [DoorLayer] Rendering X doors. isWorldView: true/false
 [DoorLayer] Rendering door: <id> isOpen: true/false at <x> <y>
 ```
@@ -97,11 +119,19 @@ Logs will show:
 
 1. **Open World View** (player window)
 2. **Open Browser Console** (F12)
-3. **Look for log messages** starting with `[FogOfWarLayer]` and `[DoorLayer]`
-4. **Check the values** logged:
-   - Number of doors
-   - Number of PC tokens with vision
-   - Number of wall segments
+3. **Look for log messages** in this order:
+   - `[CanvasManager] State:` - Shows critical flags and counts
+   - `[CanvasManager] Fog condition:` - Shows if fog should render
+   - `[CanvasManager] About to render DoorLayer` - Shows door count
+   - `[DoorLayer] Rendering` - Shows actual door rendering
+   - `[FogOfWarLayer] PC tokens with vision:` - Shows vision setup
+   - `[FogOfWarLayer] Total doors:` - Shows door processing
+
+4. **If NO logs appear at all**:
+   - App isn't running or crashed
+   - Wrong window/tab
+   - Browser console not showing logs (check filter settings)
+
 5. **Compare with DM View** (architect window) to see if doors appear there
 
 ## Expected Behavior
