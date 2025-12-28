@@ -699,7 +699,7 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
         }
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- snapToGrid is a stable utility function
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- snapToGrid is imported from utils/grid and is a pure utility function with no dependencies
   }, [selectedIds, tokens, gridSize, isAltPressed, isWorldView, updateTokenPosition, addToken]);
 
   // Drawing Handlers
