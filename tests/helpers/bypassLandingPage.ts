@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import type { Campaign } from '../../src/store/gameStore';
 
 /**
  * Bypass Landing Page and Inject Test State
@@ -25,7 +26,7 @@ import type { Page } from '@playwright/test';
  */
 export async function bypassLandingPageAndInjectState(
   page: Page,
-  campaignData?: any
+  campaignData?: Partial<Campaign>
 ) {
   // 1. Mock Electron APIs (for compatibility with web mode)
   await page.addInitScript(() => {

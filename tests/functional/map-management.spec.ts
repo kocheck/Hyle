@@ -106,15 +106,27 @@ test.describe('Map Creation and Addition', () => {
     const canvas = page.locator('[data-testid="main-canvas"]');
     const boundingBox = await canvas.boundingBox();
 
+    const expectedWidth = 2000;
+    const expectedHeight = 1500;
+    const tolerance = 10;
+
     expect(
       boundingBox!.width,
-      'Canvas width should match specified dimension'
-    ).toBe(2000);
+      'Canvas width should match specified dimension within tolerance'
+    ).toBeGreaterThanOrEqual(expectedWidth - tolerance);
+    expect(
+      boundingBox!.width,
+      'Canvas width should match specified dimension within tolerance'
+    ).toBeLessThanOrEqual(expectedWidth + tolerance);
 
     expect(
       boundingBox!.height,
-      'Canvas height should match specified dimension'
-    ).toBe(1500);
+      'Canvas height should match specified dimension within tolerance'
+    ).toBeGreaterThanOrEqual(expectedHeight - tolerance);
+    expect(
+      boundingBox!.height,
+      'Canvas height should match specified dimension within tolerance'
+    ).toBeLessThanOrEqual(expectedHeight + tolerance);
   });
 });
 

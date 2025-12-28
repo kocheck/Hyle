@@ -14,6 +14,10 @@
 
 import { test, expect, _electron as electron } from '@playwright/test';
 
+// Window size tolerance in pixels - accounts for OS-specific window chrome,
+// DPI scaling, and window decorations that may vary across platforms
+const WINDOW_SIZE_TOLERANCE = 50;
+
 test.describe('Electron App Startup', () => {
   test('should launch Electron app successfully', async () => {
     const app = await electron.launch({
@@ -120,12 +124,12 @@ test.describe('Electron App Startup', () => {
     expect(
       size.width,
       'Window width should be restored from previous session'
-    ).toBeCloseTo(1200, 50); // Allow some tolerance
+    ).toBeCloseTo(1200, WINDOW_SIZE_TOLERANCE); // Allow some tolerance
 
     expect(
       size.height,
       'Window height should be restored from previous session'
-    ).toBeCloseTo(800, 50);
+    ).toBeCloseTo(800, WINDOW_SIZE_TOLERANCE);
 
     await app.close();
   });

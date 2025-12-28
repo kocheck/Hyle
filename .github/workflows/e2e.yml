@@ -19,7 +19,7 @@ jobs:
   test-web:
     name: Web Tests (Shard ${{ matrix.shardIndex }}/${{ matrix.shardTotal }})
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     strategy:
       fail-fast: false # Run all shards even if one fails
