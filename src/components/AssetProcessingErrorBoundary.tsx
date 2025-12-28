@@ -9,6 +9,8 @@ interface State {
   hasError: boolean;
   error: Error | null;
   errorInfo: ErrorInfo | null;
+  errorTitle?: string;
+  errorDesc?: string;
 }
 
 /**
@@ -50,7 +52,9 @@ class AssetProcessingErrorBoundary extends Component<Props, State> {
     return {
       hasError: true,
       error,
-      errorInfo: null
+      errorInfo: null,
+      errorTitle: undefined,
+      errorDesc: undefined
     };
   }
 
@@ -59,10 +63,16 @@ class AssetProcessingErrorBoundary extends Component<Props, State> {
     console.error('[AssetProcessingErrorBoundary] Caught error:', error);
     console.error('[AssetProcessingErrorBoundary] Error info:', errorInfo);
 
-    // Update state with full error info
+    // Roll for error messages once when error occurs to keep them stable across re-renders
+    const errorTitle = rollForMessage('ERROR_ASSET_PROCESSING_TITLE');
+    const errorDesc = rollForMessage('ERROR_ASSET_PROCESSING_DESC');
+
+    // Update state with full error info and rolled messages
     this.setState({
       error,
-      errorInfo
+      errorInfo,
+      errorTitle,
+      errorDesc
     });
   }
 
@@ -73,7 +83,9 @@ class AssetProcessingErrorBoundary extends Component<Props, State> {
     this.setState({
       hasError: false,
       error: null,
-      errorInfo: null
+      errorInfo: null,
+      errorTitle: undefined,
+      errorDesc: undefined
     });
   };
 
@@ -89,10 +101,10 @@ class AssetProcessingErrorBoundary extends Component<Props, State> {
           fontFamily: 'system-ui, sans-serif'
         }}>
           <h3 style={{ color: '#c33', margin: '0 0 10px 0' }}>
-            {rollForMessage('ERROR_ASSET_PROCESSING_TITLE')}
+            {this.state.errorTitle}
           </h3>
           <p style={{ margin: '10px 0' }}>
-            {rollForMessage('ERROR_ASSET_PROCESSING_DESC')}
+            {this.state.errorDesc}
           </p>
           <ul style={{ margin: '10px 0 10px 20px' }}>
             <li>The file is corrupt or unsupported</li>
