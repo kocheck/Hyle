@@ -325,6 +325,23 @@ function App() {
              onClick={() => useGameStore.getState().showDungeonDialog()}
              title="Generate a random dungeon">Dungeon Gen</button>
            <div className="toolbar-divider w-px mx-1"></div>
+           <button
+             className="btn btn-tool"
+             onClick={() => {
+               const isElectron = Boolean(window.ipcRenderer);
+               if (isElectron) {
+                 // Electron: Use IPC to create separate window
+                 window.ipcRenderer.send('create-world-window');
+               } else {
+                 // Web: Open in new tab with ?type=world parameter
+                 const baseUrl = window.location.origin + window.location.pathname;
+                 window.open(`${baseUrl}?type=world`, '_blank');
+               }
+             }}
+             title="Open World View (player-facing display)">
+             World View
+           </button>
+           <div className="toolbar-divider w-px mx-1"></div>
            <label className="flex items-center gap-2 cursor-pointer">
              <span className="text-sm font-medium">Color (I)</span>
              <input
