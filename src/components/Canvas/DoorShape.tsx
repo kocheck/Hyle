@@ -101,7 +101,7 @@ const DoorShape = ({ door, isWorldView, onToggle }: DoorShapeProps) => {
       y={door.y}
       onClick={handleClick}
       listening={!isWorldView}  // DM can click, players cannot
-      opacity={isWorldView ? 0.9 : 1}
+      opacity={1}  // Always visible to both DM and players
     >
       {/* Render door with animated transition */}
       {animationProgress < 1

@@ -696,19 +696,21 @@ export class DungeonGenerator {
   }
 
   /**
-   * Marks a doorway position on a piece and keeps the wall solid
+   * Splits a wall segment to create a doorway opening and stores door position
    *
-   * **NEW BEHAVIOR:** Instead of splitting the wall into segments with gaps,
-   * we now keep walls solid and track doorway positions separately.
-   * Door objects are created later from the doorways field.
+   * Creates a gap in the wall where the door will be placed, allowing vision
+   * through when the door is open. The door position is stored for later
+   * conversion to a Door object.
    *
    * @param piece - The dungeon piece to modify
    * @param direction - Which wall direction to place the door
    * @param doorwayPosition - Exact center position of the door
    */
   private removeConnectingWalls(piece: DungeonPiece, direction: Direction, doorwayPosition?: Point): void {
-    const { bounds } = piece;
+    const { bounds, wallSegments } = piece;
     const { gridSize } = this.options;
+    const doorwaySize = gridSize; // Door opening size (1 grid cell)
+    const minSegmentSize = gridSize * DungeonGenerator.MIN_WALL_SEGMENT_FRACTION;
 
     // Calculate doorway position if not provided
     let centerX: number, centerY: number;
@@ -737,12 +739,91 @@ export class DungeonGenerator {
       piece.doorways = {};
     }
 
-    // Store the doorway position
+    // Store the doorway position for Door object creation
     piece.doorways[direction] = { x: centerX, y: centerY };
 
-    // Keep the wall SOLID (no splitting into segments with gaps)
-    // The Door component will render on top of the wall later
-    // Wall remains as a simple 2-point segment
+    // Split the wall to create a gap for the door
+    const segment = wallSegments[direction];
+    if (!segment || segment.length < 2) return;
+
+    const start = segment[0];
+    const end = segment[1];
+
+    if (direction === 'north' || direction === 'south') {
+      // Horizontal wall - split left and right of doorway
+      const doorwayLeft = centerX - doorwaySize / 2;
+      const doorwayRight = centerX + doorwaySize / 2;
+      const wallWidth = Math.abs(end.x - start.x);
+
+      // Only remove wall if it's entirely a doorway
+      if (wallWidth <= doorwaySize + minSegmentSize) {
+        wallSegments[direction] = undefined;
+        return;
+      }
+
+      const leftSegment: Point[] = [];
+      const rightSegment: Point[] = [];
+
+      // Keep left segment if it's meaningful
+      const leftLength = Math.abs(doorwayLeft - start.x);
+      if (leftLength > minSegmentSize) {
+        leftSegment.push(start, { x: doorwayLeft, y: start.y });
+      }
+
+      // Keep right segment if it's meaningful
+      const rightLength = Math.abs(end.x - doorwayRight);
+      if (rightLength > minSegmentSize) {
+        rightSegment.push({ x: doorwayRight, y: end.y }, end);
+      }
+
+      // Combine segments
+      if (leftSegment.length > 0 && rightSegment.length > 0) {
+        wallSegments[direction] = [...leftSegment, ...rightSegment];
+      } else if (leftSegment.length > 0) {
+        wallSegments[direction] = leftSegment;
+      } else if (rightSegment.length > 0) {
+        wallSegments[direction] = rightSegment;
+      } else {
+        wallSegments[direction] = undefined;
+      }
+    } else {
+      // Vertical wall - split top and bottom of doorway
+      const doorwayTop = centerY - doorwaySize / 2;
+      const doorwayBottom = centerY + doorwaySize / 2;
+      const wallHeight = Math.abs(end.y - start.y);
+
+      // Only remove wall if it's entirely a doorway
+      if (wallHeight <= doorwaySize + minSegmentSize) {
+        wallSegments[direction] = undefined;
+        return;
+      }
+
+      const topSegment: Point[] = [];
+      const bottomSegment: Point[] = [];
+
+      // Keep top segment if it's meaningful
+      const topLength = Math.abs(doorwayTop - start.y);
+      if (topLength > minSegmentSize) {
+        topSegment.push(start, { x: start.x, y: doorwayTop });
+      }
+
+      // Keep bottom segment if it's meaningful
+      const bottomLength = Math.abs(end.y - doorwayBottom);
+      if (bottomLength > minSegmentSize) {
+        bottomSegment.push({ x: end.x, y: doorwayBottom }, end);
+      }
+
+      // Combine segments
+      if (topSegment.length > 0 && bottomSegment.length > 0) {
+        wallSegments[direction] = [...topSegment, ...bottomSegment];
+      } else if (topSegment.length > 0) {
+        wallSegments[direction] = topSegment;
+      } else if (bottomSegment.length > 0) {
+        wallSegments[direction] = bottomSegment;
+      } else {
+        wallSegments[direction] = undefined;
+      }
+    }
   }
 
   /**
