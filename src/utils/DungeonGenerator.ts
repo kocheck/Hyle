@@ -753,7 +753,12 @@ export class DungeonGenerator {
       // Horizontal wall - split left and right of doorway
       const doorwayLeft = centerX - doorwaySize / 2;
       const doorwayRight = centerX + doorwaySize / 2;
-      const wallWidth = Math.abs(end.x - start.x);
+
+      // Ensure we're working with correct wall orientation (left to right)
+      const wallLeft = Math.min(start.x, end.x);
+      const wallRight = Math.max(start.x, end.x);
+      const wallWidth = wallRight - wallLeft;
+      const wallY = start.y;
 
       // Only remove wall if it's entirely a doorway
       if (wallWidth <= doorwaySize + minSegmentSize) {
@@ -764,16 +769,22 @@ export class DungeonGenerator {
       const leftSegment: Point[] = [];
       const rightSegment: Point[] = [];
 
-      // Keep left segment if it's meaningful
-      const leftLength = Math.abs(doorwayLeft - start.x);
-      if (leftLength > minSegmentSize) {
-        leftSegment.push(start, { x: doorwayLeft, y: start.y });
+      // Keep left segment ONLY if doorway doesn't start before/at wall start
+      // AND there's enough space for a meaningful segment
+      if (doorwayLeft > wallLeft) {
+        const leftLength = doorwayLeft - wallLeft;
+        if (leftLength > minSegmentSize) {
+          leftSegment.push({ x: wallLeft, y: wallY }, { x: doorwayLeft, y: wallY });
+        }
       }
 
-      // Keep right segment if it's meaningful
-      const rightLength = Math.abs(end.x - doorwayRight);
-      if (rightLength > minSegmentSize) {
-        rightSegment.push({ x: doorwayRight, y: end.y }, end);
+      // Keep right segment ONLY if doorway doesn't extend beyond/to wall end
+      // AND there's enough space for a meaningful segment
+      if (doorwayRight < wallRight) {
+        const rightLength = wallRight - doorwayRight;
+        if (rightLength > minSegmentSize) {
+          rightSegment.push({ x: doorwayRight, y: wallY }, { x: wallRight, y: wallY });
+        }
       }
 
       // Combine segments
@@ -790,7 +801,12 @@ export class DungeonGenerator {
       // Vertical wall - split top and bottom of doorway
       const doorwayTop = centerY - doorwaySize / 2;
       const doorwayBottom = centerY + doorwaySize / 2;
-      const wallHeight = Math.abs(end.y - start.y);
+
+      // Ensure we're working with correct wall orientation (top to bottom)
+      const wallTop = Math.min(start.y, end.y);
+      const wallBottom = Math.max(start.y, end.y);
+      const wallHeight = wallBottom - wallTop;
+      const wallX = start.x;
 
       // Only remove wall if it's entirely a doorway
       if (wallHeight <= doorwaySize + minSegmentSize) {
@@ -801,16 +817,22 @@ export class DungeonGenerator {
       const topSegment: Point[] = [];
       const bottomSegment: Point[] = [];
 
-      // Keep top segment if it's meaningful
-      const topLength = Math.abs(doorwayTop - start.y);
-      if (topLength > minSegmentSize) {
-        topSegment.push(start, { x: start.x, y: doorwayTop });
+      // Keep top segment ONLY if doorway doesn't start before/at wall top
+      // AND there's enough space for a meaningful segment
+      if (doorwayTop > wallTop) {
+        const topLength = doorwayTop - wallTop;
+        if (topLength > minSegmentSize) {
+          topSegment.push({ x: wallX, y: wallTop }, { x: wallX, y: doorwayTop });
+        }
       }
 
-      // Keep bottom segment if it's meaningful
-      const bottomLength = Math.abs(end.y - doorwayBottom);
-      if (bottomLength > minSegmentSize) {
-        bottomSegment.push({ x: end.x, y: doorwayBottom }, end);
+      // Keep bottom segment ONLY if doorway doesn't extend beyond/to wall bottom
+      // AND there's enough space for a meaningful segment
+      if (doorwayBottom < wallBottom) {
+        const bottomLength = wallBottom - doorwayBottom;
+        if (bottomLength > minSegmentSize) {
+          bottomSegment.push({ x: wallX, y: doorwayBottom }, { x: wallX, y: wallBottom });
+        }
       }
 
       // Combine segments
