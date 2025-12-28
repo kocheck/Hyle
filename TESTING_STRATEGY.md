@@ -7,7 +7,7 @@
 1. [Overview](#overview)
 2. [Configuration Strategy](#1-configuration-strategy-playwrightconfigts)
 3. [Descriptive Error Pattern](#2-descriptive-error-pattern)
-4. [Visual Testing & Bypass Strategy](#3-visual-testing--bypass-strategy)
+4. [Functional Testing & Landing Page Bypass](#3-functional-testing--landing-page-bypass)
 5. [The Quality Gate (CI/CD)](#4-the-quality-gate-cicd)
 6. [Repository Setup & Enforcement](#5-repository-setup--enforcement)
 7. [Testing Best Practices](#6-testing-best-practices)
@@ -20,12 +20,17 @@ This document outlines the comprehensive testing strategy for the Hyle applicati
 - **Web (SPA)**: Browser-based application served via Vite
 - **Electron (Desktop)**: Native desktop application with IPC integration
 
+### Testing Focus: Functional Over Visual
+
+**Note:** This strategy prioritizes **functional/integration testing** over visual regression testing. With an upcoming UI redesign, visual snapshots would require constant updates. Instead, we test **behavior and functionality** which remains stable across visual changes.
+
 ### Testing Goals
-- ✅ **Visual Regression Testing**: Catch UI regressions with pixel-perfect snapshots
+- ✅ **Functional Coverage**: Test user workflows, state management, and data persistence
 - ✅ **Descriptive Failures**: Every test failure should tell you *exactly* what broke
 - ✅ **CI Enforcement**: Block broken PRs from merging via GitHub Actions
 - ✅ **Fast Feedback**: Parallel test execution with sharding
 - ✅ **Rich Debugging**: Automatic traces, videos, and HTML reports on failure
+- ✅ **Redesign-Resistant**: Tests validate behavior, not appearance
 
 ---
 
@@ -77,27 +82,16 @@ export default defineConfig({
   },
 
   projects: [
-    // ===== PROJECT 1: Web-Chromium (Visual Regression) =====
+    // ===== PROJECT 1: Web-Chromium (Functional Tests) =====
     {
       name: 'Web-Chromium',
       use: {
         ...devices['Desktop Chrome'],
-
-        // Visual snapshot consistency
-        deviceScaleFactor: 1, // Force 1x scaling for consistent snapshots
-
-        // Font rendering consistency (critical for cross-OS snapshots)
-        launchOptions: {
-          args: [
-            '--font-render-hinting=none', // Disable font hinting
-            '--disable-font-subpixel-positioning', // Consistent font positioning
-            '--disable-skia-runtime-opts', // Disable runtime optimizations
-          ],
-        },
       },
 
-      // Only run visual snapshot tests in this project
-      testMatch: /.*\.visual\.spec\.ts/,
+      // Run all web functional tests (excludes Electron-specific)
+      testMatch: /.*\.spec\.ts/,
+      testIgnore: /.*\.electron\.spec\.ts/,
     },
 
     // ===== PROJECT 2: Electron-App (Integration Testing) =====
@@ -147,8 +141,8 @@ export default defineConfig({
 
 | Project | Purpose | Test Types | Build Required |
 |---------|---------|------------|----------------|
-| **Web-Chromium** | Visual regression, UI functionality | Snapshots, component tests | ✅ Yes (`npm run build:web`) |
-| **Electron-App** | IPC, native features, startup | Integration tests | ✅ Yes (`npm run build`) |
+| **Web-Chromium** | User workflows, state management, DOM behavior | Functional/integration tests | ✅ Yes (`npm run build:web`) |
+| **Electron-App** | IPC, native features, startup, file system | Integration tests | ✅ Yes (`npm run build`) |
 
 ### 1.3 Trace Configuration Deep Dive
 
@@ -259,17 +253,61 @@ test.describe('Campaign Management', () => {
 
 ---
 
-## 3. Visual Testing & Bypass Strategy
+## 3. Functional Testing & Landing Page Bypass
 
-### 3.1 The Challenge: Landing Page Gateway
+### 3.1 What Are Functional Tests?
 
-The production web build includes a "Download Landing Page" that appears before the main app. This is problematic for visual testing because:
+Functional tests verify **behavior and data integrity** rather than visual appearance. They are **redesign-resistant** because they focus on:
+
+- ✅ **User workflows**: Can users complete tasks end-to-end?
+- ✅ **State management**: Does data persist correctly?
+- ✅ **Data integrity**: Do save/load cycles preserve campaign data?
+- ✅ **Feature availability**: Do features work as expected?
+- ❌ **NOT appearance**: We don't care about colors, fonts, or pixel-perfect layouts (until after redesign)
+
+### 3.2 Example: Functional vs Visual Test
+
+**❌ Visual Test (Avoid for now):**
+```typescript
+test('Campaign should look correct', async ({ page }) => {
+  await expect(page).toHaveScreenshot('campaign.png');
+  // ❌ Breaks on every UI change
+});
+```
+
+**✅ Functional Test (Preferred):**
+```typescript
+test('Campaign should persist token positions after reload', async ({ page }) => {
+  // Add token at specific position
+  await page.click('[data-testid="add-token-button"]');
+  await page.dragAndDrop('[data-testid="token-1"]', { x: 300, y: 200 });
+
+  // Verify position
+  const position = await page.locator('[data-testid="token-1"]').boundingBox();
+  expect(position?.x, 'Token X position should be near 300').toBeCloseTo(300, 0);
+  expect(position?.y, 'Token Y position should be near 200').toBeCloseTo(200, 0);
+
+  // Reload page
+  await page.reload();
+
+  // Verify position persisted (auto-save + IndexedDB)
+  const newPosition = await page.locator('[data-testid="token-1"]').boundingBox();
+  expect(newPosition?.x, 'Token X position should persist after reload').toBeCloseTo(300, 0);
+  expect(newPosition?.y, 'Token Y position should persist after reload').toBeCloseTo(200, 0);
+
+  // ✅ Tests behavior, survives redesign
+});
+```
+
+### 3.3 The Challenge: Landing Page Gateway
+
+The production web build includes a "Download Landing Page" that appears before the main app. This is problematic for functional testing because:
 
 1. **Extra clicks**: Every test must navigate past the landing page
 2. **Flakiness**: Landing page animations can cause timing issues
-3. **Irrelevant snapshots**: We want to test the *app*, not the landing page
+3. **Irrelevant to functionality**: We want to test the *app*, not the landing page
 
-### 3.2 Solution: `beforeEach` Hook with State Injection
+### 3.4 Solution: `beforeEach` Hook with State Injection
 
 **Strategy:**
 - Bypass the landing page by **injecting mock state** directly into `IndexedDB` and `localStorage`
@@ -335,7 +373,7 @@ export async function bypassLandingPageAndInjectState(page: Page) {
   // 3. Set localStorage flags
   await page.addInitScript(() => {
     localStorage.setItem('hyle-onboarding-completed', 'true');
-    localStorage.setItem('hyle-theme', 'light'); // Consistent theme for snapshots
+    localStorage.setItem('hyle-theme', 'light'); // Use light theme for tests
   });
 
   // 4. Navigate to app (landing page logic will detect "returning user" and skip)
@@ -349,105 +387,191 @@ export async function bypassLandingPageAndInjectState(page: Page) {
 **Usage in tests:**
 
 ```typescript
-// tests/visual/campaign.visual.spec.ts
+// tests/functional/campaign-workflow.spec.ts
 import { test, expect } from '@playwright/test';
 import { bypassLandingPageAndInjectState } from '../helpers/bypassLandingPage';
 
-test.describe('Campaign Visual Tests', () => {
+test.describe('Campaign Workflow Tests', () => {
   test.beforeEach(async ({ page }) => {
     await bypassLandingPageAndInjectState(page);
   });
 
-  test('Main canvas should render without UI elements overlapping', async ({ page }) => {
-    await expect(page, 'Canvas should match baseline snapshot').toHaveScreenshot('main-canvas.png', {
-      maxDiffPixels: 100, // Allow minor anti-aliasing differences
-    });
+  test('should create new campaign and add map background', async ({ page }) => {
+    // Click new campaign button
+    await page.click('[data-testid="new-campaign-button"]');
+
+    // Verify campaign creation flow
+    await expect(
+      page.locator('[data-testid="campaign-form"]'),
+      'Campaign creation form should appear after clicking new campaign'
+    ).toBeVisible();
+
+    // Fill campaign name
+    await page.fill('[data-testid="campaign-name-input"]', 'Epic Adventure');
+    await page.click('[data-testid="create-campaign-submit"]');
+
+    // Verify campaign was created
+    await expect(
+      page.locator('[data-testid="main-canvas"]'),
+      'Main canvas should be visible after campaign creation'
+    ).toBeVisible();
+
+    // Verify campaign name appears in header
+    await expect(
+      page.locator('[data-testid="campaign-title"]'),
+      'Campaign title should display "Epic Adventure" in header'
+    ).toHaveText('Epic Adventure');
   });
 });
 ```
 
-### 3.3 Snapshot Consistency Across Operating Systems
+### 3.5 Key Functional Test Patterns
 
-**Challenge:** Font rendering and anti-aliasing differ between macOS, Linux, and Windows.
+#### Pattern 1: State Persistence Testing
 
-**Solutions:**
+**Goal:** Verify data survives page reloads (auto-save + IndexedDB)
 
-#### Option A: Docker Container (Recommended for CI)
-
-Run tests in a **Ubuntu Docker container** with standardized fonts:
-
-```dockerfile
-# .github/docker/Dockerfile.playwright
-FROM mcr.microsoft.com/playwright:v1.57.0-jammy
-
-# Install standardized fonts
-RUN apt-get update && apt-get install -y \
-  fonts-liberation \
-  fonts-noto-color-emoji \
-  fonts-roboto \
-  && rm -rf /var/lib/apt/lists/*
-
-# Set font configuration to disable hinting
-RUN echo '<?xml version="1.0"?>' > /etc/fonts/local.conf && \
-  echo '<!DOCTYPE fontconfig SYSTEM "fonts.dtd">' >> /etc/fonts/local.conf && \
-  echo '<fontconfig>' >> /etc/fonts/local.conf && \
-  echo '  <match target="font">' >> /etc/fonts/local.conf && \
-  echo '    <edit mode="assign" name="hinting"><bool>false</bool></edit>' >> /etc/fonts/local.conf && \
-  echo '    <edit mode="assign" name="hintstyle"><const>hintnone</const></edit>' >> /etc/fonts/local.conf && \
-  echo '    <edit mode="assign" name="antialias"><bool>true</bool></edit>' >> /etc/fonts/local.conf && \
-  echo '  </match>' >> /etc/fonts/local.conf && \
-  echo '</fontconfig>' >> /etc/fonts/local.conf
-
-WORKDIR /app
-```
-
-**CI Workflow:**
-```yaml
-- name: Run visual tests in Docker
-  run: |
-    docker build -t playwright-tests -f .github/docker/Dockerfile.playwright .
-    docker run --rm -v $(pwd):/app playwright-tests npm run test:visual
-```
-
-#### Option B: CSS Font Standardization (Simpler)
-
-Force specific web fonts to ensure consistency:
-
-```css
-/* tests/fixtures/test-fonts.css */
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
-
-* {
-  font-family: 'Roboto', sans-serif !important;
-  -webkit-font-smoothing: antialiased !important;
-  -moz-osx-font-smoothing: grayscale !important;
-}
-```
-
-Inject in `beforeEach`:
 ```typescript
-await page.addStyleTag({ path: './tests/fixtures/test-fonts.css' });
+test('should persist campaign state after page reload', async ({ page }) => {
+  // Create campaign with specific data
+  await page.click('[data-testid="new-campaign-button"]');
+  await page.fill('[data-testid="campaign-name"]', 'Dungeon Campaign');
+  await page.click('[data-testid="save-campaign"]');
+
+  // Add a token
+  await page.click('[data-testid="add-token"]');
+  const tokenId = await page.locator('[data-testid^="token-"]').getAttribute('data-testid');
+
+  // Reload page (triggers auto-save restoration)
+  await page.reload();
+  await page.waitForSelector('[data-testid="main-canvas"]');
+
+  // Verify campaign restored
+  await expect(
+    page.locator('[data-testid="campaign-title"]'),
+    'Campaign name should persist after reload'
+  ).toHaveText('Dungeon Campaign');
+
+  // Verify token restored
+  await expect(
+    page.locator(`[data-testid="${tokenId}"]`),
+    'Token should persist after reload'
+  ).toBeVisible();
+});
 ```
 
-### 3.4 Snapshot Update Workflow
+#### Pattern 2: Data Integrity Testing
 
-**Updating snapshots after intentional UI changes:**
+**Goal:** Verify save/load cycle preserves all data
 
-```bash
-# Update all snapshots
-npm run test:visual -- --update-snapshots
+```typescript
+test('should preserve all campaign data through export/import cycle', async ({ page }) => {
+  // Create campaign with complex state
+  await createCampaignWithData(page, {
+    name: 'Test Campaign',
+    maps: 2,
+    tokensPerMap: 3,
+  });
 
-# Update specific test
-npm run test:visual -- campaign.visual.spec.ts --update-snapshots
+  // Export campaign (.hyle file download)
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.click('[data-testid="export-campaign"]'),
+  ]);
 
-# Review changes in Git
-git diff tests/**/*.png
+  const filePath = await download.path();
+
+  // Clear state (simulate fresh session)
+  await page.context().clearCookies();
+  await page.evaluate(() => localStorage.clear());
+  await page.evaluate(() => indexedDB.deleteDatabase('hyle-storage'));
+
+  // Import campaign
+  await page.setInputFiles('[data-testid="import-file"]', filePath);
+  await page.waitForSelector('[data-testid="main-canvas"]');
+
+  // Verify all data restored
+  await expect(
+    page.locator('[data-testid="campaign-title"]'),
+    'Campaign name should survive export/import'
+  ).toHaveText('Test Campaign');
+
+  const tokenCount = await page.locator('[data-testid^="token-"]').count();
+  expect(tokenCount, 'All 6 tokens (2 maps × 3 tokens) should be restored').toBe(6);
+});
 ```
 
-**CI Policy:**
-- ❌ Snapshots should **never** be updated automatically in CI
-- ✅ Developers must update snapshots locally and commit them
-- ✅ CI fails if snapshots don't match (forcing explicit review)
+#### Pattern 3: Feature Availability Testing
+
+**Goal:** Verify features work in Web vs Electron
+
+```typescript
+test('should show platform-appropriate features', async ({ page }) => {
+  // Check if running in Electron
+  const isElectron = await page.evaluate(() => {
+    return typeof window.ipcRenderer !== 'undefined';
+  });
+
+  if (isElectron) {
+    // Electron-specific features should be available
+    await expect(
+      page.locator('[data-testid="native-file-dialog"]'),
+      'Native file dialogs should be available in Electron'
+    ).toBeVisible();
+  } else {
+    // Web fallbacks should be shown
+    await expect(
+      page.locator('[data-testid="browser-file-input"]'),
+      'Browser file input should be used in web mode'
+    ).toBeVisible();
+  }
+});
+```
+
+#### Pattern 4: User Workflow Testing
+
+**Goal:** Test complete end-to-end user journeys
+
+```typescript
+test('should complete full campaign creation workflow', async ({ page }) => {
+  // Step 1: Create campaign
+  await page.click('[data-testid="new-campaign-button"]');
+  await page.fill('[data-testid="campaign-name"]', 'Dragon Heist');
+  await page.click('[data-testid="create-button"]');
+
+  await expect(
+    page.locator('[data-testid="main-canvas"]'),
+    'Canvas should appear after campaign creation'
+  ).toBeVisible();
+
+  // Step 2: Add map background
+  await page.click('[data-testid="add-map-button"]');
+  await page.setInputFiles('[data-testid="map-upload"]', './test-assets/dungeon.webp');
+
+  await expect(
+    page.locator('[data-testid="map-layer"]'),
+    'Map background should be visible after upload'
+  ).toBeVisible();
+
+  // Step 3: Add token from library
+  await page.click('[data-testid="token-library-button"]');
+  await page.click('[data-testid="library-token-1"]');
+  await page.click('[data-testid="canvas"]', { position: { x: 200, y: 200 } });
+
+  await expect(
+    page.locator('[data-testid^="token-"]'),
+    'Token should appear on canvas after placement'
+  ).toBeVisible();
+
+  // Step 4: Verify auto-save triggered
+  await page.waitForTimeout(30000); // Wait for 30s auto-save interval
+  await page.reload();
+
+  // All state should be restored
+  await expect(page.locator('[data-testid="map-layer"]')).toBeVisible();
+  await expect(page.locator('[data-testid^="token-"]')).toBeVisible();
+});
+```
 
 ---
 
@@ -744,21 +868,23 @@ Add to workflow to post test results as PR comment:
 
 ```
 tests/
-├── visual/
-│   ├── campaign.visual.spec.ts       # Campaign UI snapshots
-│   ├── token-library.visual.spec.ts  # Library modal snapshots
-│   └── settings.visual.spec.ts       # Settings panel snapshots
+├── functional/
+│   ├── campaign-workflow.spec.ts     # Campaign creation, save/load
+│   ├── token-management.spec.ts      # Token library, drag & drop
+│   ├── state-persistence.spec.ts     # Auto-save, reload behavior
+│   └── data-integrity.spec.ts        # Export/import integrity
 ├── electron/
 │   ├── startup.electron.spec.ts      # App launch tests
 │   ├── ipc.electron.spec.ts          # IPC communication tests
 │   └── native-dialogs.electron.spec.ts
 ├── integration/
-│   ├── campaign-workflow.spec.ts     # Full user workflows
-│   └── token-drag-drop.spec.ts       # Multi-user sync tests
+│   ├── full-workflow.spec.ts         # End-to-end user journeys
+│   └── theme-switching.spec.ts       # Theme persistence across sessions
 ├── helpers/
 │   ├── bypassLandingPage.ts          # State injection utilities
 │   ├── mockElectronAPIs.ts           # API mocks
-│   └── testFixtures.ts               # Reusable test data
+│   ├── testFixtures.ts               # Reusable test data
+│   └── campaignHelpers.ts            # Campaign creation utilities
 └── accessibility.spec.ts             # WCAG compliance (existing)
 ```
 
@@ -834,21 +960,43 @@ test.beforeEach(async ({ page }) => {
 });
 ```
 
-### 6.4 Visual Snapshot Naming Convention
+### 6.4 Asserting on Behavior, Not Appearance
+
+**Focus on what users can DO, not what they SEE:**
 
 ```typescript
-// ❌ Bad - generic name
-await expect(page).toHaveScreenshot('screenshot-1.png');
+// ❌ Bad - Tests appearance (breaks on redesign)
+test('Settings panel has correct styles', async ({ page }) => {
+  const panel = page.locator('[data-testid="settings-panel"]');
+  await expect(panel).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await expect(panel).toHaveCSS('padding', '16px');
+});
 
-// ✅ Good - descriptive name
-await expect(page).toHaveScreenshot('campaign-empty-state-light-theme.png');
+// ✅ Good - Tests behavior (survives redesign)
+test('Settings panel allows theme switching', async ({ page }) => {
+  await page.click('[data-testid="settings-button"]');
 
-// ✅ Good - component-specific
-await expect(modal).toHaveScreenshot('token-library-modal-with-10-items.png');
+  // Verify panel is functional (can interact with it)
+  await expect(
+    page.locator('[data-testid="theme-selector"]'),
+    'Theme selector should be accessible in settings panel'
+  ).toBeVisible();
 
-// ✅ Good - state-specific
-await expect(page).toHaveScreenshot('settings-panel-dark-theme-expanded.png');
+  // Test the behavior
+  await page.selectOption('[data-testid="theme-selector"]', 'dark');
+
+  // Verify behavior outcome (theme changed)
+  const theme = await page.getAttribute('html', 'data-theme');
+  expect(theme, 'Theme should switch to dark mode').toBe('dark');
+});
 ```
+
+**Key principles:**
+- ✅ Assert on **DOM structure** (`toBeVisible`, `toHaveText`, `toHaveAttribute`)
+- ✅ Assert on **user interactions** (`click`, `fill`, `selectOption`)
+- ✅ Assert on **data state** (element counts, attribute values, text content)
+- ❌ Avoid asserting on **CSS properties** (`toHaveCSS`, pixel measurements)
+- ❌ Avoid asserting on **visual appearance** (colors, fonts, spacing)
 
 ### 6.5 Handling Flaky Tests
 
@@ -870,11 +1018,12 @@ Before going live with this strategy, ensure:
 
 - ✅ `playwright.config.ts` defines both `Web-Chromium` and `Electron-App` projects
 - ✅ All tests use descriptive error messages
+- ✅ Tests focus on **behavior**, not appearance (redesign-resistant)
 - ✅ `beforeEach` hooks inject state to bypass landing page
 - ✅ `.github/workflows/e2e.yml` configured with sharding
 - ✅ Branch protection rules enabled on `main` branch
-- ✅ Team trained on snapshot update workflow
 - ✅ Test failure artifacts are reviewed in PR comments
+- ✅ Page Object Model (POM) used to avoid duplication
 
 ---
 
@@ -886,13 +1035,26 @@ Before going live with this strategy, ensure:
 2. **Generate actual files:**
    - Updated `playwright.config.ts`
    - New `.github/workflows/e2e.yml`
-   - Helper utilities (`bypassLandingPage.ts`)
-3. **Write initial test suite** (visual + Electron integration)
+   - Helper utilities (`bypassLandingPage.ts`, `campaignHelpers.ts`)
+3. **Write initial test suite:**
+   - Functional tests (campaign workflow, state persistence, data integrity)
+   - Electron integration tests (startup, IPC, native dialogs)
 4. **Configure GitHub repository** (branch protection)
 5. **Test the workflow** with a sample PR
 
 ---
 
-**Document Version:** 1.0
+## When to Add Visual Regression Testing
+
+**After the redesign is complete**, consider adding visual regression tests for:
+- ✅ **Critical user journeys** (login flow, campaign creation wizard)
+- ✅ **Component library** (buttons, modals, forms in isolation)
+- ✅ **Cross-browser consistency** (ensure Firefox/Safari match Chrome)
+
+At that point, revisit sections 3.3-3.4 of the original document for snapshot consistency strategies.
+
+---
+
+**Document Version:** 2.0 (Functional-First Update)
 **Last Updated:** 2025-12-28
 **Author:** QA Automation Architect (via Claude Code)
