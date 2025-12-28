@@ -555,7 +555,7 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
   }, [isWorldView]);
 
   // Token Drag Handlers (Real-time sync)
-  const handleTokenDragStart = useCallback((e: KonvaEventObject<DragEvent>, tokenId: string) => {
+  const handleTokenDragStart = useCallback((_e: KonvaEventObject<DragEvent>, tokenId: string) => {
     const tokenIds = selectedIds.includes(tokenId) ? selectedIds : [tokenId];
     const primaryToken = tokens.find(t => t.id === tokenId);
     if (!primaryToken) return;
@@ -565,8 +565,6 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
     setItemsForDuplication(tokenIds);
 
     // Store initial offsets for multi-token drag
-    const primaryX = e.target.x();
-    const primaryY = e.target.y();
     dragStartOffsetsRef.current.clear();
 
     tokenIds.forEach(id => {
@@ -1243,9 +1241,9 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
                     }}
                     onDragStart={() => {
                          if (selectedIds.includes(line.id)) {
-                             setDraggedItemIds(selectedIds);
+                             setItemsForDuplication(selectedIds);
                          } else {
-                             setDraggedItemIds([line.id]);
+                             setItemsForDuplication([line.id]);
                          }
                      }}
                      onDragEnd={(e) => {
@@ -1284,7 +1282,7 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
                          // We should use `updateDrawingTransform`.
                          updateDrawingTransform(line.id, x, y, line.scale || 1);
 
-                         setDraggedItemIds([]);
+                         setItemsForDuplication([]);
                      }}
                 />
             ))}
