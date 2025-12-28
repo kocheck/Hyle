@@ -613,7 +613,7 @@ export class DungeonGenerator {
     let wallSegments: DungeonPiece['wallSegments'];
 
     switch (direction) {
-      case 'north':
+      case 'north': {
         // Grid-snap corridor CENTER (works because width=2 cells, so center is grid-aligned)
         const northCenterX = Math.round(fromX / gridSize) * gridSize;
         bounds = {
@@ -635,8 +635,8 @@ export class DungeonGenerator {
           ],
         };
         break;
-
-      case 'south':
+      }
+      case 'south': {
         // Grid-snap corridor CENTER (works because width=2 cells, so center is grid-aligned)
         const southCenterX = Math.round(fromX / gridSize) * gridSize;
         bounds = {
@@ -658,8 +658,8 @@ export class DungeonGenerator {
           ],
         };
         break;
-
-      case 'east':
+      }
+      case 'east': {
         // Grid-snap corridor CENTER (works because width=2 cells, so center is grid-aligned)
         const eastCenterY = Math.round(fromY / gridSize) * gridSize;
         bounds = {
@@ -681,8 +681,8 @@ export class DungeonGenerator {
           west: undefined,
         };
         break;
-
-      case 'west':
+      }
+      case 'west': {
         // Grid-snap corridor CENTER (works because width=2 cells, so center is grid-aligned)
         const westCenterY = Math.round(fromY / gridSize) * gridSize;
         bounds = {
@@ -704,6 +704,7 @@ export class DungeonGenerator {
           west: undefined,
         };
         break;
+      }
     }
 
     return { type: 'corridor', bounds, wallSegments };
@@ -804,28 +805,32 @@ export class DungeonGenerator {
 
     // Adjust corridor endpoint to match snapped room edge
     switch (direction) {
-      case 'north':
+      case 'north': {
         // Corridor connects source room (south end) to new room (north end)
         // Adjust corridor X to align with new room center
         const northOffsetX = Math.round(snappedRoomCenter.x / gridSize) * gridSize - connX;
         corridor.bounds.x += northOffsetX;
         this.updateWallSegments(corridor);
         break;
-      case 'south':
+      }
+      case 'south': {
         const southOffsetX = Math.round(snappedRoomCenter.x / gridSize) * gridSize - connX;
         corridor.bounds.x += southOffsetX;
         this.updateWallSegments(corridor);
         break;
-      case 'east':
+      }
+      case 'east': {
         const eastOffsetY = Math.round(snappedRoomCenter.y / gridSize) * gridSize - connY;
         corridor.bounds.y += eastOffsetY;
         this.updateWallSegments(corridor);
         break;
-      case 'west':
+      }
+      case 'west': {
         const westOffsetY = Math.round(snappedRoomCenter.y / gridSize) * gridSize - connY;
         corridor.bounds.y += westOffsetY;
         this.updateWallSegments(corridor);
         break;
+      }
     }
 
     // Check for collisions (exclude source piece since corridor connects to it)
@@ -846,7 +851,7 @@ export class DungeonGenerator {
     const adjustedCorridor = corridor.bounds;
 
     switch (direction) {
-      case 'north':
+      case 'north': {
         // Source room door at bottom, new room door at top
         // Use corridor's X position (center) for alignment
         const northCorrCenterX = adjustedCorridor.x + adjustedCorridor.width / 2;
@@ -855,7 +860,8 @@ export class DungeonGenerator {
         newRoomDoorwayX = Math.round(northCorrCenterX / gridSize) * gridSize;
         newRoomDoorwayY = newRoom.bounds.y + newRoom.bounds.height; // New room's bottom edge
         break;
-      case 'south':
+      }
+      case 'south': {
         // Source room door at bottom, new room door at top
         const southCorrCenterX = adjustedCorridor.x + adjustedCorridor.width / 2;
         sourceRoomDoorwayX = Math.round(southCorrCenterX / gridSize) * gridSize;
@@ -863,7 +869,8 @@ export class DungeonGenerator {
         newRoomDoorwayX = Math.round(southCorrCenterX / gridSize) * gridSize;
         newRoomDoorwayY = newRoom.bounds.y; // New room's top edge
         break;
-      case 'east':
+      }
+      case 'east': {
         // Use corridor's Y position (center) for alignment
         const eastCorrCenterY = adjustedCorridor.y + adjustedCorridor.height / 2;
         sourceRoomDoorwayX = bounds.x + bounds.width; // Source room's right edge
@@ -871,7 +878,8 @@ export class DungeonGenerator {
         newRoomDoorwayX = newRoom.bounds.x; // New room's left edge
         newRoomDoorwayY = Math.round(eastCorrCenterY / gridSize) * gridSize;
         break;
-      case 'west':
+      }
+      case 'west': {
         // Use corridor's Y position (center) for alignment
         const westCorrCenterY = adjustedCorridor.y + adjustedCorridor.height / 2;
         sourceRoomDoorwayX = bounds.x; // Source room's left edge
@@ -879,6 +887,7 @@ export class DungeonGenerator {
         newRoomDoorwayX = newRoom.bounds.x + newRoom.bounds.width; // New room's right edge
         newRoomDoorwayY = Math.round(westCorrCenterY / gridSize) * gridSize;
         break;
+      }
     }
 
     const sourceRoomDoorway = { x: sourceRoomDoorwayX, y: sourceRoomDoorwayY };

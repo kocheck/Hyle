@@ -233,68 +233,6 @@ function renderSwingArc(door: Door, halfSize: number, thickness: number, swingAn
 }
 
 /**
- * Renders a closed door as a white rectangle with black outline
- *
- * This matches the standard tabletop RPG door symbol for immediate recognition.
- */
-function renderClosedDoor(door: Door, halfSize: number, thickness: number, cursor: string) {
-  if (door.orientation === 'horizontal') {
-    return (
-      <>
-        {/* Main door rectangle */}
-        <Rect
-          x={-halfSize}
-          y={-thickness / 2}
-          width={door.size}
-          height={thickness}
-          fill="#ffffff"           // White fill
-          stroke="#000000"         // Black outline
-          strokeWidth={2}
-          shadowColor="rgba(0,0,0,0.3)"
-          shadowBlur={4}
-          shadowOffsetX={1}
-          shadowOffsetY={1}
-          hitStrokeWidth={0}       // Don't expand hit area beyond visible shape
-        />
-        {/* Subtle door handle/knob */}
-        <Circle
-          x={halfSize - 10}
-          y={0}
-          radius={2}
-          fill="#666666"           // Dark gray knob
-        />
-      </>
-    );
-  } else {
-    // Vertical door
-    return (
-      <>
-        <Rect
-          x={-thickness / 2}
-          y={-halfSize}
-          width={thickness}
-          height={door.size}
-          fill="#ffffff"
-          stroke="#000000"
-          strokeWidth={2}
-          shadowColor="rgba(0,0,0,0.3)"
-          shadowBlur={4}
-          shadowOffsetX={1}
-          shadowOffsetY={1}
-          hitStrokeWidth={0}
-        />
-        <Circle
-          x={0}
-          y={halfSize - 10}
-          radius={2}
-          fill="#666666"
-        />
-      </>
-    );
-  }
-}
-
-/**
  * Renders an open door as a swing arc
  *
  * The arc shows the door swung open to provide visual feedback that the door is accessible.
