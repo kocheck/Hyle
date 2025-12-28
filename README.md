@@ -80,6 +80,75 @@ npm run build
 ```
 This will generate an installer/executable for your operating system in the `dist/` or `release/` folder.
 
+## 🧪 Testing
+
+Hyle has comprehensive E2E test coverage using Playwright (172 test cases, 4,600+ lines).
+
+### Quick Start
+
+```bash
+# Install Playwright browsers (first time only)
+npx playwright install --with-deps chromium
+
+# Run all tests
+npm run test:e2e
+
+# Run specific test suites
+npm run test:e2e:web          # Web tests only
+npm run test:e2e:electron     # Electron tests only
+npm run test:e2e:functional   # Functional tests only
+
+# Interactive UI mode (recommended for development)
+npm run test:e2e:ui
+
+# Debug mode (step through tests)
+npm run test:e2e:debug
+```
+
+### Test Coverage
+
+| Area | Test Cases | Coverage |
+|------|------------|----------|
+| Campaign Management | 15 | 100% |
+| State Persistence | 13 | 100% |
+| Token Management | 26 | 100% |
+| Data Integrity | 20 | 100% |
+| Map Management | 22 | 100% |
+| Token Library | 24 | 100% |
+| Error Handling | 18 | 100% |
+| Electron (Startup/IPC) | 34 | 100% |
+
+### CI/CD Setup
+
+**Current Configuration:** Hybrid (Local + CI Safety Net)
+- ✅ Tests run locally via pre-push hook (fast feedback)
+- ✅ CI runs on `main` branch after merge (safety net)
+- ✅ Low cost: ~180-900 GitHub Actions minutes/month
+
+**Want different setup?**
+- **Full CI with PR blocking**: See [`docs/ENABLE_CI_TESTING.md`](docs/ENABLE_CI_TESTING.md)
+- **Local-only (zero CI cost)**: See [`docs/LOCAL_TESTING_WORKFLOW.md`](docs/LOCAL_TESTING_WORKFLOW.md)
+- **Current hybrid approach**: See [`docs/HYBRID_TESTING_WORKFLOW.md`](docs/HYBRID_TESTING_WORKFLOW.md)
+
+### For Contributors
+
+**Before pushing code:**
+```bash
+# Tests run automatically via pre-push hook
+git push
+# → Tests execute → If pass, push succeeds
+```
+
+**To skip tests (emergency only):**
+```bash
+git push --no-verify
+```
+
+### Test Documentation
+
+- **[Testing Strategy](TESTING_STRATEGY.md)** - Comprehensive testing philosophy and patterns
+- **[Tests README](tests/README.md)** - Detailed guide for writing and debugging tests
+
 ## 🛠 Tech Stack
 
 - **Runtime**: Electron (Dual-process)
