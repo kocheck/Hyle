@@ -11,11 +11,11 @@ import { DungeonGeneratorDialog } from './components/DungeonGeneratorDialog'
 import TokenInspector from './components/TokenInspector'
 import ResourceMonitor from './components/ResourceMonitor'
 import { useGameStore } from './store/gameStore'
-import type { TokenLibraryItem } from './store/gameStore'
 import { useWindowType } from './utils/useWindowType'
 import AutoSaveManager from './components/AutoSaveManager'
 import CommandPalette from './components/AssetLibrary/CommandPalette'
-import { useCommandPalette } from './hooks/useCommandPalette';
+import { useCommandPalette } from './hooks/useCommandPalette'
+import { getStorage } from './services/storage';
 
 /**
  * App is the root component for Hyle's dual-window architecture
@@ -130,12 +130,12 @@ function App() {
 
   // Load library index on startup (Architect View only)
   useEffect(() => {
-    if (!isArchitectView || !window.ipcRenderer) return;
+    if (!isArchitectView) return;
 
     const loadLibrary = async () => {
       try {
-        // @ts-ignore
-        const libraryItems = await window.ipcRenderer.invoke('LOAD_LIBRARY_INDEX');
+        const storage = getStorage();
+        const libraryItems = await storage.loadLibraryIndex();
 
         // Update store with loaded library items
         if (libraryItems && Array.isArray(libraryItems)) {
@@ -144,7 +144,7 @@ function App() {
 
             // Merge with existing library (avoid duplicates by ID)
             const existingIds = new Set(currentLibrary.map((item) => item.id));
-            const newItems = (libraryItems as TokenLibraryItem[]).filter((item) => !existingIds.has(item.id));
+            const newItems = libraryItems.filter((item) => !existingIds.has(item.id));
 
             if (newItems.length === 0) {
               return state;
@@ -201,17 +201,18 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isArchitectView]);
 
-  // Handle Menu Commands (IPC)
+  // Handle Menu Commands (Electron IPC)
   useEffect(() => {
-    if (!window.ipcRenderer) return;
+    const ipcRenderer = window.ipcRenderer;
+    if (!ipcRenderer) return;
 
     const handleSave = async () => {
         try {
             const store = useGameStore.getState();
             store.syncActiveMapToCampaign();
             const campaignToSave = useGameStore.getState().campaign;
-            // @ts-ignore
-            const result = await window.ipcRenderer.invoke('SAVE_CAMPAIGN', campaignToSave);
+            const storage = getStorage();
+            const result = await storage.saveCampaign(campaignToSave);
             if (result) store.showToast('Campaign Saved Successfully!', 'success');
         } catch (e) {
             console.error(e);
@@ -221,8 +222,8 @@ function App() {
 
     const handleLoad = async () => {
         try {
-            // @ts-ignore
-            const campaign = await window.ipcRenderer.invoke('LOAD_CAMPAIGN');
+            const storage = getStorage();
+            const campaign = await storage.loadCampaign();
             if (campaign) {
                 useGameStore.getState().loadCampaign(campaign);
                 useGameStore.getState().showToast('Campaign Loaded!', 'success');
@@ -237,14 +238,14 @@ function App() {
         useGameStore.getState().setShowResourceMonitor(!useGameStore.getState().showResourceMonitor);
     };
 
-    window.ipcRenderer.on('MENU_SAVE_CAMPAIGN', handleSave);
-    window.ipcRenderer.on('MENU_LOAD_CAMPAIGN', handleLoad);
-    window.ipcRenderer.on('MENU_TOGGLE_RESOURCE_MONITOR', handleToggleMonitor);
+    ipcRenderer.on('MENU_SAVE_CAMPAIGN', handleSave);
+    ipcRenderer.on('MENU_LOAD_CAMPAIGN', handleLoad);
+    ipcRenderer.on('MENU_TOGGLE_RESOURCE_MONITOR', handleToggleMonitor);
 
     return () => {
-        window.ipcRenderer.off('MENU_SAVE_CAMPAIGN', handleSave);
-        window.ipcRenderer.off('MENU_LOAD_CAMPAIGN', handleLoad);
-        window.ipcRenderer.off('MENU_TOGGLE_RESOURCE_MONITOR', handleToggleMonitor);
+        ipcRenderer.off('MENU_SAVE_CAMPAIGN', handleSave);
+        ipcRenderer.off('MENU_LOAD_CAMPAIGN', handleLoad);
+        ipcRenderer.off('MENU_TOGGLE_RESOURCE_MONITOR', handleToggleMonitor);
     };
   }, []); // Empty dependency array as handlers use getState()
 
@@ -324,6 +325,23 @@ function App() {
              className="btn btn-tool"
              onClick={() => useGameStore.getState().showDungeonDialog()}
              title="Generate a random dungeon">Dungeon Gen</button>
+           <div className="toolbar-divider w-px mx-1"></div>
+           <button
+             className="btn btn-tool"
+             onClick={() => {
+               const ipcRenderer = window.ipcRenderer;
+               if (ipcRenderer) {
+                 // Electron: Use IPC to create separate window
+                 ipcRenderer.send('create-world-window');
+               } else {
+                 // Web: Open in new tab with ?type=world parameter
+                 const baseUrl = window.location.origin + window.location.pathname;
+                 window.open(`${baseUrl}?type=world`, '_blank');
+               }
+             }}
+             title="Open World View (player-facing display)">
+             World View
+           </button>
            <div className="toolbar-divider w-px mx-1"></div>
            <label className="flex items-center gap-2 cursor-pointer">
              <span className="text-sm font-medium">Color (I)</span>

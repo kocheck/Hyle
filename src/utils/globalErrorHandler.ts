@@ -333,14 +333,18 @@ export function initGlobalErrorHandlers(): () => void {
   window.addEventListener('error', onGlobalError);
   window.addEventListener('unhandledrejection', onUnhandledRejection);
 
-  // Listen for main process errors via IPC
-  window.ipcRenderer.on('main-process-error', onMainProcessError);
+  // Listen for main process errors via IPC (Electron only)
+  if (window.ipcRenderer) {
+    window.ipcRenderer.on('main-process-error', onMainProcessError);
+  }
 
   // Return cleanup function
   return () => {
     window.removeEventListener('error', onGlobalError);
     window.removeEventListener('unhandledrejection', onUnhandledRejection);
-    window.ipcRenderer.off('main-process-error', onMainProcessError);
+    if (window.ipcRenderer) {
+      window.ipcRenderer.off('main-process-error', onMainProcessError);
+    }
   };
 }
 

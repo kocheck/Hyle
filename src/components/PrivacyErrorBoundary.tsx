@@ -145,8 +145,18 @@ class PrivacyErrorBoundary extends Component<Props, State> {
    */
   private async sanitizeAndSetError(error: Error, errorInfo: ErrorInfo): Promise<void> {
     try {
-      // Get the system username for sanitization
-      const username = await window.errorReporting.getUsername();
+      // Get the system username for sanitization (platform-agnostic)
+      let username = '[USER]'; // Default fallback
+      try {
+        if (window.errorReporting?.getUsername) {
+          username = await window.errorReporting.getUsername();
+        } else {
+          // Web environment - use generic placeholder
+          username = '[BROWSER_USER]';
+        }
+      } catch (usernameError) {
+        console.warn('[PrivacyErrorBoundary] Failed to get username, using fallback', usernameError);
+      }
 
       // Create a combined error with component stack
       const combinedError = new Error(error.message);
@@ -214,7 +224,10 @@ ${userContext.trim()}
       const mailtoUrl = `mailto:${supportEmail}?subject=${subject}&body=${body}`;
 
       // Open the default email client
-      await window.errorReporting.openExternal(mailtoUrl);
+      const errorReporting = window.errorReporting;
+      if (errorReporting) {
+        await errorReporting.openExternal(mailtoUrl);
+      }
 
       // Reset copy status after 3 seconds
       setTimeout(() => {
@@ -258,7 +271,16 @@ ${userContext.trim()}
       const finalReport = reportBody.replace('{{USER_CONTEXT}}', userContextBlock);
 
       // Save to file using native dialog
-      const result = await window.errorReporting.saveToFile(finalReport);
+      const errorReporting = window.errorReporting;
+      if (!errorReporting) {
+        this.setState({ saveStatus: 'error' });
+        setTimeout(() => {
+          this.setState({ saveStatus: 'idle' });
+        }, 3000);
+        return;
+      }
+
+      const result = await errorReporting.saveToFile(finalReport);
 
       if (result.success) {
         this.setState({ saveStatus: 'saved' });

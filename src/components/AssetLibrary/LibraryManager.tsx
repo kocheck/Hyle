@@ -27,6 +27,7 @@ import { fuzzySearch, filterByCategory, getCategories } from '../../utils/fuzzyS
 import { processImage, ProcessingHandle } from '../../utils/AssetProcessor';
 import { addLibraryTokenToMap } from '../../utils/tokenHelpers';
 import AddToLibraryDialog from './AddToLibraryDialog';
+import { getStorage } from '../../services/storage';
 
 interface LibraryManagerProps {
   isOpen: boolean;
@@ -124,8 +125,9 @@ const LibraryManager = ({ isOpen, onClose }: LibraryManagerProps) => {
       `Delete "${itemName}" from library? This cannot be undone.`,
       async () => {
         try {
-          // Delete from filesystem via IPC
-          await window.ipcRenderer.invoke('DELETE_LIBRARY_ASSET', itemId);
+          // Delete from storage (filesystem or IndexedDB)
+          const storage = getStorage();
+          await storage.deleteLibraryAsset(itemId);
 
           // Remove from store
           removeTokenFromLibrary(itemId);

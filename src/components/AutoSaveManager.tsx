@@ -1,18 +1,27 @@
 import { useEffect } from 'react';
 import { useGameStore } from '../store/gameStore';
+import { getStorage } from '../services/storage';
 
 /**
  * AutoSaveManager Component
  *
- * Automatically saves the campaign state to the last known file path
- * at a regular interval (every 60 seconds).
+ * Automatically saves the campaign state at a regular interval (every 60 seconds).
  *
- * It runs only if IPC is available (Electron) and silently fails if
- * no file path has been established (handled by main process).
+ * **Platform Behavior:**
+ * - Electron: Saves to last known file path (atomic write)
+ * - Web: Saves to IndexedDB (no file download)
+ *
+ * **Note:** This only runs if auto-save feature is available on the platform.
+ * Check storage.isFeatureAvailable('auto-save') for availability.
  */
 const AutoSaveManager = () => {
     useEffect(() => {
-        if (!window.ipcRenderer) return;
+        // Check if auto-save is supported on this platform
+        const storage = getStorage();
+        if (!storage.isFeatureAvailable('auto-save')) {
+            console.log('[AutoSave] Auto-save not available on this platform');
+            return;
+        }
 
         let isSaving = false;
 
@@ -29,8 +38,8 @@ const AutoSaveManager = () => {
                 const campaign = useGameStore.getState().campaign;
 
                 // Attempt auto-save
-                // Returns true if saved, false if no path set or error
-                const saved = await window.ipcRenderer.invoke('AUTO_SAVE', campaign);
+                // Returns true if saved, false if error
+                const saved = await storage.autoSaveCampaign(campaign);
 
                 if (saved) {
                     console.log('[AutoSave] Campaign saved successfully');

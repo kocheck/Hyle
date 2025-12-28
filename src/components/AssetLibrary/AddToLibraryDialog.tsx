@@ -19,6 +19,7 @@
 
 import { useState, useEffect } from 'react';
 import { useGameStore } from '../../store/gameStore';
+import { getStorage } from '../../services/storage';
 
 interface AddToLibraryDialogProps {
   isOpen: boolean;
@@ -135,17 +136,18 @@ const AddToLibraryDialog = ({
       // Generate UUID for asset
       const id = crypto.randomUUID();
 
-      // Save to library via IPC
-      const savedItem = await window.ipcRenderer.invoke('SAVE_ASSET_TO_LIBRARY', {
+      // Save to library via storage service
+      const storage = getStorage();
+      const savedItem = await storage.saveAssetToLibrary(
         fullSizeBuffer,
         thumbnailBuffer,
-        metadata: {
+        {
           id,
           name: name.trim(),
           category,
           tags,
-        },
-      });
+        }
+      );
 
       // Add to store
       addTokenToLibrary(savedItem);

@@ -177,15 +177,29 @@ const SyncManager = () => {
   const worldViewPrevStateRef = useRef<any>(null);
 
   useEffect(() => {
-    // Skip if ipcRenderer is not available (e.g., in browser testing)
-    if (!window.ipcRenderer) {
-      console.warn('[SyncManager] ipcRenderer not available, sync disabled');
-      return;
-    }
+    // Detect platform: Electron vs Web
+    const ipcRenderer = window.ipcRenderer;
+    const isElectron = Boolean(ipcRenderer);
+    const isWeb = !isElectron;
 
     // Detect window type from URL parameter
     const params = new URLSearchParams(window.location.search);
     const isWorldView = params.get('type') === 'world';
+
+    // ============================================================
+    // TRANSPORT SETUP: BroadcastChannel (Web) or IPC (Electron)
+    // ============================================================
+    let channel: BroadcastChannel | null = null;
+
+    if (isWeb && typeof BroadcastChannel !== 'undefined') {
+      // Create BroadcastChannel for cross-tab communication
+      channel = new BroadcastChannel('hyle-sync');
+      console.log('[SyncManager] Using BroadcastChannel transport (web)');
+    } else if (isWeb) {
+      console.warn('[SyncManager] BroadcastChannel not supported; web sync disabled');
+    } else {
+      console.log('[SyncManager] Using IPC transport (electron)');
+    }
 
     if (isWorldView) {
       // ============================================================
@@ -335,13 +349,24 @@ const SyncManager = () => {
         }
       };
 
-      // Listen for IPC messages from main process
-      window.ipcRenderer.on('SYNC_WORLD_STATE', handleSyncAction);
+      if (isWeb && channel) {
+        // Web: Listen for BroadcastChannel messages
+        channel.onmessage = (event) => {
+          const action = event.data;
+          handleSyncAction(null, action);
+        };
 
-      // Request initial state from Architect View when World View mounts
-      // This ensures World View has the current game state even if no changes
-      // have occurred since it opened
-      window.ipcRenderer.send('REQUEST_INITIAL_STATE');
+        // Request initial state from Architect View
+        channel.postMessage({ type: 'REQUEST_INITIAL_STATE' });
+      } else if (isElectron && ipcRenderer) {
+        // Electron: Listen for IPC messages from main process
+        ipcRenderer.on('SYNC_WORLD_STATE', handleSyncAction);
+
+        // Request initial state from Architect View when World View mounts
+        // This ensures World View has the current game state even if no changes
+        // have occurred since it opened
+        ipcRenderer.send('REQUEST_INITIAL_STATE');
+      }
 
       // ============================================================
       // BIDIRECTIONAL SYNC: World View can also send token updates
@@ -397,9 +422,15 @@ const SyncManager = () => {
         // Detect what changed
         const actions = detectWorldViewChanges(worldViewPrevStateRef.current, state);
 
-        // Send each action via IPC to Architect View
+        // Send each action via appropriate transport
         actions.forEach(action => {
-          window.ipcRenderer.send('SYNC_FROM_WORLD_VIEW', action);
+          if (isWeb && channel) {
+            // Web: Send via BroadcastChannel
+            channel.postMessage(action);
+          } else if (isElectron && ipcRenderer) {
+            // Electron: Send via IPC to Architect View
+            ipcRenderer.send('SYNC_FROM_WORLD_VIEW', action);
+          }
         });
 
         // Update previous state reference
@@ -413,7 +444,7 @@ const SyncManager = () => {
         };
       };
 
-      // Throttle World View updates to prevent IPC flooding
+      // Throttle World View updates to prevent flooding
       const throttledWorldViewSync = throttle(handleWorldViewUpdate, 32);
 
       // Subscribe to World View's store changes
@@ -422,8 +453,10 @@ const SyncManager = () => {
       // Cleanup function
       return () => {
         unsubWorldView();
-        // Note: Current preload implementation may not support proper cleanup
-        // Listeners are cleaned up when window closes
+        if (channel) {
+          channel.close();
+        }
+        // Note: Electron IPC listeners are cleaned up when window closes
       };
     } else {
       // ============================================================
@@ -571,10 +604,15 @@ const SyncManager = () => {
         // Detect what changed and send delta actions
         const actions = detectChanges(prevStateRef.current, state);
 
-        // Send each action via IPC
+        // Send each action via appropriate transport
         actions.forEach(action => {
-          // @ts-ignore - ipcRenderer types not available
-          window.ipcRenderer.send('SYNC_WORLD_STATE', action);
+          if (isWeb && channel) {
+            // Web: Send via BroadcastChannel
+            channel.postMessage(action);
+          } else if (isElectron && ipcRenderer) {
+            // Electron: Send via IPC
+            ipcRenderer.send('SYNC_WORLD_STATE', action);
+          }
         });
 
         // Update previous state reference with deep copies
@@ -610,7 +648,7 @@ const SyncManager = () => {
         };
       };
 
-      // Throttle updates to ~30fps (33ms) to prevent IPC flooding
+      // Throttle updates to ~30fps (33ms) to prevent flooding
       // Note: With delta updates, we could potentially reduce throttling further
       const throttledSync = throttle(handleStoreUpdate, 32);
 
@@ -618,7 +656,7 @@ const SyncManager = () => {
 
       // Listen for initial state requests from World View
       // When World View opens, it sends REQUEST_INITIAL_STATE to get current game state
-      const handleInitialStateRequest = () => {
+      const handleInitialStateRequest = (event?: any) => {
         const currentState = useGameStore.getState();
         const initialSyncAction: SyncAction = {
           type: 'FULL_SYNC',
@@ -632,8 +670,17 @@ const SyncManager = () => {
             isDaylightMode: currentState.isDaylightMode
           }
         };
-        // Send initial state to World View
-        window.ipcRenderer.send('SYNC_WORLD_STATE', initialSyncAction);
+
+        // Send initial state via appropriate transport
+        if (isWeb && channel) {
+          // Web: Check if this is a BroadcastChannel message requesting initial state
+          if (event && event.data?.type === 'REQUEST_INITIAL_STATE') {
+            channel.postMessage(initialSyncAction);
+          }
+        } else if (isElectron && ipcRenderer) {
+          // Electron: Send via IPC to World View
+          ipcRenderer.send('SYNC_WORLD_STATE', initialSyncAction);
+        }
 
         // Initialize prevStateRef so subsequent changes are detected correctly
         let mapClone = null;
@@ -657,12 +704,65 @@ const SyncManager = () => {
         };
       };
 
-      window.ipcRenderer.on('REQUEST_INITIAL_STATE', handleInitialStateRequest);
+      // Handle incoming sync actions from World View (bidirectional sync)
+      // World View can send token position updates back to Architect View
+      const handleSyncFromWorldView = (_event: any, action: SyncAction) => {
+        const store = useGameStore.getState();
+
+        switch (action.type) {
+          case 'TOKEN_UPDATE':
+            // Update specific token properties (usually position from World View)
+            const { id, changes } = action.payload;
+            const currentToken = store.tokens.find(t => t.id === id);
+            if (currentToken) {
+              const newTokens = store.tokens.map(t =>
+                t.id === id ? { ...t, ...changes } : t
+              );
+              useGameStore.setState({ tokens: newTokens });
+
+              // Update prevState to prevent echoing this change back
+              if (prevStateRef.current) {
+                prevStateRef.current.tokens = [...newTokens];
+              }
+            }
+            break;
+
+          default:
+            // Architect View only expects position updates from World View
+            console.warn('[SyncManager] Unexpected sync action from World View:', action.type);
+        }
+      };
+
+      if (isWeb && channel) {
+        // Web: Listen for BroadcastChannel messages
+        // Handle both initial state requests AND bidirectional sync from World View
+        channel.onmessage = (event) => {
+          const message = event.data;
+          
+          // Handle initial state request
+          if (message?.type === 'REQUEST_INITIAL_STATE') {
+            handleInitialStateRequest(event);
+          } 
+          // Handle sync actions from World View (bidirectional sync)
+          else if (message?.type && message.payload !== undefined) {
+            // Apply sync action to Architect View's store
+            handleSyncFromWorldView(null, message);
+          }
+        };
+      } else if (isElectron && ipcRenderer) {
+        // Electron: Listen for IPC initial state requests
+        ipcRenderer.on('REQUEST_INITIAL_STATE', handleInitialStateRequest);
+        // Electron: Listen for bidirectional sync from World View
+        ipcRenderer.on('SYNC_FROM_WORLD_VIEW', handleSyncFromWorldView);
+      }
 
       // Cleanup function (unsubscribe on unmount)
       return () => {
         unsub();
-        // Note: IPC listener cleanup depends on preload implementation
+        if (channel) {
+          channel.close();
+        }
+        // Note: Electron IPC listener cleanup depends on preload implementation
       };
     }
   }, []); // Empty deps = run once on mount
