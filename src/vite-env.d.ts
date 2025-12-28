@@ -1,10 +1,23 @@
 /// <reference types="vite/client" />
 
 interface Window {
-  ipcRenderer: {
+  // Electron IPC (only available in Electron, not in web)
+  ipcRenderer?: {
     on(channel: string, listener: (event: any, ...args: any[]) => void): void;
     off(channel: string, listener: (...args: any[]) => void): void;
     send(channel: string, ...args: any[]): void;
     invoke(channel: string, ...args: any[]): Promise<any>;
-  }
+  };
+  // Electron Theme API (only available in Electron)
+  themeAPI?: {
+    getThemeState: () => Promise<{ mode: string; effectiveTheme: string }>;
+    setThemeMode: (mode: string) => Promise<void>;
+    onThemeChanged: (callback: (data: { mode: string; effectiveTheme: string }) => void) => () => void;
+  };
+  // Electron Error Reporting API (only available in Electron)
+  errorReporting?: {
+    getUsername: () => Promise<string>;
+    openExternal: (url: string) => Promise<boolean>;
+    saveToFile: (reportContent: string) => Promise<{ success: boolean; filePath?: string; reason?: string }>;
+  };
 }

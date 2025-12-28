@@ -21,10 +21,9 @@ async function initApp() {
   try {
     // Initialize storage service (detects Electron vs Web)
     await initStorage()
-    console.log('[main] Storage initialized successfully')
   } catch (error) {
     console.error('[main] Failed to initialize storage:', error)
-    
+
     // Show user-friendly error screen instead of rendering broken app
     const root = document.getElementById('root')
     if (root) {
@@ -53,8 +52,8 @@ async function initApp() {
               <li>Private/Incognito mode restrictions</li>
               <li>Corrupted local data</li>
             </ul>
-            <button 
-              onclick="window.location.reload()" 
+            <button
+              onclick="window.location.reload()"
               style="
                 background-color: #3b82f6;
                 color: white;
@@ -70,8 +69,8 @@ async function initApp() {
             >
               Retry
             </button>
-            <button 
-              onclick="localStorage.clear(); indexedDB.deleteDatabase('hyle-db'); window.location.reload()" 
+            <button
+              onclick="localStorage.clear(); indexedDB.deleteDatabase('hyle-db'); window.location.reload()"
               style="
                 background-color: transparent;
                 color: #a3a3a3;
@@ -94,7 +93,13 @@ async function initApp() {
   }
 
   // Render React app
-  ReactDOM.createRoot(document.getElementById('root')!).render(
+  const rootElement = document.getElementById('root')
+  if (!rootElement) {
+    console.error('[main] Root element not found!')
+    return
+  }
+
+  ReactDOM.createRoot(rootElement).render(
     <React.StrictMode>
       <PrivacyErrorBoundary supportEmail="support@hyle.app">
         <App />
@@ -105,7 +110,50 @@ async function initApp() {
 }
 
 // Start app initialization
-initApp()
+initApp().catch((error) => {
+  console.error('[main] Fatal error during app initialization:', error)
+  // Show error on screen
+  const root = document.getElementById('root')
+  if (root) {
+    root.innerHTML = `
+      <div style="
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        background-color: #0a0a0a;
+        color: #ffffff;
+        font-family: system-ui, -apple-system, sans-serif;
+        padding: 2rem;
+        text-align: center;
+      ">
+        <h1 style="font-size: 2rem; margin-bottom: 1rem; color: #ef4444;">
+          Fatal Error
+        </h1>
+        <pre style="background: #1a1a1a; padding: 1rem; border-radius: 0.5rem; overflow: auto; max-width: 800px; text-align: left;">
+          ${error.toString()}
+          ${error.stack || ''}
+        </pre>
+        <button
+          onclick="window.location.reload()"
+          style="
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            margin-top: 1rem;
+          "
+        >
+          Reload
+        </button>
+      </div>
+    `
+  }
+})
 
 // Use contextBridge (if available - not present in browser testing)
 if (window.ipcRenderer) {
