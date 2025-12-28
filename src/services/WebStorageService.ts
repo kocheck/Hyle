@@ -40,6 +40,10 @@ const DB_NAME = 'hyle-storage';
 export class WebStorageService implements IStorageService {
   private db: IDBPDatabase | null = null;
   private dbPromise: Promise<IDBPDatabase>;
+  
+  // Track Object URLs for cleanup (prevents memory leaks)
+  private tempAssetURLs: Set<string> = new Set();
+  private libraryURLs: Map<string, { fullSize: string; thumbnail: string }> = new Map(); // assetId → URLs
 
   constructor() {
     this.dbPromise = this.initDB();
@@ -50,7 +54,7 @@ export class WebStorageService implements IStorageService {
    */
   private async initDB(): Promise<IDBPDatabase> {
     const db = await openDB(DB_NAME, DB_VERSION, {
-      upgrade(db, oldVersion, newVersion, _transaction) {
+      upgrade(db, oldVersion, newVersion) {
         console.log(`[WebStorageService] Upgrading DB from ${oldVersion} to ${newVersion}`);
 
         // Token library store
@@ -190,12 +194,38 @@ export class WebStorageService implements IStorageService {
       // OPFS requires more complex setup and isn't critical for MVP
       const blob = new Blob([buffer], { type: 'image/webp' });
       const url = URL.createObjectURL(blob);
+      
+      // Track URL for cleanup when saved to campaign or discarded
+      this.tempAssetURLs.add(url);
 
       console.log(`[WebStorageService] Created temp asset: ${fileName} → ${url.substring(0, 50)}...`);
       return url;
     } catch (error) {
       console.error('[WebStorageService] Save temp asset failed:', error);
       throw new Error(`Failed to save temp asset: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+  
+  /**
+   * Clean up temp asset URLs (should be called when assets are saved to campaign or discarded)
+   */
+  cleanupTempAssets(urls?: string[]): void {
+    if (urls) {
+      // Clean up specific URLs
+      urls.forEach(url => {
+        if (this.tempAssetURLs.has(url)) {
+          URL.revokeObjectURL(url);
+          this.tempAssetURLs.delete(url);
+          console.log(`[WebStorageService] Revoked temp asset URL: ${url.substring(0, 50)}...`);
+        }
+      });
+    } else {
+      // Clean up all temp assets
+      this.tempAssetURLs.forEach(url => {
+        URL.revokeObjectURL(url);
+        console.log(`[WebStorageService] Revoked temp asset URL: ${url.substring(0, 50)}...`);
+      });
+      this.tempAssetURLs.clear();
     }
   }
 
@@ -242,15 +272,40 @@ export class WebStorageService implements IStorageService {
       const db = await this.getDB();
       const items = await db.getAll('library');
 
+      // Type for stored library items (includes internal blob properties)
+      interface StoredLibraryItem extends TokenLibraryItem {
+        _fullSizeBlob?: Blob;
+        _thumbnailBlob?: Blob;
+      }
+
+      // Revoke old URLs before creating new ones
+      items.forEach((item: StoredLibraryItem) => {
+        const oldURLs = this.libraryURLs.get(item.id);
+        if (oldURLs) {
+          URL.revokeObjectURL(oldURLs.fullSize);
+          URL.revokeObjectURL(oldURLs.thumbnail);
+        }
+      });
+      this.libraryURLs.clear();
+
       // Recreate Object URLs from stored blobs
-      const itemsWithURLs = items.map((item: any) => {
+      const itemsWithURLs = items.map((item: StoredLibraryItem) => {
         const fullSizeBlob = item._fullSizeBlob;
         const thumbnailBlob = item._thumbnailBlob;
 
+        const fullSizeURL = fullSizeBlob ? URL.createObjectURL(fullSizeBlob) : item.src;
+        const thumbnailURL = thumbnailBlob ? URL.createObjectURL(thumbnailBlob) : item.thumbnailSrc;
+
+        // Track URLs for cleanup on next load or component unmount
+        this.libraryURLs.set(item.id, {
+          fullSize: fullSizeURL,
+          thumbnail: thumbnailURL
+        });
+
         return {
           ...item,
-          src: fullSizeBlob ? URL.createObjectURL(fullSizeBlob) : item.src,
-          thumbnailSrc: thumbnailBlob ? URL.createObjectURL(thumbnailBlob) : item.thumbnailSrc,
+          src: fullSizeURL,
+          thumbnailSrc: thumbnailURL,
           // Remove internal blob properties from returned object
           _fullSizeBlob: undefined,
           _thumbnailBlob: undefined
@@ -269,7 +324,15 @@ export class WebStorageService implements IStorageService {
     try {
       const db = await this.getDB();
 
-      // Get item to revoke URLs
+      // Revoke tracked URLs for this asset
+      const trackedURLs = this.libraryURLs.get(assetId);
+      if (trackedURLs) {
+        URL.revokeObjectURL(trackedURLs.fullSize);
+        URL.revokeObjectURL(trackedURLs.thumbnail);
+        this.libraryURLs.delete(assetId);
+      }
+
+      // Get item to revoke any other URLs (fallback)
       const item = await db.get('library', assetId);
       if (item) {
         if (item.src && item.src.startsWith('blob:')) {
@@ -327,6 +390,16 @@ export class WebStorageService implements IStorageService {
     try {
       localStorage.setItem('hyle-theme', mode);
       console.log(`[WebStorageService] Set theme mode: ${mode}`);
+      
+      // Broadcast theme change to other tabs
+      try {
+        const themeChannel = new BroadcastChannel('hyle-theme-sync');
+        themeChannel.postMessage({ type: 'THEME_CHANGED', mode });
+        themeChannel.close();
+      } catch (broadcastError) {
+        // BroadcastChannel not supported or failed - ignore
+        console.warn('[WebStorageService] Failed to broadcast theme change:', broadcastError);
+      }
     } catch (error) {
       console.error('[WebStorageService] Set theme mode failed:', error);
       throw error;
@@ -360,6 +433,7 @@ export class WebStorageService implements IStorageService {
    */
   private async processCampaignAssets(campaign: Campaign, assetsFolder: JSZip): Promise<void> {
     const processedAssets = new Map<string, string>(); // URL → relative path in ZIP
+    let assetCounter = 0; // Ensures uniqueness even within same millisecond
 
     const processAsset = async (src: string): Promise<string> => {
       if (!src || (!src.startsWith('blob:') && !src.startsWith('http:') && !src.startsWith('https:') && !src.startsWith('file:'))) {
@@ -377,8 +451,8 @@ export class WebStorageService implements IStorageService {
         const blob = await response.blob();
         const buffer = await blob.arrayBuffer();
 
-        // Generate unique filename
-        const filename = `asset-${Date.now()}-${Math.random().toString(36).slice(2)}.webp`;
+        // Generate unique filename (timestamp + counter for guaranteed uniqueness)
+        const filename = `asset-${Date.now()}-${assetCounter++}-${Math.random().toString(36).slice(2)}.webp`;
         assetsFolder.file(filename, buffer);
 
         const relativePath = `assets/${filename}`;
