@@ -191,10 +191,12 @@ const SyncManager = () => {
     // ============================================================
     let channel: BroadcastChannel | null = null;
 
-    if (isWeb) {
+    if (isWeb && typeof BroadcastChannel !== 'undefined') {
       // Create BroadcastChannel for cross-tab communication
       channel = new BroadcastChannel('hyle-sync');
       console.log('[SyncManager] Using BroadcastChannel transport (web)');
+    } else if (isWeb) {
+      console.warn('[SyncManager] BroadcastChannel not supported; web sync disabled');
     } else {
       console.log('[SyncManager] Using IPC transport (electron)');
     }

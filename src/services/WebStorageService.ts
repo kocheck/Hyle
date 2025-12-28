@@ -280,10 +280,20 @@ export class WebStorageService implements IStorageService {
 
       // Revoke old URLs before creating new ones
       items.forEach((item: StoredLibraryItem) => {
+        // First, revoke URLs that are tracked in the map
         const oldURLs = this.libraryURLs.get(item.id);
         if (oldURLs) {
           URL.revokeObjectURL(oldURLs.fullSize);
           URL.revokeObjectURL(oldURLs.thumbnail);
+        }
+        
+        // Also revoke any blob URLs that exist on the item itself (from previous sessions)
+        // Only revoke if they're blob URLs (start with 'blob:')
+        if (item.src && item.src.startsWith('blob:')) {
+          URL.revokeObjectURL(item.src);
+        }
+        if (item.thumbnailSrc && item.thumbnailSrc.startsWith('blob:')) {
+          URL.revokeObjectURL(item.thumbnailSrc);
         }
       });
       this.libraryURLs.clear();
