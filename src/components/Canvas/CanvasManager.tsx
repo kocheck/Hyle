@@ -161,7 +161,6 @@ const CanvasManager = ({
   // Measurement state
   const activeMeasurement = useGameStore(s => s.activeMeasurement);
   const dmMeasurement = useGameStore(s => s.dmMeasurement);
-  const broadcastMeasurement = useGameStore(s => s.broadcastMeasurement);
 
   // Actions - these are stable
   const addToken = useGameStore(s => s.addToken);
