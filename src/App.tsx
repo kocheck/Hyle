@@ -104,6 +104,7 @@ function App() {
   const [measurementMode, setMeasurementMode] = useState<'ruler' | 'blast' | 'cone'>('ruler');
   const broadcastMeasurement = useGameStore((state) => state.broadcastMeasurement);
   const setBroadcastMeasurement = useGameStore((state) => state.setBroadcastMeasurement);
+  const setActiveMeasurement = useGameStore((state) => state.setActiveMeasurement);
 
   // Selected tokens state (for TokenInspector)
   const [selectedTokenIds, setSelectedTokenIds] = useState<string[]>([]);
@@ -181,9 +182,8 @@ function App() {
 
   // Clear active measurement when measurement mode changes to prevent confusion
   useEffect(() => {
-    const setActiveMeasurement = useGameStore.getState().setActiveMeasurement;
     setActiveMeasurement(null);
-  }, [measurementMode]);
+  }, [measurementMode, setActiveMeasurement]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
