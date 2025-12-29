@@ -277,7 +277,6 @@ const CanvasManager = ({
   const dragBroadcastThrottleRef = useRef<Map<string, number>>(new Map());
   const dragStartOffsetsRef = useRef<Map<string, { x: number, y: number }>>(new Map()); // For multi-token drag
   const DRAG_BROADCAST_THROTTLE_MS = 16; // ~60fps
-  const [dragUpdateCounter, setDragUpdateCounter] = useState(0); // Forces re-renders during drag
   const dragUpdateScheduledRef = useRef(false); // RAF throttle for drag position updates
   const [hoveredTokenId, setHoveredTokenId] = useState<string | null>(null); // Track hovered token for interactive feedback
 
@@ -800,12 +799,11 @@ const CanvasManager = ({
         });
       }
 
-      // Force React re-render to update visual position during drag
-      // Throttled via RAF to prevent excessive re-renders (max 60fps)
-      if (!dragUpdateScheduledRef.current) {
+      // Update Konva layer directly to reflect drag positions without triggering a React re-render
+      if (!dragUpdateScheduledRef.current && tokenLayerRef.current) {
         dragUpdateScheduledRef.current = true;
         requestAnimationFrame(() => {
-          setDragUpdateCounter(prev => prev + 1);
+          tokenLayerRef.current?.batchDraw();
           dragUpdateScheduledRef.current = false;
         });
       }
@@ -1846,11 +1844,19 @@ const CanvasManager = ({
                   return null;
                 }
 
-                // Visual feedback states:
-                // - Resting: Subtle shadow to show depth (always present)
-                // - Hover: Slight lift effect (scale 1.02, enhanced shadow)
-                // - Dragging: Strong lift effect (scale 1.05, strong shadow, reduced opacity)
-                // Note: shadowForStrokeEnabled=false improves performance significantly
+                /**
+                 * Visual Effects & Performance
+                 *
+                 * Tokens render with dynamic shadows and scaling for visual feedback:
+                 * - Hover state: Enhanced shadow (12px blur) + 2% scale increase
+                 * - Dragging state: Strong shadow (20px blur) + 5% scale + opacity change
+                 *
+                 * Performance optimizations:
+                 * - shadowForStrokeEnabled=false (only shadow fills, not strokes)
+                 * - RAF-throttled batchDraw() during drag (max 60fps, no React re-renders)
+                 * - Konva-level caching for complex visual effects
+                 * - Resting state has no shadow to reduce continuous rendering cost
+                 */
                 const getVisualProps = () => {
                   // Common performance optimization: disable shadow for strokes
                   const baseShadowProps = {
@@ -1880,15 +1886,11 @@ const CanvasManager = ({
                       shadowOffsetY: 2,
                     };
                   }
-                  // Resting state - subtle shadow for depth
+                  // Resting state - no shadow for better performance
                   return {
                     ...baseShadowProps,
                     scaleX: 1,
                     scaleY: 1,
-                    shadowColor: 'rgba(0, 0, 0, 0.25)',
-                    shadowBlur: 6,
-                    shadowOffsetX: 1,
-                    shadowOffsetY: 1,
                   };
                 };
 
@@ -1921,9 +1923,9 @@ const CanvasManager = ({
                     y={displayY}
                     width={gridSize * token.scale}
                     height={gridSize * token.scale}
-                    stroke="#3b82f6"
+                    stroke="#2563eb"
                     strokeWidth={3}
-                    shadowColor="#3b82f6"
+                    shadowColor="#2563eb"
                     shadowBlur={8}
                     shadowEnabled={true}
                     listening={false}
