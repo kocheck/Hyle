@@ -14,7 +14,7 @@ import AssetProcessingErrorBoundary from '../AssetProcessingErrorBoundary';
 import FogOfWarLayer from './FogOfWarLayer';
 import DoorLayer from './DoorLayer';
 import StairsLayer from './StairsLayer';
-import { PaperNoiseOverlay } from './PaperNoiseOverlay';
+import PaperNoiseOverlay from './PaperNoiseOverlay';
 import Minimap from './Minimap';
 import MinimapErrorBoundary from './MinimapErrorBoundary';
 

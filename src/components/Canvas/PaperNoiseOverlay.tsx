@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Rect } from 'react-konva';
 
 interface PaperNoiseOverlayProps {
@@ -16,9 +16,10 @@ interface PaperNoiseOverlayProps {
  *
  * Creates a soft noise pattern using SVG that gives the map a textured paper feel.
  * The overlay moves with the map during panning/zooming since it uses the same
- * transform properties.
+ * transform properties, and it is non-interactive (`listening={false}`) so all
+ * pointer events pass through to underlying map and token layers.
  */
-export const PaperNoiseOverlay: React.FC<PaperNoiseOverlayProps> = ({
+const PaperNoiseOverlay: React.FC<PaperNoiseOverlayProps> = ({
   x,
   y,
   width,
@@ -27,8 +28,7 @@ export const PaperNoiseOverlay: React.FC<PaperNoiseOverlayProps> = ({
   scaleY,
   opacity = 0.15,
 }) => {
-  const imageRef = useRef<HTMLImageElement | null>(null);
-  const [patternImage, setPatternImage] = React.useState<HTMLImageElement | null>(null);
+  const [patternImage, setPatternImage] = useState<HTMLImageElement | null>(null);
 
   useEffect(() => {
     // Create SVG noise pattern using feTurbulence for realistic paper texture
@@ -56,12 +56,9 @@ export const PaperNoiseOverlay: React.FC<PaperNoiseOverlayProps> = ({
       setPatternImage(img);
     };
     img.src = dataUri;
-    imageRef.current = img;
 
     return () => {
-      if (imageRef.current) {
-        imageRef.current.onload = null;
-      }
+      img.onload = null;
     };
   }, []);
 
@@ -87,3 +84,5 @@ export const PaperNoiseOverlay: React.FC<PaperNoiseOverlayProps> = ({
     />
   );
 };
+
+export default PaperNoiseOverlay;
