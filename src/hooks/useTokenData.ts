@@ -50,40 +50,10 @@ export interface ResolvedTokenData {
 export function useTokenData(token: Token): ResolvedTokenData {
   const tokenLibrary = useGameStore((state) => state.campaign.tokenLibrary);
 
-  return useMemo(() => {
-    // Find the library item if this token references one
-    const libraryItem: TokenLibraryItem | undefined = token.libraryItemId
-      ? tokenLibrary.find((item) => item.id === token.libraryItemId)
-      : undefined;
-
-    // System defaults (fallback when both instance and library don't specify)
-    const DEFAULT_SCALE = 1;
-    const DEFAULT_NAME = 'Token';
-
-    // Resolve each property using instance override > library default > system default
-    const resolvedScale = token.scale ?? libraryItem?.defaultScale ?? DEFAULT_SCALE;
-    const resolvedType = token.type ?? libraryItem?.defaultType;
-    const resolvedVisionRadius = token.visionRadius ?? libraryItem?.defaultVisionRadius;
-    const resolvedName = token.name ?? libraryItem?.name ?? DEFAULT_NAME;
-
-    return {
-      id: token.id,
-      x: token.x,
-      y: token.y,
-      src: token.src,
-      scale: resolvedScale,
-      type: resolvedType,
-      visionRadius: resolvedVisionRadius,
-      name: resolvedName,
-      libraryItemId: token.libraryItemId,
-      _isInherited: {
-        scale: token.scale === undefined && libraryItem?.defaultScale !== undefined,
-        type: token.type === undefined && libraryItem?.defaultType !== undefined,
-        visionRadius: token.visionRadius === undefined && libraryItem?.defaultVisionRadius !== undefined,
-        name: token.name === undefined && libraryItem?.name !== undefined,
-      },
-    };
-  }, [token, tokenLibrary]);
+  return useMemo(
+    () => resolveTokenData(token, tokenLibrary),
+    [token, tokenLibrary],
+  );
 }
 
 /**

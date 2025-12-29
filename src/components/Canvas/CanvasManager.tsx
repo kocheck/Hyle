@@ -875,7 +875,7 @@ const CanvasManager = ({
     // Reset drag state
     setTokenMouseDownStart(null);
     setIsDraggingWithThreshold(false);
-  }, [tokenMouseDownStart, isDraggingWithThreshold, resolvedTokens, selectedIds, gridSize, isAltPressed, isWorldView, updateTokenPosition, addToken, throttleDragBroadcast]);
+  }, [tokenMouseDownStart, isDraggingWithThreshold, resolvedTokens, tokens, selectedIds, gridSize, isAltPressed, isWorldView, updateTokenPosition, addToken, throttleDragBroadcast]);
 
   // Drawing Handlers
   const handleMouseDown = (e: any) => {
