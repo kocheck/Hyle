@@ -1,5 +1,5 @@
 import Konva from 'konva';
-import { Stage, Layer, Line, Rect, Transformer } from 'react-konva';
+import { Stage, Layer, Line, Rect, Transformer, Group } from 'react-konva';
 import { KonvaEventObject } from 'konva/lib/Node';
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { useShallow } from 'zustand/shallow';
@@ -717,7 +717,18 @@ const CanvasManager = ({
       setIsDraggingWithThreshold(true);
 
       const tokenId = tokenMouseDownStart.tokenId;
-      const tokenIds = selectedIds.includes(tokenId) ? selectedIds : [tokenId];
+
+      // If token is not already selected, select it immediately for fluid drag behavior
+      // This allows "grab and drag" in one motion without requiring a separate click to select
+      let tokenIds: string[];
+      if (selectedIds.includes(tokenId)) {
+        tokenIds = selectedIds;
+      } else {
+        // Select the token immediately when starting to drag it
+        tokenIds = e.evt.shiftKey ? [...selectedIds, tokenId] : [tokenId];
+        setSelectedIds(tokenIds);
+      }
+
       const primaryToken = resolvedTokens.find(t => t.id === tokenId);
       if (!primaryToken) return;
 
@@ -1789,6 +1800,7 @@ const CanvasManager = ({
                 const displayX = dragPos ? dragPos.x : token.x;
                 const displayY = dragPos ? dragPos.y : token.y;
                 const isDragging = draggingTokenIds.has(token.id);
+                const isSelected = selectedIds.includes(token.id);
 
                 // Check if token should be visible based on Fog of War rules
                 // In World View with Fog of War enabled:
@@ -1817,6 +1829,7 @@ const CanvasManager = ({
 
                 return (
                 <TokenErrorBoundary key={token.id} tokenId={token.id}>
+                <Group>
                 <URLImage
                     key={token.id}
                     name="token"
@@ -1833,6 +1846,19 @@ const CanvasManager = ({
                     onDragMove={emptyDragHandler}
                     onDragEnd={emptyDragHandler}
                 />
+                {/* Selection border - visible feedback when token is selected */}
+                {isSelected && (
+                  <Rect
+                    x={displayX}
+                    y={displayY}
+                    width={gridSize * token.scale}
+                    height={gridSize * token.scale}
+                    stroke="#00a1ff"
+                    strokeWidth={3}
+                    listening={false}
+                  />
+                )}
+                </Group>
                 </TokenErrorBoundary>
                 );
             })}
