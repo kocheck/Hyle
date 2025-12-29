@@ -277,7 +277,7 @@ const CanvasManager = ({
   const dragBroadcastThrottleRef = useRef<Map<string, number>>(new Map());
   const dragStartOffsetsRef = useRef<Map<string, { x: number, y: number }>>(new Map()); // For multi-token drag
   const DRAG_BROADCAST_THROTTLE_MS = 16; // ~60fps
-  const dragUpdateScheduledRef = useRef(false); // RAF throttle for drag position updates
+  const dragUpdateScheduledRef = useRef(false); // RAF throttle for Konva layer redraws during drag
   const [hoveredTokenId, setHoveredTokenId] = useState<string | null>(null); // Track hovered token for interactive feedback
 
   // Press-and-Hold Drag State (threshold-based drag detection)
@@ -1853,7 +1853,7 @@ const CanvasManager = ({
                  *
                  * Performance optimizations:
                  * - shadowForStrokeEnabled=false (only shadow fills, not strokes)
-                 * - RAF-throttled batchDraw() during drag (max 60fps, no React re-renders)
+                 * - RAF-throttled batchDraw() during drag (limited to browser refresh rate, typically 60fps)
                  * - Konva-level caching for complex visual effects
                  * - Resting state has no shadow to reduce continuous rendering cost
                  */
