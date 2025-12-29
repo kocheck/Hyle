@@ -48,13 +48,15 @@ const calculatePinchCenter = (touch1: Touch, touch2: Touch): { x: number, y: num
 /**
  * Props for CanvasManager component
  *
- * @property {string} tool - Active drawing/interaction tool (select, marker, eraser)
+ * @property {string} tool - Active drawing/interaction tool (select, marker, eraser, wall, door)
  * @property {string} color - Color for marker tool (hex format)
+ * @property {string} doorOrientation - Orientation for door placement (horizontal, vertical)
  * @property {boolean} isWorldView - If true, restricts interactions for player-facing World View
  */
 interface CanvasManagerProps {
-  tool?: 'select' | 'marker' | 'eraser' | 'wall';
+  tool?: 'select' | 'marker' | 'eraser' | 'wall' | 'door';
   color?: string;
+  doorOrientation?: 'horizontal' | 'vertical';
   isWorldView?: boolean;
   onSelectionChange?: (selectedIds: string[]) => void;
 }
@@ -95,7 +97,7 @@ interface CanvasManagerProps {
  * @see {@link file://../../utils/useWindowType.ts useWindowType} for window detection
  * @see {@link file://../../App.tsx App.tsx} for UI sanitization
  */
-const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false, onSelectionChange }: CanvasManagerProps) => {
+const CanvasManager = ({ tool = 'select', color = '#df4b26', doorOrientation = 'horizontal', isWorldView = false, onSelectionChange }: CanvasManagerProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: window.innerWidth, height: window.innerHeight });
 
@@ -139,15 +141,44 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
   const isDaylightMode = useGameStore(s => s.isDaylightMode);
   const activeVisionPolygons = useGameStore(s => s.activeVisionPolygons);
 
-  // DEBUG: Log critical state
-  console.log('[CanvasManager] State:', {
-    isWorldView,
-    isDaylightMode,
-    doorsCount: doors.length,
-    tokensCount: tokens.length,
-    pcTokensCount: tokens.filter(t => t.type === 'PC').length,
-    activeVisionPolygonsCount: activeVisionPolygons.length
-  });
+  // DIAGNOSTIC REPORT - Copy/paste this entire block for debugging
+  console.log('═══════════════════════════════════════════════════════');
+  console.log('🎮 CANVAS MANAGER DIAGNOSTIC REPORT');
+  console.log('═══════════════════════════════════════════════════════');
+  console.log('🖥️  VIEW MODE:', isWorldView ? '🌍 WORLD VIEW (Player)' : '🎨 DM VIEW (Architect)');
+  console.log('☀️  DAYLIGHT MODE:', isDaylightMode ? '✅ ON (no fog)' : '❌ OFF (fog enabled)');
+  console.log('');
+  console.log('📊 COUNTS:');
+  console.log(`  - Total Tokens: ${tokens.length}`);
+  console.log(`  - PC Tokens: ${tokens.filter(t => t.type === 'PC').length}`);
+  console.log(`  - NPC Tokens: ${tokens.filter(t => t.type === 'NPC').length}`);
+  console.log(`  - Doors: ${doors.length}`);
+  console.log(`  - Stairs: ${stairs.length}`);
+  console.log(`  - Wall Drawings: ${drawings.filter(d => d.tool === 'wall').length}`);
+  console.log(`  - Active Vision Polygons: ${activeVisionPolygons.length}`);
+  console.log('');
+  console.log('🔍 VISION SETUP:');
+  const pcTokens = tokens.filter(t => t.type === 'PC');
+  if (pcTokens.length === 0) {
+    console.log('  ⚠️ NO PC TOKENS! Add a PC token to enable vision.');
+  } else {
+    pcTokens.forEach(t => {
+      const hasVision = (t.visionRadius ?? 0) > 0;
+      console.log(`  - ${t.name || 'PC'}: Vision = ${t.visionRadius || 'NOT SET'} ${hasVision ? '✅' : '❌ SET VISION RADIUS!'}`);
+    });
+  }
+  console.log('');
+  console.log('🚪 DOOR STATUS:');
+  if (doors.length === 0) {
+    console.log('  ℹ️  No doors placed yet. Press D to place doors.');
+  } else {
+    console.log(`  - Total: ${doors.length}`);
+    console.log(`  - Closed (blocking): ${doors.filter(d => !d.isOpen).length}`);
+    console.log(`  - Open (transparent): ${doors.filter(d => d.isOpen).length}`);
+  }
+  console.log('');
+  console.log('✅ FOG WILL RENDER:', !isDaylightMode && isWorldView ? 'YES' : `NO (${isDaylightMode ? 'Daylight ON' : 'DM View'})`);
+  console.log('═══════════════════════════════════════════════════════');
 
   // Preferences
   const wallToolPrefs = usePreferencesStore(s => s.wallTool);
@@ -155,6 +186,7 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
   // Actions - these are stable
   const addToken = useGameStore(s => s.addToken);
   const addDrawing = useGameStore(s => s.addDrawing);
+  const addDoor = useGameStore(s => s.addDoor);
   const updateTokenPosition = useGameStore(s => s.updateTokenPosition);
   const updateTokenTransform = useGameStore(s => s.updateTokenTransform);
   const removeTokens = useGameStore(s => s.removeTokens);
@@ -167,6 +199,9 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
   const isDrawing = useRef(false);
   const currentLine = useRef<Drawing | null>(null); // Temp line points
   const [tempLine, setTempLine] = useState<Drawing | null>(null);
+
+  // Door Tool State
+  const [doorPreviewPos, setDoorPreviewPos] = useState<{ x: number, y: number } | null>(null);
 
   // Calibration State
   const calibrationStart = useRef<{x: number, y: number} | null>(null);
@@ -724,6 +759,12 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
   const handleMouseDown = (e: any) => {
     if (isSpacePressed) return; // Allow panning
 
+    // DOOR TOOL - Do nothing on mouse down, wait for mouse up
+    if (tool === 'door') {
+      console.log('[CanvasManager] Door tool active - ignoring mouseDown');
+      return;
+    }
+
     // CALIBRATION LOGIC
     // BLOCKED in World View (players cannot calibrate grid)
     if (isCalibrating) {
@@ -793,6 +834,21 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
   const handleMouseMove = (e: any) => {
     if (isSpacePressed) return;
 
+    // DOOR TOOL PREVIEW - Show preview while hovering
+    if (tool === 'door' && !isWorldView) {
+      const stage = e.target.getStage();
+      const pos = stage.getRelativePointerPosition();
+
+      // Snap to grid for preview
+      const snapped = snapToGrid(pos.x, pos.y, gridSize);
+
+      setDoorPreviewPos(snapped);
+      return;
+    } else {
+      // Clear door preview when not using door tool
+      setDoorPreviewPos(null);
+    }
+
     if (tool !== 'select') {
         // BLOCKED in World View (no drawing tools)
         if (isWorldView) return;
@@ -850,6 +906,37 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
   };
 
   const handleMouseUp = (e: any) => {
+    // DOOR TOOL LOGIC - Click to place
+    // BLOCKED in World View (players cannot place doors)
+    if (tool === 'door' && !isWorldView) {
+      const clickedOnStage = e.target === e.target.getStage();
+      const clickedOnMap = e.target.id() === 'map';
+
+      if (clickedOnStage || clickedOnMap) {
+        const stage = e.target.getStage();
+        const pos = stage.getRelativePointerPosition();
+
+        // Snap to grid
+        const snapped = snapToGrid(pos.x, pos.y, gridSize);
+
+        // Create door at snapped position
+        const newDoor = {
+          id: crypto.randomUUID(),
+          x: snapped.x,
+          y: snapped.y,
+          orientation: doorOrientation,
+          isOpen: false,
+          isLocked: false,
+          size: gridSize, // Door size matches grid size
+        };
+
+        console.log('[CanvasManager] Attempting to place door:', newDoor);
+        addDoor(newDoor);
+        console.log('[CanvasManager] Door placed successfully! Total doors should now be:', doors.length + 1);
+      }
+      return;
+    }
+
     // CALIBRATION LOGIC
     // BLOCKED in World View
     if (isCalibrating && calibrationStart.current && calibrationRect) {
@@ -1347,6 +1434,20 @@ const CanvasManager = ({ tool = 'select', color = '#df4b26', isWorldView = false
                 />
               );
             })()}
+
+            {/* Door Preview - Show preview when hovering with door tool */}
+            {doorPreviewPos && tool === 'door' && !isWorldView && (
+              <Rect
+                x={doorPreviewPos.x - gridSize / 2}
+                y={doorPreviewPos.y - gridSize / 2}
+                width={doorOrientation === 'horizontal' ? gridSize : gridSize / 5}
+                height={doorOrientation === 'horizontal' ? gridSize / 5 : gridSize}
+                fill="rgba(255, 255, 255, 0.5)"
+                stroke="white"
+                strokeWidth={2}
+                listening={false}
+              />
+            )}
 
             {isAltPressed && tokens.filter(t => itemsForDuplication.includes(t.id)).map(ghostToken => (
                 <URLImage

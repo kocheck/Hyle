@@ -28,6 +28,7 @@ interface DoorLayerProps {
  */
 const DoorLayer = ({ doors, isWorldView, onToggleDoor }: DoorLayerProps) => {
   console.log('[DoorLayer] Rendering', doors.length, 'doors. isWorldView:', isWorldView);
+  console.log('[DoorLayer] Doors state:', doors.map(d => ({id: d.id, isOpen: d.isOpen})));
 
   return (
     <>

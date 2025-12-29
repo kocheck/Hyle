@@ -53,6 +53,40 @@ const FogOfWarLayer = ({ tokens, drawings, doors, gridSize, visibleBounds, map }
     hasMap: !!map
   });
 
+  // DIAGNOSTIC REPORT - Copy/paste this entire block for debugging
+  console.log('═══════════════════════════════════════════════════════');
+  console.log('🔍 VISION SYSTEM DIAGNOSTIC REPORT');
+  console.log('═══════════════════════════════════════════════════════');
+  console.log('📊 TOKENS:');
+  tokens.forEach(t => {
+    console.log(`  - ${t.type} Token "${t.name || t.id.substring(0, 8)}":`, {
+      id: t.id,
+      position: `(${t.x}, ${t.y})`,
+      visionRadius: t.visionRadius || 'NOT SET',
+      type: t.type
+    });
+  });
+  console.log(`  Total PC tokens: ${tokens.filter(t => t.type === 'PC').length}`);
+  console.log(`  PC tokens with vision: ${tokens.filter(t => t.type === 'PC' && (t.visionRadius ?? 0) > 0).length}`);
+  console.log('');
+  console.log('🚪 DOORS:');
+  if (doors.length === 0) {
+    console.log('  ⚠️ NO DOORS PLACED!');
+  } else {
+    doors.forEach(d => {
+      console.log(`  - Door ${d.id.substring(0, 8)}:`, {
+        position: `(${d.x}, ${d.y})`,
+        orientation: d.orientation,
+        isOpen: d.isOpen ? '✅ OPEN (vision passes through)' : '🚫 CLOSED (blocks vision)',
+        isLocked: d.isLocked
+      });
+    });
+    console.log(`  Total doors: ${doors.length}`);
+    console.log(`  Closed doors (blocking): ${doors.filter(d => !d.isOpen).length}`);
+    console.log(`  Open doors (transparent): ${doors.filter(d => d.isOpen).length}`);
+  }
+  console.log('═══════════════════════════════════════════════════════');
+
   // Get explored regions and actions from store
   const exploredRegions = useGameStore((state) => state.exploredRegions);
   const addExploredRegion = useGameStore((state) => state.addExploredRegion);
@@ -87,7 +121,12 @@ const FogOfWarLayer = ({ tokens, drawings, doors, gridSize, visibleBounds, map }
   // React's useMemo doesn't detect changes inside objects in arrays
   // Without this, toggling a door open/closed won't update wall segments!
   const doorsKey = useMemo(
-    () => doors.map(d => `${d.id}:${d.isOpen}:${d.x}:${d.y}`).join('|'),
+    () => {
+      const key = doors.map(d => `${d.id}:${d.isOpen}:${d.x}:${d.y}`).join('|');
+      console.log('[FogOfWarLayer] doorsKey recalculated:', key);
+      console.log('[FogOfWarLayer] doors array reference:', doors);
+      return key;
+    },
     [doors]
   );
 
@@ -118,21 +157,26 @@ const FogOfWarLayer = ({ tokens, drawings, doors, gridSize, visibleBounds, map }
     // Open doors allow vision through, closed doors block it
     const closedDoors = doors.filter(door => !door.isOpen);
     console.log('[FogOfWarLayer] Total doors:', doors.length, 'Closed doors:', closedDoors.length);
+    doors.forEach(d => console.log(`  Door ${d.id}: isOpen=${d.isOpen}, x=${d.x}, y=${d.y}`));
 
     closedDoors.forEach(door => {
         const halfSize = door.size / 2;
         if (door.orientation === 'horizontal') {
           // Horizontal door: blocks east-west vision
-          wallSegments.push({
+          const segment = {
             start: { x: door.x - halfSize, y: door.y },
             end: { x: door.x + halfSize, y: door.y },
-          });
+          };
+          wallSegments.push(segment);
+          console.log(`  Adding CLOSED horizontal door wall segment:`, segment);
         } else {
           // Vertical door: blocks north-south vision
-          wallSegments.push({
+          const segment = {
             start: { x: door.x, y: door.y - halfSize },
             end: { x: door.x, y: door.y + halfSize },
-          });
+          };
+          wallSegments.push(segment);
+          console.log(`  Adding CLOSED vertical door wall segment:`, segment);
         }
       });
 
