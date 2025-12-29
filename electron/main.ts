@@ -465,8 +465,13 @@ app.whenReady().then(() => {
   ipcMain.on(
     'SYNC_WORLD_STATE',
     (_event: IpcMainEvent, state: unknown) => {
-      const action = state as any;
-      const actionType = action?.type || 'unknown';
+      let actionType = 'unknown';
+      if (typeof state === 'object' && state !== null && 'type' in state) {
+        const maybeType = (state as { type?: unknown }).type;
+        if (typeof maybeType === 'string') {
+          actionType = maybeType;
+        }
+      }
       if (process.env.NODE_ENV === 'development') {
         console.log(
           `[Main Process] SYNC_WORLD_STATE received (${actionType}), relaying to World View`
