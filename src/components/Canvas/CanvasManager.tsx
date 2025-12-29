@@ -1574,7 +1574,7 @@ const CanvasManager = ({
                  // No action needed here; see comment above.
              }
         }}
-        style={{ cursor: (isSpacePressed && isDragging) ? 'grabbing' : (isSpacePressed ? 'grab' : (tool === 'select' ? 'default' : 'crosshair')) }}
+        style={{ cursor: (isSpacePressed && isDragging) ? 'grabbing' : (isSpacePressed ? 'grab' : (isDraggingWithThreshold ? 'grabbing' : (tool === 'select' ? 'default' : 'crosshair'))) }}
       >
         {/* Layer 1: Background & Map (Listening False to let internal events pass to Stage for selection) */}
         <Layer listening={false}>
@@ -1848,7 +1848,14 @@ const CanvasManager = ({
                     width={gridSize * token.scale}
                     height={gridSize * token.scale}
                     draggable={false}
-                    opacity={isDragging ? 0.7 : undefined}
+                    opacity={isDragging ? 0.5 : undefined}
+                    scaleX={isDragging ? 1.05 : 1}
+                    scaleY={isDragging ? 1.05 : 1}
+                    shadowColor={isDragging ? 'rgba(0, 0, 0, 0.6)' : undefined}
+                    shadowBlur={isDragging ? 20 : undefined}
+                    shadowOffsetX={isDragging ? 5 : undefined}
+                    shadowOffsetY={isDragging ? 5 : undefined}
+                    zIndex={isDragging ? 1000 : undefined}
                     onSelect={(e) => handleTokenMouseDown(e, token.id)}
                     onDragStart={emptyDragHandler}
                     onDragMove={emptyDragHandler}

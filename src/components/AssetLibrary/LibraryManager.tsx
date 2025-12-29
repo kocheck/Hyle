@@ -59,6 +59,9 @@ const LibraryManager = ({ isOpen, onClose }: LibraryManagerProps) => {
   const [isMetadataEditorOpen, setIsMetadataEditorOpen] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
+  // Drag state
+  const [draggingItemId, setDraggingItemId] = useState<string | null>(null);
+
   // Store selectors
   const tokenLibrary = useGameStore(state => state.campaign.tokenLibrary);
   const removeTokenFromLibrary = useGameStore(state => state.removeTokenFromLibrary);
@@ -159,6 +162,7 @@ const LibraryManager = ({ isOpen, onClose }: LibraryManagerProps) => {
    * Passes library item ID to create instance reference
    */
   const handleDragStart = (e: React.DragEvent, libraryToken: TokenLibraryItem) => {
+    setDraggingItemId(libraryToken.id);
     e.dataTransfer.setData(
       'application/json',
       JSON.stringify({
@@ -168,6 +172,14 @@ const LibraryManager = ({ isOpen, onClose }: LibraryManagerProps) => {
         // Note: metadata (name, scale, type, visionRadius) will be inherited from library
       })
     );
+  };
+
+  /**
+   * Handle drag end for library tokens
+   * Clear dragging state
+   */
+  const handleDragEnd = () => {
+    setDraggingItemId(null);
   };
 
   if (!isOpen) return null;
@@ -265,12 +277,21 @@ const LibraryManager = ({ isOpen, onClose }: LibraryManagerProps) => {
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {filteredItems.map((item) => (
+              {filteredItems.map((item) => {
+                const isDragging = draggingItemId === item.id;
+                return (
                 <div
                   key={item.id}
                   draggable
                   onDragStart={(e) => handleDragStart(e, item)}
+                  onDragEnd={handleDragEnd}
                   className="group bg-neutral-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-blue-500 transition-all cursor-grab active:cursor-grabbing"
+                  style={isDragging ? {
+                    opacity: 0.5,
+                    transform: 'scale(1.05)',
+                    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.6)',
+                    zIndex: 1000,
+                  } : {}}
                 >
                   {/* Thumbnail */}
                   <div className="aspect-square bg-neutral-700 relative">
@@ -345,7 +366,8 @@ const LibraryManager = ({ isOpen, onClose }: LibraryManagerProps) => {
                     </button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
