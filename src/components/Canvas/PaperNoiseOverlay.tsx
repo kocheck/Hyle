@@ -26,7 +26,7 @@ const PaperNoiseOverlay: React.FC<PaperNoiseOverlayProps> = ({
   height,
   scaleX,
   scaleY,
-  opacity = 0.15,
+  opacity = 0.25,
 }) => {
   const [patternImage, setPatternImage] = useState<HTMLImageElement | null>(null);
 
@@ -55,10 +55,14 @@ const PaperNoiseOverlay: React.FC<PaperNoiseOverlayProps> = ({
     img.onload = () => {
       setPatternImage(img);
     };
+    img.onerror = (err) => {
+      console.error('[PaperNoiseOverlay] Failed to load pattern image:', err);
+    };
     img.src = dataUri;
 
     return () => {
       img.onload = null;
+      img.onerror = null;
     };
   }, []);
 
@@ -79,8 +83,8 @@ const PaperNoiseOverlay: React.FC<PaperNoiseOverlayProps> = ({
       fillPatternScale={{ x: 1, y: 1 }}
       opacity={opacity}
       listening={false}
-      // Using multiply blend mode for subtle texture that darkens slightly
-      globalCompositeOperation="multiply"
+      // Using overlay blend mode for more visible texture
+      globalCompositeOperation="overlay"
     />
   );
 };
