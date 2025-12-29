@@ -18,6 +18,8 @@ export interface URLImageProps {
   onDragStart?: (e: KonvaEventObject<DragEvent>) => void;
   onDragMove?: (e: KonvaEventObject<DragEvent>) => void;
   onDragEnd?: (e: KonvaEventObject<DragEvent>) => void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
   draggable: boolean;
   opacity?: number;
   listening?: boolean;
@@ -30,7 +32,7 @@ export interface URLImageProps {
   shadowOffsetY?: number;
 }
 
-const URLImage = ({ src, x, y, width, height, scaleX = 1, scaleY = 1, id, onSelect, onDragEnd, onDragStart, onDragMove, draggable, name, opacity, listening, filters, blurRadius, brightness, shadowColor, shadowBlur, shadowOffsetX, shadowOffsetY }: URLImageProps) => {
+const URLImage = ({ src, x, y, width, height, scaleX = 1, scaleY = 1, id, onSelect, onDragEnd, onDragStart, onDragMove, onMouseEnter, onMouseLeave, draggable, name, opacity, listening, filters, blurRadius, brightness, shadowColor, shadowBlur, shadowOffsetX, shadowOffsetY }: URLImageProps) => {
   const safeSrc = src.startsWith('file:') ? src.replace('file:', 'media:') : src;
   const [img] = useImage(safeSrc);
   const imageRef = useRef<Konva.Image>(null);
@@ -64,6 +66,8 @@ const URLImage = ({ src, x, y, width, height, scaleX = 1, scaleY = 1, id, onSele
       draggable={draggable}
       onMouseDown={onSelect}
       onTouchStart={onSelect}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       onDragEnd={onDragEnd}
       onDragStart={onDragStart}
       onDragMove={onDragMove}

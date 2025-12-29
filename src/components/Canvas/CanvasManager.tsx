@@ -278,6 +278,7 @@ const CanvasManager = ({
   const dragStartOffsetsRef = useRef<Map<string, { x: number, y: number }>>(new Map()); // For multi-token drag
   const DRAG_BROADCAST_THROTTLE_MS = 16; // ~60fps
   const [dragUpdateCounter, setDragUpdateCounter] = useState(0); // Forces re-renders during drag
+  const [hoveredTokenId, setHoveredTokenId] = useState<string | null>(null); // Track hovered token for interactive feedback
 
   // Press-and-Hold Drag State (threshold-based drag detection)
   const DRAG_THRESHOLD = 5; // pixels - minimum movement to trigger drag
@@ -1810,6 +1811,7 @@ const CanvasManager = ({
                 const displayY = dragPos ? dragPos.y : token.y;
                 const isDragging = draggingTokenIds.has(token.id);
                 const isSelected = selectedIds.includes(token.id);
+                const isHovered = hoveredTokenId === token.id && tool === 'select' && !isDragging;
 
                 // Check if token should be visible based on Fog of War rules
                 // In World View with Fog of War enabled:
@@ -1836,6 +1838,45 @@ const CanvasManager = ({
                   return null;
                 }
 
+                // Visual feedback states:
+                // - Resting: Subtle shadow to show depth (always present)
+                // - Hover: Slight lift effect (scale 1.02, enhanced shadow)
+                // - Dragging: Strong lift effect (scale 1.05, strong shadow, reduced opacity)
+                const getVisualProps = () => {
+                  if (isDragging) {
+                    return {
+                      opacity: 0.5,
+                      scaleX: 1.05,
+                      scaleY: 1.05,
+                      shadowColor: 'rgba(0, 0, 0, 0.6)',
+                      shadowBlur: 20,
+                      shadowOffsetX: 5,
+                      shadowOffsetY: 5,
+                    };
+                  }
+                  if (isHovered) {
+                    return {
+                      scaleX: 1.02,
+                      scaleY: 1.02,
+                      shadowColor: 'rgba(0, 0, 0, 0.4)',
+                      shadowBlur: 12,
+                      shadowOffsetX: 2,
+                      shadowOffsetY: 2,
+                    };
+                  }
+                  // Resting state - subtle shadow for depth
+                  return {
+                    scaleX: 1,
+                    scaleY: 1,
+                    shadowColor: 'rgba(0, 0, 0, 0.25)',
+                    shadowBlur: 6,
+                    shadowOffsetX: 1,
+                    shadowOffsetY: 1,
+                  };
+                };
+
+                const visualProps = getVisualProps();
+
                 return (
                 <Group key={token.id}>
                 <TokenErrorBoundary tokenId={token.id}>
@@ -1848,27 +1889,26 @@ const CanvasManager = ({
                     width={gridSize * token.scale}
                     height={gridSize * token.scale}
                     draggable={false}
-                    opacity={isDragging ? 0.5 : undefined}
-                    scaleX={isDragging ? 1.05 : 1}
-                    scaleY={isDragging ? 1.05 : 1}
-                    shadowColor={isDragging ? 'rgba(0, 0, 0, 0.6)' : undefined}
-                    shadowBlur={isDragging ? 20 : undefined}
-                    shadowOffsetX={isDragging ? 5 : undefined}
-                    shadowOffsetY={isDragging ? 5 : undefined}
+                    {...visualProps}
                     onSelect={(e) => handleTokenMouseDown(e, token.id)}
+                    onMouseEnter={() => tool === 'select' && setHoveredTokenId(token.id)}
+                    onMouseLeave={() => setHoveredTokenId(null)}
                     onDragStart={emptyDragHandler}
                     onDragMove={emptyDragHandler}
                     onDragEnd={emptyDragHandler}
                 />
-                {/* Selection border - visible feedback when token is selected */}
+                {/* Selection border - enhanced with glow effect */}
                 {isSelected && (
                   <Rect
                     x={displayX}
                     y={displayY}
                     width={gridSize * token.scale}
                     height={gridSize * token.scale}
-                    stroke="#2563eb"
+                    stroke="#3b82f6"
                     strokeWidth={3}
+                    shadowColor="#3b82f6"
+                    shadowBlur={8}
+                    shadowEnabled={true}
                     listening={false}
                   />
                 )}
