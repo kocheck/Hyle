@@ -273,7 +273,6 @@ const CanvasManager = ({
   // Real-time Drag Tracking (for performance and multi-user sync)
   const dragPositionsRef = useRef<Map<string, { x: number, y: number }>>(new Map());
   const [draggingTokenIds, setDraggingTokenIds] = useState<Set<string>>(new Set());
-  const [dragRenderTick, setDragRenderTick] = useState(0); // Force re-render during drag
   const dragBroadcastThrottleRef = useRef<Map<string, number>>(new Map());
   const dragStartOffsetsRef = useRef<Map<string, { x: number, y: number }>>(new Map()); // For multi-token drag
   const DRAG_BROADCAST_THROTTLE_MS = 16; // ~60fps
@@ -675,7 +674,7 @@ const CanvasManager = ({
   }, [isWorldView]);
 
   // Token Mouse Handlers (Threshold-based Press-and-Hold)
-  const handleTokenMouseDown = useCallback((e: KonvaEventObject<MouseEvent>, tokenId: string) => {
+  const handleTokenMouseDown = useCallback((e: KonvaEventObject<MouseEvent | TouchEvent>, tokenId: string) => {
     if (tool !== 'select') return;
 
     // Record the initial pointer position and the token's starting stage position
@@ -797,10 +796,12 @@ const CanvasManager = ({
         });
       }
 
-      // Force React re-render so components recalculate displayX/displayY from updated ref
-      setDragRenderTick(tick => tick + 1);
+      // Redraw token layer directly instead of forcing a full React re-render
+      if (tokenLayerRef.current) {
+        tokenLayerRef.current.batchDraw();
+      }
     }
-  }, [tokenMouseDownStart, isDraggingWithThreshold, tool, resolvedTokens, selectedIds, throttleDragBroadcast, isWorldView]);
+  }, [tokenMouseDownStart, isDraggingWithThreshold, tool, resolvedTokens, selectedIds, setSelectedIds, throttleDragBroadcast, isWorldView]);
 
   const handleTokenMouseUp = useCallback((e: KonvaEventObject<MouseEvent>) => {
     if (!tokenMouseDownStart) return;
@@ -897,8 +898,7 @@ const CanvasManager = ({
     // Reset drag state
     setTokenMouseDownStart(null);
     setIsDraggingWithThreshold(false);
-    setDragRenderTick(0);
-  }, [tokenMouseDownStart, isDraggingWithThreshold, resolvedTokens, tokens, selectedIds, gridSize, isAltPressed, isWorldView, updateTokenPosition, addToken, throttleDragBroadcast]);
+  }, [tokenMouseDownStart, isDraggingWithThreshold, resolvedTokens, tokens, selectedIds, setSelectedIds, gridSize, isAltPressed, isWorldView, updateTokenPosition, addToken, throttleDragBroadcast]);
 
   // Drawing Handlers
   const handleMouseDown = (e: any) => {
@@ -1752,7 +1752,9 @@ const CanvasManager = ({
             />
         </Layer>
 
-        {/* Layer 3: Tokens, Doors & UI */}
+        {/* Layer 3: Tokens, Doors & UI
+          NOTE: tokenLayerRef is used for low-level performance optimizations during
+          token drag updates via direct Konva batchDraw() calls instead of full React re-renders */}
         <Layer ref={tokenLayerRef}>
             {/* Doors (Rendered after fog layer so they're visible on top of fog) */}
             {(() => {
@@ -1851,7 +1853,6 @@ const CanvasManager = ({
                     onDragMove={emptyDragHandler}
                     onDragEnd={emptyDragHandler}
                 />
-                </TokenErrorBoundary>
                 {/* Selection border - visible feedback when token is selected */}
                 {isSelected && (
                   <Rect
@@ -1859,11 +1860,12 @@ const CanvasManager = ({
                     y={displayY}
                     width={gridSize * token.scale}
                     height={gridSize * token.scale}
-                    stroke="#00a1ff"
+                    stroke="#2563eb"
                     strokeWidth={3}
                     listening={false}
                   />
                 )}
+                </TokenErrorBoundary>
                 </Group>
                 );
             })}
@@ -1876,8 +1878,8 @@ const CanvasManager = ({
                     y={selectionRect.y}
                     width={selectionRect.width}
                     height={selectionRect.height}
-                    fill="rgba(0, 161, 255, 0.3)"
-                    stroke="#00a1ff"
+                    fill="rgba(37, 99, 235, 0.3)"
+                    stroke="#2563eb"
                     listening={false}
                 />
             )}
