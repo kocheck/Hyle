@@ -26,7 +26,7 @@ const PaperNoiseOverlay: React.FC<PaperNoiseOverlayProps> = ({
   height,
   scaleX,
   scaleY,
-  opacity = 0.5,
+  opacity = 0.25,
 }) => {
   const [patternImage, setPatternImage] = useState<HTMLImageElement | null>(null);
 

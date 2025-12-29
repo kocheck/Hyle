@@ -1586,7 +1586,7 @@ const CanvasManager = ({
                 height={map ? map.height : visibleBounds.height}
                 scaleX={map ? map.scale : 1}
                 scaleY={map ? map.scale : 1}
-                opacity={0.5}
+                opacity={0.25}
             />
 
             <GridOverlay visibleBounds={visibleBounds} gridSize={gridSize} type={gridType} stroke={gridColor} />
