@@ -1828,10 +1828,9 @@ const CanvasManager = ({
                 }
 
                 return (
-                <TokenErrorBoundary key={token.id} tokenId={token.id}>
-                <Group>
+                <Group key={token.id}>
+                <TokenErrorBoundary tokenId={token.id}>
                 <URLImage
-                    key={token.id}
                     name="token"
                     id={token.id}
                     src={token.src}
@@ -1846,6 +1845,7 @@ const CanvasManager = ({
                     onDragMove={emptyDragHandler}
                     onDragEnd={emptyDragHandler}
                 />
+                </TokenErrorBoundary>
                 {/* Selection border - visible feedback when token is selected */}
                 {isSelected && (
                   <Rect
@@ -1859,7 +1859,6 @@ const CanvasManager = ({
                   />
                 )}
                 </Group>
-                </TokenErrorBoundary>
                 );
             })}
 
