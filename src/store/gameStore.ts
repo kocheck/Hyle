@@ -620,13 +620,15 @@ export const useGameStore = create<GameState>((set, get) => {
     removeDoors: (ids: string[]) => set((state) => ({ doors: state.doors.filter(d => !ids.includes(d.id)) })),
     toggleDoor: (id: string) => set((state) => {
       const door = state.doors.find(d => d.id === id);
+      if (!door) return state; // Door not found, no change
+      
       const newDoors = state.doors.map(d => 
         d.id === id ? { ...d, isOpen: !d.isOpen } : d
       );
 
       // DIRECT SYNC: Send DOOR_TOGGLE immediately (bypasses subscription/throttle)
       // This ensures door toggles always sync, even if the subscription system has issues
-      if (door && typeof window !== 'undefined') {
+      if (typeof window !== 'undefined') {
         // @ts-expect-error - window.hyleSync is injected by SyncManager
         const hyleSync = window.hyleSync;
         if (hyleSync && typeof hyleSync === 'function') {

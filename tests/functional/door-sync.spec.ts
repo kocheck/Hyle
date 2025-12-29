@@ -89,8 +89,7 @@ async function placeDoor(page: Page, position: { x: number; y: number }, orienta
 
 test.describe('Door Synchronization', () => {
   test.beforeEach(async () => {
-    // Set up shared storage context so both tabs share BroadcastChannel
-    // This is important for BroadcastChannel to work across tabs
+    // Note: BroadcastChannel sharing between tabs is automatic in the same origin
   });
 
   test('should sync door placement from DM View to World View', async ({ context }) => {
