@@ -63,7 +63,7 @@ import { useGameStore } from '../../store/gameStore';
 interface Props {
   children: ReactNode;
   tokenId?: string;
-  tokenData?: Record<string, any>;
+  tokenData?: Record<string, unknown>;
 }
 
 /**
@@ -147,7 +147,7 @@ class TokenErrorBoundary extends Component<Props, State> {
 
     // Expose to window for E2E testing
     if (isDev || import.meta.env.MODE === 'test') {
-      (window as any).__LAST_TOKEN_ERROR__ = {
+      window.__LAST_TOKEN_ERROR__ = {
         tokenId,
         error: error.message,
         timestamp: Date.now(),
@@ -164,9 +164,7 @@ class TokenErrorBoundary extends Component<Props, State> {
   };
 
   /**
-   * Copy error to clipboard
-   * Note: Uses useGameStore.getState() which is safe in class components
-   * (getState() is not a hook, it's a Zustand store method)
+   * Copy error details to the clipboard and show a toast notification
    */
   handleCopyError = async () => {
     const { errorContext } = this.state;
@@ -199,6 +197,15 @@ class TokenErrorBoundary extends Component<Props, State> {
       }
 
       // In dev mode: Show debug error indicator
+      // TODO: This implementation has known limitations:
+      // 1. DOM elements inside Konva canvas may not render correctly
+      // 2. Error indicator doesn't use token position (stacks at container origin)
+      // 3. Debug overlay is viewport-centered, not connected to error location
+      // 
+      // Proper solution would be to:
+      // - Use Konva components (Group, Circle, Text) for the error indicator
+      // - Pass token position (x, y) via tokenData prop
+      // - Use React Portal to render debug overlay in DOM with visual connection
       return (
         <div
           data-testid={`token-error-${tokenId || 'unknown'}`}
