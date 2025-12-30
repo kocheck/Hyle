@@ -389,7 +389,32 @@ const CanvasManager = ({
       performZoom(newScale, centerX, centerY, scale, position);
   }, [scale, position, size.width, size.height, performZoom]);
 
-    // Consolidated keyboard event handling for canvas operations
+    // DEBUG: Global mousedown listener to trace event capture
+  useEffect(() => {
+    const globalMouseDownCapture = (e: MouseEvent) => {
+      if (tool === 'marker' || tool === 'wall') {
+        console.log('[GLOBAL CAPTURE] mousedown on:', e.target, 'tagName:', (e.target as HTMLElement)?.tagName, 'className:', (e.target as HTMLElement)?.className);
+      }
+    };
+
+    const globalMouseDownBubble = (e: MouseEvent) => {
+      if (tool === 'marker' || tool === 'wall') {
+        console.log('[GLOBAL BUBBLE] mousedown reached window!', 'target:', e.target);
+      }
+    };
+
+    // Listen in capture phase (fires first, top-down)
+    window.addEventListener('mousedown', globalMouseDownCapture, true);
+    // Listen in bubble phase (fires last, bottom-up)
+    window.addEventListener('mousedown', globalMouseDownBubble, false);
+
+    return () => {
+      window.removeEventListener('mousedown', globalMouseDownCapture, true);
+      window.removeEventListener('mousedown', globalMouseDownBubble, false);
+    };
+  }, [tool]);
+
+  // Consolidated keyboard event handling for canvas operations
   useEffect(() => {
     const isEditableElement = (el: EventTarget | null): boolean => {
       if (!(el instanceof HTMLElement)) return false;
