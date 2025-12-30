@@ -24,16 +24,13 @@ const Tooltip = ({ content, children, delay = 100 }: TooltipProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const handleMouseEnter = () => {
-    console.log('[Tooltip] Mouse enter, content:', content);
     timeoutRef.current = setTimeout(() => {
-      console.log('[Tooltip] Timeout fired, showing tooltip');
       updatePosition();
       setIsVisible(true);
     }, delay);
   };
 
   const handleMouseLeave = () => {
-    console.log('[Tooltip] Mouse leave');
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
@@ -47,10 +44,7 @@ const Tooltip = ({ content, children, delay = 100 }: TooltipProps) => {
         top: rect.top - 50, // Position well above the element (increased for bottom toolbar)
         left: rect.left + rect.width / 2, // Center horizontally
       };
-      console.log('[Tooltip] Updating position:', newPosition, 'rect:', rect);
       setPosition(newPosition);
-    } else {
-      console.log('[Tooltip] containerRef.current is null!');
     }
   };
 
@@ -61,12 +55,6 @@ const Tooltip = ({ content, children, delay = 100 }: TooltipProps) => {
       }
     };
   }, []);
-
-  useEffect(() => {
-    if (isVisible) {
-      console.log('[Tooltip] Tooltip is now visible! Position:', position);
-    }
-  }, [isVisible, position]);
 
   return (
     <>
