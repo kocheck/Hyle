@@ -1591,6 +1591,7 @@ const CanvasManager = ({
                     scaleX={map.scale}
                     scaleY={map.scale}
                     draggable={false}
+                    listening={false}
                     onSelect={() => {}}
                     onDragEnd={() => {}}
                 />
