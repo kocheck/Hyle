@@ -135,15 +135,16 @@ export function captureErrorContext(
       };
     } else {
       // Legacy fallback for environments without Navigation Timing Level 2
-      // Use explicit null/undefined check for better readability and reliability
       const legacyPerformance = performance as Performance & { timing?: PerformanceTiming };
       const timing = legacyPerformance.timing;
-      // Check for existence and valid timestamps (>= 0, as 0 is a valid timestamp)
+      
+      // Only check that timing object and required properties exist (not their values)
+      // Note: Values can legitimately be 0 if events haven't occurred yet
       if (
         timing != null &&
-        typeof timing.navigationStart === 'number' && timing.navigationStart >= 0 &&
-        typeof timing.loadEventEnd === 'number' && timing.loadEventEnd >= 0 &&
-        typeof timing.domContentLoadedEventEnd === 'number' && timing.domContentLoadedEventEnd >= 0
+        typeof timing.navigationStart === 'number' &&
+        typeof timing.loadEventEnd === 'number' &&
+        typeof timing.domContentLoadedEventEnd === 'number'
       ) {
         performanceMetrics.timing = {
           loadTime: timing.loadEventEnd - timing.navigationStart,

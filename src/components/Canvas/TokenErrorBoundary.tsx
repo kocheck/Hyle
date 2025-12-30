@@ -144,10 +144,11 @@ class TokenErrorBoundary extends Component<Props, State> {
     // Update state with the pre-calculated next error count
     // Note: Using object form instead of functional form is safe here because
     // componentDidCatch is synchronous and we've already read this.state above
-    this.setState({
+    const nextState = {
       errorCount: nextErrorCount,
       errorContext: isDev ? context : this.state.errorContext,
-    });
+    };
+    this.setState(nextState);
 
     // Expose to window for E2E testing
     if (isDev || import.meta.env.MODE === 'test') {
