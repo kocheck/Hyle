@@ -41,7 +41,7 @@ const Tooltip = ({ content, children, delay = 100 }: TooltipProps) => {
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
       setPosition({
-        top: rect.top - 40, // Position above the element
+        top: rect.top - 50, // Position well above the element (increased for bottom toolbar)
         left: rect.left + rect.width / 2, // Center horizontally
       });
     }
@@ -75,11 +75,11 @@ const Tooltip = ({ content, children, delay = 100 }: TooltipProps) => {
             transform: 'translateX(-50%)',
           }}
         >
-          <div className="relative px-3 py-1.5 rounded-md shadow-lg text-sm font-medium whitespace-nowrap bg-neutral-900 text-white border border-neutral-600">
+          <div className="relative px-3 py-1.5 pb-3 rounded-md shadow-lg text-sm font-medium whitespace-nowrap bg-neutral-900 text-white border border-neutral-600">
             {content}
             {/* Tooltip arrow */}
             <div
-              className="absolute left-1/2 -translate-x-1/2 -bottom-1 w-2 h-2 rotate-45 bg-neutral-900 border-r border-b border-neutral-600"
+              className="absolute left-1/2 -translate-x-1/2 bottom-0 translate-y-1/2 w-2 h-2 rotate-45 bg-neutral-900 border-r border-b border-neutral-600"
             />
           </div>
         </div>
