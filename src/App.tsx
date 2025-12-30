@@ -21,6 +21,7 @@ import { useIsMobile } from './hooks/useMediaQuery';
 import MobileToolbar from './components/MobileToolbar';
 import { rollForMessage } from './utils/systemMessages';
 import { addRecentCampaignWithPlatform } from './utils/recentCampaigns';
+import Tooltip from './components/Tooltip';
 
 /**
  * App is the root component for Hyle's dual-window architecture
@@ -104,7 +105,18 @@ function App() {
   // Only used in Architect View; World View always uses 'select' with restricted interactions
   const [tool, setTool] = useState<'select' | 'marker' | 'eraser' | 'wall' | 'door' | 'measure'>('select');
   const [color, setColor] = useState('#df4b26');
+  const [recentColors, setRecentColors] = useState<string[]>(['#df4b26', '#3b82f6', '#22c55e']);
   const colorInputRef = useRef<HTMLInputElement>(null);
+
+  // Update recent colors when color changes
+  const handleColorChange = (newColor: string) => {
+    setColor(newColor);
+    setRecentColors(prev => {
+      // Remove duplicates and add new color at the start
+      const filtered = prev.filter(c => c.toLowerCase() !== newColor.toLowerCase());
+      return [newColor, ...filtered].slice(0, 3);
+    });
+  };
 
   // Door tool state
   const [doorOrientation, setDoorOrientation] = useState<'horizontal' | 'vertical'>('horizontal');
@@ -305,14 +317,35 @@ function App() {
         useGameStore.getState().setShowResourceMonitor(!useGameStore.getState().showResourceMonitor);
     };
 
+    const handleGenerateDungeon = () => {
+        useGameStore.getState().showDungeonDialog();
+    };
+
+    const handleNewCampaign = () => {
+        // Show confirmation dialog before creating new campaign
+        useGameStore.getState().showConfirmDialog(
+            'Create a new campaign? Any unsaved changes will be lost.',
+            () => {
+                // Reset to default campaign
+                const { resetToNewCampaign } = useGameStore.getState();
+                resetToNewCampaign();
+            },
+            'Create New Campaign'
+        );
+    };
+
     ipcRenderer.on('MENU_SAVE_CAMPAIGN', handleSave);
     ipcRenderer.on('MENU_LOAD_CAMPAIGN', handleLoad);
     ipcRenderer.on('MENU_TOGGLE_RESOURCE_MONITOR', handleToggleMonitor);
+    ipcRenderer.on('MENU_GENERATE_DUNGEON', handleGenerateDungeon);
+    ipcRenderer.on('MENU_NEW_CAMPAIGN', handleNewCampaign);
 
     return () => {
         ipcRenderer.off('MENU_SAVE_CAMPAIGN', handleSave);
         ipcRenderer.off('MENU_LOAD_CAMPAIGN', handleLoad);
         ipcRenderer.off('MENU_TOGGLE_RESOURCE_MONITOR', handleToggleMonitor);
+        ipcRenderer.off('MENU_GENERATE_DUNGEON', handleGenerateDungeon);
+        ipcRenderer.off('MENU_NEW_CAMPAIGN', handleNewCampaign);
     };
   }, []); // Empty dependency array as handlers use getState()
 
@@ -357,7 +390,7 @@ function App() {
       {isArchitectView && <Sidebar />}
 
 
-      <div className="flex-1 relative h-full">
+      <div className="flex-1 relative h-full transition-all duration-300">
         {/* Mobile Hamburger Menu Button (top-left, Architect View only) */}
         {isArchitectView && isMobile && (
           <button
@@ -391,69 +424,109 @@ function App() {
 
         {/* Toolbar: Desktop or Mobile (Architect View only) */}
         {isArchitectView && !isMobile && (
-        <div className="toolbar fixed top-4 right-4 p-2 rounded shadow flex gap-2 z-50">
+        <div className="toolbar fixed bottom-4 left-1/2 -translate-x-1/2 p-3 rounded-lg shadow-2xl flex items-center gap-2 z-50 bg-black border-2 border-neutral-600">
            {/* Play/Pause Button */}
-           <button
-             className={`btn btn-tool flex items-center gap-2 font-semibold ${
-               isGamePaused
-                 ? 'bg-red-500 hover:bg-red-600 text-white'
-                 : 'bg-green-500 hover:bg-green-600 text-white'
-             }`}
-             onClick={handlePauseToggle}
-             title={isGamePaused ? 'Click to resume - Players will see the updated map' : 'Click to pause - Players will see a loading screen'}
-           >
-             {isGamePaused ? (
-               <>
-                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                   <path d="M5 3a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2H5z" />
-                 </svg>
-                 <span>PAUSED</span>
-               </>
-             ) : (
-               <>
-                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+           <Tooltip content={isGamePaused ? 'Resume - Players will see the map' : 'Pause - Hide map from players'}>
+             <button
+               className={`btn btn-tool flex items-center justify-center font-semibold ${
+                 isGamePaused
+                   ? 'bg-red-500 hover:bg-red-600 text-white'
+                   : 'bg-green-500 hover:bg-green-600 text-white'
+               }`}
+               onClick={handlePauseToggle}
+               aria-label={isGamePaused ? 'Resume game' : 'Pause game'}
+             >
+               {isGamePaused ? (
+                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
                  </svg>
-                 <span>PLAYING</span>
-               </>
-             )}
-           </button>
-           <div className="toolbar-divider w-px mx-1"></div>
-           <button
-             className={`btn btn-tool ${tool === 'select' ? 'active' : ''}`}
-             onClick={() => setTool('select')}>Select (V)</button>
-           <button
-             className={`btn btn-tool ${tool === 'marker' ? 'active' : ''}`}
-             onClick={() => setTool('marker')}>Marker (M)</button>
-           <button
-             className={`btn btn-tool ${tool === 'eraser' ? 'active' : ''}`}
-             onClick={() => setTool('eraser')}>Eraser (E)</button>
-           <button
-             className={`btn btn-tool ${tool === 'wall' ? 'active' : ''}`}
-             onClick={() => setTool('wall')}>Wall (W)</button>
-           <button
-             className={`btn btn-tool ${tool === 'door' ? 'active' : ''}`}
-             onClick={() => setTool('door')}
-             title="Place doors - Click to place, R to rotate">
-             Door (D)
-           </button>
-           {tool === 'door' && (
-             <button
-               className="btn btn-tool text-xs px-2"
-               onClick={() => setDoorOrientation(prev => prev === 'horizontal' ? 'vertical' : 'horizontal')}
-               title="Toggle door orientation (R)">
-               {doorOrientation === 'horizontal' ? '↔' : '↕'}
+               ) : (
+                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                   <path d="M5 3a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2H5z" />
+                 </svg>
+               )}
              </button>
+           </Tooltip>
+           <div className="toolbar-divider w-px mx-1"></div>
+           {/* Select Tool */}
+           <Tooltip content="Select (V)">
+             <button
+               className={`btn btn-tool p-2 ${tool === 'select' ? 'active' : ''}`}
+               onClick={() => setTool('select')}
+               aria-label="Select tool">
+               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+               </svg>
+             </button>
+           </Tooltip>
+           {/* Marker Tool */}
+           <Tooltip content="Marker (M)">
+             <button
+               className={`btn btn-tool p-2 ${tool === 'marker' ? 'active' : ''}`}
+               onClick={() => setTool('marker')}
+               aria-label="Marker tool">
+               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+               </svg>
+             </button>
+           </Tooltip>
+           {/* Eraser Tool */}
+           <Tooltip content="Eraser (E)">
+             <button
+               className={`btn btn-tool p-2 ${tool === 'eraser' ? 'active' : ''}`}
+               onClick={() => setTool('eraser')}
+               aria-label="Eraser tool">
+               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+               </svg>
+             </button>
+           </Tooltip>
+           {/* Wall Tool */}
+           <Tooltip content="Wall (W)">
+             <button
+               className={`btn btn-tool p-2 ${tool === 'wall' ? 'active' : ''}`}
+               onClick={() => setTool('wall')}
+               aria-label="Wall tool">
+               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5h7m10 0h-7m-7 5h7m10 0h-7m-7 5h7m10 0h-7m-7 5h7m10 0h-7" />
+               </svg>
+             </button>
+           </Tooltip>
+           {/* Door Tool */}
+           <Tooltip content="Door (D) - Arrow keys or R to rotate">
+             <button
+               className={`btn btn-tool p-2 ${tool === 'door' ? 'active' : ''}`}
+               onClick={() => setTool('door')}
+               aria-label="Door tool">
+               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v10m8-10v10M5 7h14a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2V9a2 2 0 012-2z" />
+               </svg>
+             </button>
+           </Tooltip>
+           {/* Door Orientation Toggle (only visible when door tool active) */}
+           {tool === 'door' && (
+             <Tooltip content="Toggle orientation (R)">
+               <button
+                 className="btn btn-tool text-lg px-2"
+                 onClick={() => setDoorOrientation(prev => prev === 'horizontal' ? 'vertical' : 'horizontal')}
+                 aria-label="Toggle door orientation">
+                 {doorOrientation === 'horizontal' ? '↔' : '↕'}
+               </button>
+             </Tooltip>
            )}
            <div className="toolbar-divider w-px mx-1"></div>
            {/* Measurement Tool with Mode Selector */}
            <div className="flex gap-1 items-center">
-             <button
-               className={`btn btn-tool ${tool === 'measure' ? 'active' : ''}`}
-               onClick={() => setTool('measure')}
-               title="Measurement & AoE Tool">
-               📏 Measure (R)
-             </button>
+             <Tooltip content="Measure (R) - Distance, Blast, Cone">
+               <button
+                 className={`btn btn-tool p-2 ${tool === 'measure' ? 'active' : ''}`}
+                 onClick={() => setTool('measure')}
+                 aria-label="Measure tool">
+                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                 </svg>
+               </button>
+             </Tooltip>
              {tool === 'measure' && (
                <div className="flex gap-1 ml-1 items-center">
                  <button
@@ -484,40 +557,44 @@ function App() {
                </div>
              )}
            </div>
-           <div className="toolbar-divider w-px mx-1"></div>
-           <button
-             className="btn btn-tool"
-             onClick={() => useGameStore.getState().showDungeonDialog()}
-             title="Generate a random dungeon">Dungeon Gen</button>
-           <div className="toolbar-divider w-px mx-1"></div>
-           <button
-             className="btn btn-tool"
-             onClick={() => {
-               const ipcRenderer = window.ipcRenderer;
-               if (ipcRenderer) {
-                 // Electron: Use IPC to create separate window
-                 ipcRenderer.send('create-world-window');
-               } else {
-                 // Web: Open in new tab with ?type=world parameter
-                 const baseUrl = window.location.origin + window.location.pathname;
-                 window.open(`${baseUrl}?type=world`, '_blank');
-               }
-             }}
-             title="Open World View (player-facing display)">
-             World View
-           </button>
-           <div className="toolbar-divider w-px mx-1"></div>
-           <label className="flex items-center gap-2 cursor-pointer">
-             <span className="text-sm font-medium">Color (I)</span>
-             <input
-               ref={colorInputRef}
-               type="color"
-               value={color}
-               onChange={(e) => setColor(e.target.value)}
-               className="w-8 h-8 rounded cursor-pointer border-none p-0 bg-transparent"
-             />
-           </label>
+           {/* Hidden color picker input (triggered by clicking main color circle) */}
+           <input
+             ref={colorInputRef}
+             type="color"
+             value={color}
+             onChange={(e) => handleColorChange(e.target.value)}
+             className="hidden"
+           />
         </div>
+        )}
+
+        {/* Floating Color Palette (appears above marker tool when active) */}
+        {isArchitectView && !isMobile && tool === 'marker' && (
+          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2">
+            {/* Current color - Large circle */}
+            <Tooltip content="Change marker color (I)">
+              <button
+                onClick={() => colorInputRef.current?.click()}
+                className="w-12 h-12 rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform cursor-pointer"
+                style={{ backgroundColor: color }}
+                aria-label="Change marker color"
+              />
+            </Tooltip>
+
+            {/* Recent colors - Smaller circles */}
+            <div className="flex gap-1.5">
+              {recentColors.map((recentColor) => (
+                <Tooltip key={recentColor} content={`Use color ${recentColor}`}>
+                  <button
+                    onClick={() => handleColorChange(recentColor)}
+                    className="w-8 h-8 rounded-full border-2 border-neutral-600 shadow-md hover:scale-110 transition-transform cursor-pointer"
+                    style={{ backgroundColor: recentColor }}
+                    aria-label={`Switch to color ${recentColor}`}
+                  />
+                </Tooltip>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* Resource Monitor: Performance diagnostics overlay (Architect View only) */}
@@ -531,11 +608,24 @@ function App() {
           />
         )}
 
-        {/* Command Palette: Quick asset search (Cmd+P, Architect View only) */}
+        {/* Command Palette: Quick actions & asset search (Cmd+P, Architect View only) */}
         {isArchitectView && (
           <CommandPalette
             isOpen={isPaletteOpen}
             onClose={() => setPaletteOpen(false)}
+            onSetTool={setTool}
+            onTogglePause={handlePauseToggle}
+            onLaunchWorldView={() => {
+              const ipcRenderer = window.ipcRenderer;
+              if (ipcRenderer) {
+                ipcRenderer.send('create-world-window');
+              } else {
+                const baseUrl = window.location.origin + window.location.pathname;
+                window.open(`${baseUrl}?type=world`, '_blank');
+              }
+            }}
+            onOpenDungeonGenerator={() => useGameStore.getState().showDungeonDialog()}
+            isGamePaused={isGamePaused}
           />
         )}
 

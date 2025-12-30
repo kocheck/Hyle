@@ -142,6 +142,14 @@ function buildApplicationMenu() {
       label: 'File',
       submenu: [
         {
+          label: 'New Campaign',
+          accelerator: 'CmdOrCtrl+N',
+          click: () => {
+            const win = BrowserWindow.getFocusedWindow();
+            if (win) win.webContents.send('MENU_NEW_CAMPAIGN');
+          },
+        },
+        {
           label: 'Open Campaign...',
           accelerator: 'CmdOrCtrl+O',
           click: () => {
@@ -161,6 +169,20 @@ function buildApplicationMenu() {
         process.platform === 'darwin'
           ? ({ role: 'close' } as const)
           : ({ role: 'quit' } as const),
+      ],
+    },
+
+    // Insert menu
+    {
+      label: 'Insert',
+      submenu: [
+        {
+          label: 'Generate Dungeon...',
+          click: () => {
+            const win = BrowserWindow.getFocusedWindow();
+            if (win) win.webContents.send('MENU_GENERATE_DUNGEON');
+          },
+        },
       ],
     },
 

@@ -13,8 +13,8 @@
 
 /* Toolbar */
 .toolbar {
-  background: var(--app-bg-surface);
-  border: 1px solid var(--app-border-subtle);
+  background: #000000;
+  border: 2px solid rgb(82, 82, 82); /* neutral-600 */
 }
 
 .toolbar-divider {
@@ -52,21 +52,25 @@
 
 /* Tool buttons - active state */
 .btn-tool {
-  background: var(--app-bg-active);
-  color: var(--app-text-primary);
+  background: rgb(64, 64, 64); /* neutral-700 */
+  color: rgb(229, 229, 229); /* neutral-200 */
+  border: 1px solid rgb(82, 82, 82); /* neutral-600 */
 }
 
 .btn-tool:hover {
-  background: var(--app-bg-hover);
+  background: rgb(82, 82, 82); /* neutral-600 */
+  border-color: rgb(115, 115, 115); /* neutral-500 */
 }
 
 .btn-tool.active {
   background: var(--app-accent-solid);
   color: var(--app-accent-solid-text);
+  border-color: var(--app-accent-solid);
 }
 
 .btn-tool.active:hover {
   background: var(--app-accent-solid-hover);
+  border-color: var(--app-accent-solid-hover);
 }
 
 /* Measurement mode buttons (smaller, used as sub-options) */
