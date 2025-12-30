@@ -121,6 +121,7 @@ const CanvasManager = ({
   measurementMode = 'ruler'
 }: CanvasManagerProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<any>(null);
   const [size, setSize] = useState({ width: window.innerWidth, height: window.innerHeight });
 
   // Get grid color from CSS variable (theme-aware)
@@ -389,32 +390,48 @@ const CanvasManager = ({
       performZoom(newScale, centerX, centerY, scale, position);
   }, [scale, position, size.width, size.height, performZoom]);
 
-    // DEBUG: Global event listeners to trace ALL pointer/mouse/touch events
+    // CRITICAL FIX: Direct DOM mousedown listener for drawing tools
+  // This bypasses Konva's event system which seems to be blocking mousedown for drawing tools
   useEffect(() => {
-    const logEvent = (eventName: string, e: Event) => {
-      if (tool === 'marker' || tool === 'wall') {
-        console.log(`[GLOBAL ${eventName}]`, 'target:', e.target, 'tagName:', (e.target as HTMLElement)?.tagName);
-      }
+    if (!stageRef.current || tool === 'select') return;
+
+    const canvas = stageRef.current.content?.querySelector('canvas');
+    if (!canvas) {
+      console.log('[CanvasManager] Canvas element not found for direct DOM listener');
+      return;
+    }
+
+    const handleCanvasMouseDown = (e: MouseEvent) => {
+      console.log('[CanvasManager] RAW DOM mousedown on canvas!', 'tool:', tool);
+
+      // Convert DOM event to Konva-like event object
+      const stage = stageRef.current;
+      if (!stage) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = (e.clientX - rect.left - stage.x()) / stage.scaleX();
+      const y = (e.clientY - rect.top - stage.y()) / stage.scaleY();
+
+      // Create a minimal Konva-like event object
+      const konvaEvent = {
+        target: { getStage: () => stage },
+        evt: e
+      };
+
+      // Inject the pointer position
+      stage.setPointersPositions(e);
+
+      handleMouseDown(konvaEvent);
     };
 
-    const mouseDown = (e: MouseEvent) => logEvent('MOUSEDOWN', e);
-    const pointerDown = (e: PointerEvent) => logEvent('POINTERDOWN', e);
-    const touchStart = (e: TouchEvent) => logEvent('TOUCHSTART', e);
-    const click = (e: MouseEvent) => logEvent('CLICK', e);
-
-    // Listen to ALL possible down events
-    window.addEventListener('mousedown', mouseDown, true);
-    window.addEventListener('pointerdown', pointerDown, true);
-    window.addEventListener('touchstart', touchStart, true);
-    window.addEventListener('click', click, true);
+    console.log('[CanvasManager] Attaching direct DOM mousedown listener to canvas');
+    canvas.addEventListener('mousedown', handleCanvasMouseDown);
 
     return () => {
-      window.removeEventListener('mousedown', mouseDown, true);
-      window.removeEventListener('pointerdown', pointerDown, true);
-      window.removeEventListener('touchstart', touchStart, true);
-      window.removeEventListener('click', click, true);
+      console.log('[CanvasManager] Removing direct DOM mousedown listener from canvas');
+      canvas.removeEventListener('mousedown', handleCanvasMouseDown);
     };
-  }, [tool]);
+  }, [tool, handleMouseDown]);
 
   // Consolidated keyboard event handling for canvas operations
   useEffect(() => {
@@ -1579,6 +1596,7 @@ const CanvasManager = ({
       )}
 
       <Stage
+        ref={stageRef}
         width={size.width}
         height={size.height}
         draggable={isSpacePressed}
