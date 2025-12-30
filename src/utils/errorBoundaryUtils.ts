@@ -133,12 +133,12 @@ export function captureErrorContext(
         loadTime: navigationEntry.loadEventEnd - navigationEntry.startTime,
         domReady: navigationEntry.domContentLoadedEventEnd - navigationEntry.startTime,
       };
-    } else if ('timing' in performance) {
+    } else {
       // Legacy fallback for environments without Navigation Timing Level 2
-      // Check that timing property exists and has required properties
+      // Use explicit null/undefined check for better readability and reliability
       const legacyPerformance = performance as Performance & { timing?: PerformanceTiming };
       const timing = legacyPerformance.timing;
-      if (timing && timing.navigationStart && timing.loadEventEnd && timing.domContentLoadedEventEnd) {
+      if (timing != null && timing.navigationStart && timing.loadEventEnd && timing.domContentLoadedEventEnd) {
         performanceMetrics.timing = {
           loadTime: timing.loadEventEnd - timing.navigationStart,
           domReady: timing.domContentLoadedEventEnd - timing.navigationStart,

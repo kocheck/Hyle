@@ -120,13 +120,15 @@ class TokenErrorBoundary extends Component<Props, State> {
     const { tokenId, tokenData } = this.props;
     const isDev = import.meta.env.DEV;
 
-    // Calculate new error count (setState is async, so we need the value now)
-    const nextErrorCount = this.state.errorCount + 1;
-
-    // Increment error count
-    this.setState({ errorCount: nextErrorCount });
+    // Use functional setState for React best practices
+    let nextErrorCount = 0;
+    this.setState((prevState) => {
+      nextErrorCount = prevState.errorCount + 1;
+      return { errorCount: nextErrorCount };
+    });
 
     // Capture comprehensive error context with updated error count
+    // Note: We use the calculated nextErrorCount since setState is async
     const context = captureErrorContext(error, errorInfo, {
       componentName: 'TokenErrorBoundary',
       props: { tokenId, tokenData },
