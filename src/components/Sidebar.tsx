@@ -49,40 +49,35 @@
  * @component
  */
 
-import React, { useRef, useEffect, useState } from 'react';
-import { useGameStore, GridType } from '../store/gameStore';
+import React, { useRef, useState } from 'react';
+import { useGameStore } from '../store/gameStore';
 import { processImage, ProcessingHandle } from '../utils/AssetProcessor';
-import MapNavigator from './MapNavigator';
 import AddToLibraryDialog from './AssetLibrary/AddToLibraryDialog';
 import LibraryManager from './AssetLibrary/LibraryManager';
-import ToggleSwitch from './ToggleSwitch';
 import MobileSidebarDrawer from './MobileSidebarDrawer';
 import DoorControls from './DoorControls';
+import CollapsibleSection from './CollapsibleSection';
+import MapSettingsSheet from './MapSettingsSheet';
+import Tooltip from './Tooltip';
 import { useIsMobile } from '../hooks/useMediaQuery';
 import { rollForMessage } from '../utils/systemMessages';
+import { useCommandPalette } from '../hooks/useCommandPalette';
 
 /**
  * Sidebar component provides map upload, grid settings, and token library
  */
 const Sidebar = () => {
-    const setMap = useGameStore(state => state.setMap);
-    const gridType = useGameStore(state => state.gridType);
-    const setGridType = useGameStore(state => state.setGridType);
-    const map = useGameStore(state => state.map);
-    const updateMapPosition = useGameStore(state => state.updateMapPosition);
-    const updateMapScale = useGameStore(state => state.updateMapScale);
-    const isCalibrating = useGameStore(state => state.isCalibrating);
-    const setIsCalibrating = useGameStore(state => state.setIsCalibrating);
-    const showToast = useGameStore(state => state.showToast);
-    const showConfirmDialog = useGameStore(state => state.showConfirmDialog);
-    const isDaylightMode = useGameStore(state => state.isDaylightMode);
-    const setDaylightMode = useGameStore(state => state.setDaylightMode);
-
-    // Campaign Token Library
+    // Store selectors
+    const campaign = useGameStore(state => state.campaign);
+    const activeMapId = useGameStore(state => state.campaign.activeMapId);
+    const switchMap = useGameStore(state => state.switchMap);
     const tokenLibrary = useGameStore(state => state.campaign.tokenLibrary);
     const removeTokenFromLibrary = useGameStore(state => state.removeTokenFromLibrary);
+    const showToast = useGameStore(state => state.showToast);
+    const showConfirmDialog = useGameStore(state => state.showConfirmDialog);
+    const tokens = useGameStore(state => state.tokens);
 
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    // Refs
     const tokenInputRef = useRef<HTMLInputElement>(null);
     const processingHandleRef = useRef<ProcessingHandle | null>(null);
 
@@ -95,21 +90,21 @@ const Sidebar = () => {
     } | null>(null);
     const [isLibraryManagerOpen, setIsLibraryManagerOpen] = useState(false);
 
+    // Map Settings Sheet state
+    const [isMapSettingsOpen, setIsMapSettingsOpen] = useState(false);
+    const [mapSettingsMode, setMapSettingsMode] = useState<'CREATE' | 'EDIT'>('CREATE');
+    const [editingMapId, setEditingMapId] = useState<string | null>(null);
+
+    // Sidebar collapsed state
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+    // Command Palette hook
+    const [, setPaletteOpen] = useCommandPalette();
+
     // Mobile drawer state
     const isMobile = useIsMobile();
     const isMobileDrawerOpen = useGameStore(state => state.isMobileSidebarOpen);
     const setMobileDrawerOpen = useGameStore(state => state.setMobileSidebarOpen);
-
-    // Cleanup: Cancel any active processing on unmount
-    useEffect(() => {
-        return () => {
-            if (processingHandleRef.current) {
-                console.log('[Sidebar] Cancelling in-flight map processing on unmount');
-                processingHandleRef.current.cancel();
-                processingHandleRef.current = null;
-            }
-        };
-    }, []);
 
     /**
      * Handles drag start for library tokens
@@ -124,69 +119,26 @@ const Sidebar = () => {
         // Also set a drag image if we want
     };
 
-    /**
-     * Handles map image upload and initialization
-     * ... (comments truncated)
-     */
-    const handleMapUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        // ... (implementation same as before)
-        const file = e.target.files?.[0];
-        if (!file) return;
+    // Get recent tokens (last 3 unique tokens placed on the map)
+    const recentTokens = React.useMemo(() => {
+        // Get unique token src values from last placements
+        const uniqueSrcs = new Set<string>();
+        const recent: typeof tokenLibrary = [];
 
-        // Cancel any previous processing
-        if (processingHandleRef.current) {
-            processingHandleRef.current.cancel();
-            processingHandleRef.current = null;
-        }
-
-        try {
-            // Use new ProcessingHandle API
-            const handle = processImage(file, 'MAP');
-            processingHandleRef.current = handle;
-
-            const src = await handle.promise;
-
-            // Clear handle after successful completion
-            processingHandleRef.current = null;
-
-             // Create a temporary image to get dimensions using a safe Object URL
-            let objectUrl: string;
-            try {
-                objectUrl = URL.createObjectURL(file);
-            } catch (err) {
-                console.error("Failed to create object URL for map image", err);
-                showToast(rollForMessage('MAP_IMAGE_PROCESS_FAILED'), 'error');
-                return;
+        // Iterate tokens in reverse (most recent first)
+        for (let i = tokens.length - 1; i >= 0 && recent.length < 3; i--) {
+            const token = tokens[i];
+            if (!uniqueSrcs.has(token.src)) {
+                uniqueSrcs.add(token.src);
+                // Find corresponding library item
+                const libraryItem = tokenLibrary.find(item => item.src === token.src);
+                if (libraryItem) {
+                    recent.push(libraryItem);
+                }
             }
-            const img = new Image();
-            img.src = objectUrl;
-            img.onload = () => {
-                 setMap({
-                    src, // Keep the processed path for the store
-                    x: 0,
-                    y: 0,
-                    width: img.width,
-                    height: img.height,
-                    scale: 1
-                });
-                setIsCalibrating(true);
-                URL.revokeObjectURL(objectUrl);
-            };
-            img.onerror = (e) => {
-                console.error("Map Image Failed to Load for Dimensions", e);
-                URL.revokeObjectURL(objectUrl);
-                showToast(rollForMessage('MAP_IMAGE_LOAD_FAILED'), 'error');
-            }
-        } catch (err) {
-            console.error("Failed to upload map", err);
-            showToast(rollForMessage('MAP_UPLOAD_FAILED'), 'error');
-            // Clear handle on error
-            processingHandleRef.current = null;
-        } finally {
-            // Reset the file input so the same file can be uploaded again
-            e.target.value = '';
         }
-    };
+        return recent;
+    }, [tokens, tokenLibrary]);
 
     /**
      * Handles token image upload and addition to library
@@ -230,177 +182,204 @@ const Sidebar = () => {
         }
     };
 
+    const maps = Object.values(campaign.maps).sort((a, b) =>
+        a.name.localeCompare(b.name)
+    );
+
     // Sidebar content (same for mobile and desktop)
     const sidebarContent = (
-        <div className={`sidebar flex flex-col p-4 z-10 overflow-y-auto ${isMobile ? 'w-full h-full' : 'w-64 shrink-0'}`}>
-            {/* Campaign Navigation */}
-            <MapNavigator />
-
-            <div className="w-full h-px bg-[var(--app-border-default)] my-6"></div>
-
-            <div className="mb-8">
-                <h3 className="text-sm mb-3 uppercase font-bold tracking-wider" style={{ color: 'var(--app-text-secondary)' }}>Map Settings</h3>
-
-                <div className="space-y-4">
-                    {/* Map Upload */}
-                    <div>
-                        <input
-                            type="file"
-                            accept="image/*"
-                            ref={fileInputRef}
-                            className="hidden"
-                            onChange={handleMapUpload}
-                        />
+        <div className={`sidebar flex flex-col p-4 z-10 overflow-y-auto ${isMobile ? 'w-full h-full' : isSidebarCollapsed ? 'w-16 shrink-0' : 'w-64 shrink-0'}`}>
+            {/* Header Section */}
+            <div className="mb-6">
+                <div className="flex items-center justify-between mb-4">
+                    {!isSidebarCollapsed && (
+                        <div className="flex-1 min-w-0">
+                            <h2 className="text-xs uppercase font-semibold mb-1" style={{ color: 'var(--app-text-secondary)' }}>
+                                Campaign
+                            </h2>
+                            <p className="text-sm font-medium truncate" title={campaign.name}>
+                                {campaign.name}
+                            </p>
+                        </div>
+                    )}
+                    <Tooltip content={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
                         <button
-                            onClick={() => fileInputRef.current?.click()}
-                            className="btn btn-primary w-full font-medium py-2 px-4 rounded transition flex items-center justify-center gap-2"
+                            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                            className="p-2 hover:bg-[var(--app-bg-subtle)] rounded transition"
+                            aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                         >
-                            <span>🗺️</span> Upload Map
+                            <svg className={`w-4 h-4 transition-transform ${isSidebarCollapsed ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                            </svg>
                         </button>
-                    </div>
-
-                    {/* Grid Type Selector */}
-                    <div>
-                        <label htmlFor="grid-type-select" className="block text-xs mb-2 uppercase font-semibold" style={{ color: 'var(--app-text-secondary)' }}>Grid Type</label>
-                        <select
-                            id="grid-type-select"
-                            value={gridType}
-                            onChange={(e) => setGridType(e.target.value as GridType)}
-                            className="sidebar-input w-full rounded px-3 py-2 text-sm"
-                        >
-                            <option value="LINES">Lines</option>
-                            <option value="DOTS">Dots</option>
-                            <option value="HIDDEN">Hidden</option>
-                        </select>
-                    </div>
-
-                    {/* Daylight Mode Toggle */}
-                    <div>
-                        <ToggleSwitch
-                            checked={isDaylightMode}
-                            onChange={(checked) => setDaylightMode(checked)}
-                            label="Daylight Mode"
-                            description={isDaylightMode ? '☀️ Fog of War disabled' : '🌙 Fog of War enabled'}
-                        />
-                    </div>
-
-                    {/* Map Calibration */}
-                    <div className="sidebar-section pt-4">
-                         <div className="flex justify-between items-center mb-3">
-                            <h4 className="text-xs uppercase font-semibold" style={{ color: 'var(--app-text-secondary)' }}>Calibration</h4>
-                            {isCalibrating && <span className="text-xs animate-pulse" style={{ color: 'var(--app-accent-text)' }}>Active</span>}
-                         </div>
-
-                         {isCalibrating ? (
-                             <div className="info-box rounded p-3 mb-3 text-xs">
-                                 <p className="mb-2"><strong>Draw a square</strong> on the map that represents exactly <strong>one grid cell</strong> (e.g. 5ft square).</p>
-                                 <button
-                                     onClick={() => setIsCalibrating(false)}
-                                     className="btn btn-default w-full py-1 rounded transition"
-                                 >
-                                     Cancel
-                                 </button>
-                             </div>
-                         ) : (
-                             <button
-                                onClick={() => setIsCalibrating(true)}
-                                className="btn btn-default w-full font-medium py-2 px-3 rounded mb-3 text-sm flex items-center justify-center gap-2 transition"
-                                disabled={!map}
-                             >
-                                <span>📐</span> Calibrate via Draw
-                             </button>
-                         )}
-
-                         <div className="text-center">
-                            <button
-                                onClick={() => {
-                                    updateMapPosition(0, 0);
-                                    updateMapScale(1);
-                                }}
-                                className="text-xs underline"
-                                style={{ color: 'var(--app-text-muted)' }}
-                                disabled={!map}
-                            >
-                                Reset Map
-                            </button>
-                         </div>
-                    </div>
+                    </Tooltip>
                 </div>
             </div>
 
-            {/* Door Controls Section */}
-            <DoorControls />
-
-            <div className="mb-4">
-                <div className="flex justify-between items-center mb-3">
-                    <h3 className="text-sm uppercase font-bold tracking-wider" style={{ color: 'var(--app-text-secondary)' }}>Token Library</h3>
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => setIsLibraryManagerOpen(true)}
-                            className="text-xs btn btn-sm btn-ghost px-2 py-1 rounded"
-                            title="Manage Persistent Library"
-                        >
-                            📚 Library
-                        </button>
-                        <input
-                            type="file"
-                            accept="image/*"
-                            ref={tokenInputRef}
-                            className="hidden"
-                            onChange={handleTokenUpload}
-                        />
-                        <button
-                            onClick={() => tokenInputRef.current?.click()}
-                            className="text-xs btn btn-sm btn-ghost px-2 py-1 rounded"
-                            title="Add Token to Library"
-                        >
-                            ➕ Add
-                        </button>
-                    </div>
-                </div>
-
-                {(!tokenLibrary || tokenLibrary.length === 0) ? (
-                    <div className="text-center text-xs py-4 italic" style={{ color: 'var(--app-text-muted)' }}>
-                        No tokens in library. Upload or drag & drop to map.
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-2 gap-2">
-                        {tokenLibrary.map(token => (
-                            <div
-                                key={token.id}
-                                className="sidebar-token w-full aspect-square rounded cursor-grab flex flex-col items-center justify-center transition p-1 relative group"
-                                draggable
-                                onDragStart={(e) => handleDragStart(e, 'LIBRARY_TOKEN', token.src)}
-                            >
-                                <img
-                                    src={token.src}
-                                    alt={token.name}
-                                    className="w-full h-full object-contain pointer-events-none"
-                                />
-                                {/* Delete button overlay: visible on mobile, hover-only on desktop */}
-                                <div className={`absolute inset-0 bg-black/60 items-center justify-center gap-1 rounded ${
-                                    isMobile ? 'flex' : 'hidden group-hover:flex'
-                                }`}>
-                                    <button
-                                        className="text-xs bg-red-500/80 hover:bg-red-500 text-white rounded px-2 py-1 min-h-[32px] min-w-[32px]"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            showConfirmDialog(
-                                                rollForMessage('CONFIRM_TOKEN_REMOVAL'),
-                                                () => removeTokenFromLibrary(token.id),
-                                                'Remove'
-                                            );
-                                        }}
+            {!isSidebarCollapsed && (
+                <>
+                    {/* MAPS Section */}
+                    <CollapsibleSection title="MAPS">
+                        <ul className="space-y-2 mb-4" aria-label="Campaign maps">
+                            {maps.map(map => {
+                                const isActive = map.id === activeMapId;
+                                return (
+                                    <li
+                                        key={map.id}
+                                        className={`
+                                            group flex items-center justify-between p-2 rounded transition
+                                            ${isActive
+                                                ? 'bg-[var(--app-accent-bg)] border border-[var(--app-accent-border)]'
+                                                : 'bg-[var(--app-bg-subtle)]'
+                                            }
+                                        `}
                                     >
-                                        🗑️
-                                    </button>
+                                        <button
+                                            onClick={() => switchMap(map.id)}
+                                            aria-label={`${isActive ? 'Current map: ' : 'Switch to '}${map.name}`}
+                                            aria-current={isActive ? 'page' : undefined}
+                                            className="flex-1 min-w-0 flex items-center gap-2 text-left hover:opacity-80 transition"
+                                        >
+                                            <span className="text-lg leading-none">
+                                                {isActive ? '📍' : '🗺️'}
+                                            </span>
+                                            <span
+                                                className={`text-sm font-medium truncate ${isActive ? 'text-[var(--app-accent-text)]' : ''}`}
+                                                title={map.name}
+                                            >
+                                                {map.name}
+                                            </span>
+                                        </button>
+
+                                        <Tooltip content="Edit map">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setEditingMapId(map.id);
+                                                    setMapSettingsMode('EDIT');
+                                                    setIsMapSettingsOpen(true);
+                                                }}
+                                                className="p-1 opacity-0 group-hover:opacity-100 hover:text-[var(--app-accent-text)] transition-opacity"
+                                                aria-label={`Edit ${map.name}`}
+                                            >
+                                                ⚙️
+                                            </button>
+                                        </Tooltip>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+
+                        <button
+                            onClick={() => {
+                                setMapSettingsMode('CREATE');
+                                setEditingMapId(null);
+                                setIsMapSettingsOpen(true);
+                            }}
+                            className="btn btn-secondary w-full py-2 text-sm flex items-center justify-center gap-2 border-dashed border-2"
+                        >
+                            <span>➕</span> New Map
+                        </button>
+                    </CollapsibleSection>
+
+                    <div className="w-full h-px bg-[var(--app-border-default)] my-6"></div>
+
+                    {/* Door Controls Section */}
+                    <DoorControls />
+
+                    {/* LIBRARY Section */}
+                    <CollapsibleSection title="LIBRARY">
+                        {/* Action Bar */}
+                        <div className="flex gap-2 mb-4">
+                            <Tooltip content="Open Command Palette (Cmd+P)">
+                                <button
+                                    onClick={() => setPaletteOpen(true)}
+                                    className="btn btn-secondary flex-1 py-2 text-sm flex items-center justify-center gap-2"
+                                >
+                                    🔍 Place
+                                </button>
+                            </Tooltip>
+
+                            <input
+                                type="file"
+                                accept="image/*"
+                                ref={tokenInputRef}
+                                className="hidden"
+                                onChange={handleTokenUpload}
+                            />
+                            <Tooltip content="Add token to library">
+                                <button
+                                    onClick={() => tokenInputRef.current?.click()}
+                                    className="btn btn-secondary flex-1 py-2 text-sm flex items-center justify-center gap-2"
+                                >
+                                    ➕ Add
+                                </button>
+                            </Tooltip>
+
+                            <Tooltip content="Manage library">
+                                <button
+                                    onClick={() => setIsLibraryManagerOpen(true)}
+                                    className="btn btn-ghost px-3 py-2"
+                                    aria-label="Manage library"
+                                >
+                                    📚
+                                </button>
+                            </Tooltip>
+                        </div>
+
+                        {/* Recently Used Tokens */}
+                        {recentTokens.length > 0 && (
+                            <div className="mb-4">
+                                <h4 className="text-xs uppercase font-semibold mb-2" style={{ color: 'var(--app-text-secondary)' }}>
+                                    Recently Used
+                                </h4>
+                                <div className="flex gap-2">
+                                    {recentTokens.map(token => (
+                                        <div
+                                            key={token.id}
+                                            className="sidebar-token w-16 h-16 rounded cursor-grab flex items-center justify-center transition relative group"
+                                            draggable
+                                            onDragStart={(e) => handleDragStart(e, 'LIBRARY_TOKEN', token.src)}
+                                            title={token.name}
+                                        >
+                                            <img
+                                                src={token.thumbnailSrc.replace('file:', 'media:')}
+                                                alt={token.name}
+                                                className="w-full h-full object-contain pointer-events-none rounded"
+                                            />
+                                        </div>
+                                    ))}
                                 </div>
-                                <span className="text-[10px] truncate max-w-full mt-1 bg-black/50 px-1 rounded text-white absolute bottom-1">{token.name}</span>
                             </div>
-                        ))}
-                    </div>
-                )}
-            </div>
+                        )}
+                    </CollapsibleSection>
+                </>
+            )}
+
+        </div>
+    );
+
+    return (
+        <>
+            {/* Sidebar Content */}
+            {isMobile ? (
+                <MobileSidebarDrawer isOpen={isMobileDrawerOpen} onClose={() => setMobileDrawerOpen(false)}>
+                    {sidebarContent}
+                </MobileSidebarDrawer>
+            ) : (
+                sidebarContent
+            )}
+
+            {/* Map Settings Sheet */}
+            <MapSettingsSheet
+                isOpen={isMapSettingsOpen}
+                onClose={() => {
+                    setIsMapSettingsOpen(false);
+                    setEditingMapId(null);
+                }}
+                mode={mapSettingsMode}
+                mapId={editingMapId || undefined}
+            />
 
             {/* Library Manager Modal */}
             <LibraryManager
@@ -423,19 +402,8 @@ const Sidebar = () => {
                     setPendingLibraryImage(null);
                 }}
             />
-        </div>
+        </>
     );
-
-    // Render: Mobile drawer or desktop sidebar
-    if (isMobile) {
-        return (
-            <MobileSidebarDrawer isOpen={isMobileDrawerOpen} onClose={() => setMobileDrawerOpen(false)}>
-                {sidebarContent}
-            </MobileSidebarDrawer>
-        );
-    }
-
-    return sidebarContent;
 };
 
 export default Sidebar;

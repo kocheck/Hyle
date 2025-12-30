@@ -310,16 +310,31 @@ function App() {
         useGameStore.getState().showDungeonDialog();
     };
 
+    const handleNewCampaign = () => {
+        // Show confirmation dialog before creating new campaign
+        useGameStore.getState().showConfirmDialog(
+            'Create a new campaign? Any unsaved changes will be lost.',
+            () => {
+                // Reset to default campaign
+                const { addMap } = useGameStore.getState();
+                addMap('Map 1');
+            },
+            'Create New Campaign'
+        );
+    };
+
     ipcRenderer.on('MENU_SAVE_CAMPAIGN', handleSave);
     ipcRenderer.on('MENU_LOAD_CAMPAIGN', handleLoad);
     ipcRenderer.on('MENU_TOGGLE_RESOURCE_MONITOR', handleToggleMonitor);
     ipcRenderer.on('MENU_GENERATE_DUNGEON', handleGenerateDungeon);
+    ipcRenderer.on('MENU_NEW_CAMPAIGN', handleNewCampaign);
 
     return () => {
         ipcRenderer.off('MENU_SAVE_CAMPAIGN', handleSave);
         ipcRenderer.off('MENU_LOAD_CAMPAIGN', handleLoad);
         ipcRenderer.off('MENU_TOGGLE_RESOURCE_MONITOR', handleToggleMonitor);
         ipcRenderer.off('MENU_GENERATE_DUNGEON', handleGenerateDungeon);
+        ipcRenderer.off('MENU_NEW_CAMPAIGN', handleNewCampaign);
     };
   }, []); // Empty dependency array as handlers use getState()
 
