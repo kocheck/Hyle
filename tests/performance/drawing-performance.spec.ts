@@ -183,6 +183,9 @@ test.describe('Drawing Tool Performance', () => {
     console.log(`  - Average FPS: ${perfMetrics.fps.toFixed(1)}`);
 
     // Verify performance targets
+    // NOTE: These thresholds (16.6ms/60fps avg, 33ms/30fps max) may be too strict for CI
+    // environments or slower machines. If tests fail on CI but pass locally, consider
+    // increasing thresholds or making them environment-specific (e.g., relaxed on CI).
     expect(
       perfMetrics.avgFrameTime,
       'Average frame time should be under 16.6ms (60fps)'
@@ -366,13 +369,18 @@ test.describe('Drawing Memory Management', () => {
       'Should have created 50 drawings'
     ).toBe(50);
 
-    // Verify no memory leaks by checking that refs are cleaned up
+    // NOTE: Memory leak detection requires Chrome DevTools Protocol (CDP) for real heap snapshots.
+    // This simplified check always passes and doesn't actually verify memory cleanup.
+    // To properly test for memory leaks, consider either:
+    // 1. Using Playwright's CDP integration to take heap snapshots before/after
+    // 2. Monitoring process memory usage via CDP
+    // 3. Removing this assertion if proper memory testing isn't feasible in this environment
     const refsCleanedUp = await page.evaluate(() => {
       // This is a simplified check - in production you'd use Chrome DevTools memory profiler
       return true;
     });
 
-    expect(refsCleanedUp, 'Memory should be properly managed').toBe(true);
+    expect(refsCleanedUp, 'Memory should be properly managed (placeholder assertion - see note above)').toBe(true);
 
     console.log(`Memory Management Test Results:`);
     console.log(`  - Drawings created: ${drawingsCount}`);
