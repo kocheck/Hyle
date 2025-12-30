@@ -1007,60 +1007,9 @@ const CanvasManager = ({
     }
   };
 
-  // CRITICAL FIX: Direct DOM mousedown listener for drawing tools
-  // This bypasses Konva's event system which seems to be blocking mousedown for drawing tools
-  // NOTE: Must be AFTER handleMouseDown is defined to avoid initialization errors
-  useEffect(() => {
-    if (!stageRef.current || tool === 'select') return;
-
-    // Konva creates multiple canvas elements (one per Layer)
-    // We need to attach to ALL of them
-    const canvases = stageRef.current.content?.querySelectorAll('canvas');
-    if (!canvases || canvases.length === 0) {
-      console.error('[CanvasManager] No canvas elements found for direct DOM listener!', 'stageRef.current:', stageRef.current, 'content:', stageRef.current?.content);
-      return;
-    }
-    console.log('[CanvasManager] Found', canvases.length, 'canvas elements');
-
-    const handleCanvasMouseDown = (e: MouseEvent) => {
-      console.log('[CanvasManager] RAW DOM mousedown on canvas!', 'tool:', tool, 'canvas:', e.currentTarget);
-
-      try {
-        // Convert DOM event to Konva-like event object
-        const stage = stageRef.current;
-        if (!stage) {
-          console.error('[CanvasManager] Stage ref is null!');
-          return;
-        }
-
-        // Inject the pointer position into Konva's internal state
-        stage.setPointersPositions(e);
-
-        // Create a minimal Konva-like event object
-        const konvaEvent = {
-          target: { getStage: () => stage },
-          evt: e
-        };
-
-        console.log('[CanvasManager] Calling handleMouseDown with synthetic event');
-        handleMouseDown(konvaEvent);
-      } catch (error) {
-        console.error('[CanvasManager] Error in handleCanvasMouseDown:', error);
-      }
-    };
-
-    console.log('[CanvasManager] Attaching direct DOM mousedown listeners to all canvases');
-    canvases.forEach(canvas => {
-      canvas.addEventListener('mousedown', handleCanvasMouseDown);
-    });
-
-    return () => {
-      console.log('[CanvasManager] Removing direct DOM mousedown listeners from all canvases');
-      canvases.forEach(canvas => {
-        canvas.removeEventListener('mousedown', handleCanvasMouseDown);
-      });
-    };
-  }, [tool, handleMouseDown]);
+  // DISABLED: Direct DOM mousedown listener approach didn't work
+  // Mousedown events are being blocked at browser level, possibly by Konva's drag system
+  // Using onContentClick instead (fires on mouseup, like the old onClick behavior)
 
   const handleMouseMove = (e: any) => {
     if (tool === 'marker' || tool === 'wall') {
@@ -1612,17 +1561,20 @@ const CanvasManager = ({
         width={size.width}
         height={size.height}
         draggable={isSpacePressed}
-        onContentMousedown={(e) => {
-          console.log('[CanvasManager] Stage onContentMousedown captured!', e.target.constructor.name);
-          handleMouseDown(e);
-        }}
-        onPointerDown={(e) => {
-          console.log('[CanvasManager] Stage onPointerDown captured!', e.target.constructor.name);
-          handleMouseDown(e);
+        onContentClick={(e) => {
+          // Use click instead of mousedown for drawing tools - fires reliably unlike mousedown
+          // This mimics the old onClick behavior that worked before PR #126
+          console.log('[CanvasManager] Stage onContentClick captured!', e.target.constructor.name, 'tool:', tool);
+          if (tool !== 'select') {
+            handleMouseDown(e);
+          }
         }}
         onMouseDown={(e) => {
+          // Keep mousedown for select tool (selection rectangles, etc.)
           console.log('[CanvasManager] Stage onMouseDown captured!', e.target.constructor.name);
-          handleMouseDown(e);
+          if (tool === 'select') {
+            handleMouseDown(e);
+          }
         }}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
