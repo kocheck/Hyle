@@ -113,8 +113,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
   /**
    * Remove a campaign from recent list
    */
-  const handleRemoveRecent = (campaignId: string, event: React.MouseEvent) => {
-    event.stopPropagation(); // Prevent triggering the load action
+  const handleRemoveRecent = (campaignId: string) => {
     removeRecentCampaign(campaignId);
     setRecentCampaigns(getRecentCampaigns());
   };
@@ -124,6 +123,28 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
       background: 'var(--app-bg-base)',
       color: 'var(--app-text-primary)',
     }}>
+      <style>{`
+        .home-action-button {
+          --border-color: var(--app-border-default);
+        }
+        .home-action-button:hover {
+          --border-color: var(--app-accent-solid);
+        }
+        .home-recent-item {
+          --item-bg: var(--app-bg-surface);
+          --item-border: var(--app-border-subtle);
+        }
+        .home-recent-item:hover {
+          --item-bg: var(--app-bg-hover);
+          --item-border: var(--app-border-default);
+        }
+        .home-remove-btn {
+          --remove-bg: transparent;
+        }
+        .home-remove-btn:hover {
+          --remove-bg: var(--app-bg-active);
+        }
+      `}</style>
       {/* Main Content Container */}
       <div className="max-w-2xl w-full px-8">
         {/* Branding */}
@@ -179,13 +200,13 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
         <div className="grid grid-cols-2 gap-4 mb-8">
           <button
             onClick={handleNewCampaign}
-            className="p-6 rounded-lg text-left transition-all hover:scale-105"
+            className="home-action-button p-6 rounded-lg text-left transition-all hover:scale-105"
             style={{
               background: 'var(--app-bg-surface)',
-              border: '2px solid var(--app-border-default)',
+              borderWidth: '2px',
+              borderStyle: 'solid',
+              borderColor: 'var(--border-color)',
             }}
-            onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--app-accent-solid)'}
-            onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--app-border-default)'}
             aria-label="Create a new campaign and start the editor"
           >
             <div className="flex items-center gap-3 mb-2">
@@ -201,13 +222,13 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
 
           <button
             onClick={handleLoadCampaign}
-            className="p-6 rounded-lg text-left transition-all hover:scale-105"
+            className="home-action-button p-6 rounded-lg text-left transition-all hover:scale-105"
             style={{
               background: 'var(--app-bg-surface)',
-              border: '2px solid var(--app-border-default)',
+              borderWidth: '2px',
+              borderStyle: 'solid',
+              borderColor: 'var(--border-color)',
             }}
-            onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--app-accent-solid)'}
-            onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--app-border-default)'}
             aria-label="Load an existing campaign from a .hyle file"
           >
             <div className="flex items-center gap-3 mb-2">
@@ -230,25 +251,22 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
             </h3>
             <div className="space-y-2">
               {recentCampaigns.map((recent) => (
-                <button
+                <div
                   key={recent.id}
-                  onClick={() => handleLoadRecent(recent)}
-                  className="w-full p-4 rounded flex items-center justify-between group transition-all"
+                  className="home-recent-item w-full p-4 rounded flex items-center justify-between group transition-all"
                   style={{
-                    background: 'var(--app-bg-surface)',
-                    border: '1px solid var(--app-border-subtle)',
+                    background: 'var(--item-bg)',
+                    borderWidth: '1px',
+                    borderStyle: 'solid',
+                    borderColor: 'var(--item-border)',
                   }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'var(--app-bg-hover)';
-                    e.currentTarget.style.borderColor = 'var(--app-border-default)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'var(--app-bg-surface)';
-                    e.currentTarget.style.borderColor = 'var(--app-border-subtle)';
-                  }}
-                  aria-label={`Recent campaign: ${recent.name}. Click for more information about loading this campaign.`}
                 >
-                  <div className="flex items-center gap-3 flex-1 text-left">
+                  <button
+                    onClick={() => handleLoadRecent(recent)}
+                    className="flex items-center gap-3 flex-1 text-left"
+                    style={{ background: 'transparent', border: 'none', padding: 0 }}
+                    aria-label={`Recent campaign: ${recent.name}. Click for more information about loading this campaign.`}
+                  >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--app-text-secondary)' }}>
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
@@ -264,26 +282,21 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
                         })}
                       </div>
                     </div>
-                  </div>
+                  </button>
                   <button
-                    onClick={(e) => handleRemoveRecent(recent.id, e)}
-                    className="p-2 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => handleRemoveRecent(recent.id)}
+                    className="home-remove-btn p-2 rounded opacity-0 group-hover:opacity-100 transition-opacity"
                     style={{
-                      background: 'transparent',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'var(--app-bg-active)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'transparent';
+                      background: 'var(--remove-bg)',
                     }}
                     title="Remove from recent"
+                    aria-label={`Remove ${recent.name} from recent campaigns`}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--app-text-muted)' }}>
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
-                </button>
+                </div>
               ))}
             </div>
           </div>
