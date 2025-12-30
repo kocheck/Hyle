@@ -1582,6 +1582,10 @@ const CanvasManager = ({
         width={size.width}
         height={size.height}
         draggable={isSpacePressed}
+        onPointerDown={(e) => {
+          console.log('[CanvasManager] Stage onPointerDown captured!', e.target.constructor.name);
+          handleMouseDown(e);
+        }}
         onMouseDown={(e) => {
           console.log('[CanvasManager] Stage onMouseDown captured!', e.target.constructor.name);
           handleMouseDown(e);
