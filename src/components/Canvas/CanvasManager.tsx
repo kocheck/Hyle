@@ -1547,12 +1547,18 @@ const CanvasManager = ({
         width={size.width}
         height={size.height}
         draggable={isSpacePressed}
-        onMouseDown={handleMouseDown}
+        onMouseDown={(e) => {
+          console.log('[CanvasManager] Stage onMouseDown captured!', e.target.constructor.name);
+          handleMouseDown(e);
+        }}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onWheel={handleWheel}
-        onTouchStart={handleTouchStart}
+        onTouchStart={(e) => {
+          console.log('[CanvasManager] Stage onTouchStart captured!', e.evt.touches.length, 'touches');
+          handleTouchStart(e);
+        }}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         scaleX={scale}
