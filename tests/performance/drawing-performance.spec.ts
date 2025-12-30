@@ -60,7 +60,17 @@ test.describe('Drawing Tool Performance', () => {
 
     // Verify all points were captured
     const drawingData = await page.evaluate(() => {
-      const store = (window as any).__GAME_STORE__;
+      interface DrawingData {
+        points?: unknown[];
+      }
+      interface GameStoreWindow extends Window {
+        __GAME_STORE__?: {
+          getState?: () => {
+            drawings?: DrawingData[];
+          };
+        };
+      }
+      const store = (window as unknown as GameStoreWindow).__GAME_STORE__;
       const drawings = store?.getState?.()?.drawings || [];
       return drawings[0];
     });
@@ -86,7 +96,14 @@ test.describe('Drawing Tool Performance', () => {
 
     // Inject performance monitoring
     await page.evaluate(() => {
-      (window as any).__DRAWING_PERF__ = {
+      interface DrawingPerfWindow extends Window {
+        __DRAWING_PERF__?: {
+          frameCount: number;
+          totalFrameTime: number;
+          maxFrameTime: number;
+        };
+      }
+      (window as unknown as DrawingPerfWindow).__DRAWING_PERF__ = {
         frameCount: 0,
         totalFrameTime: 0,
         maxFrameTime: 0,
@@ -101,11 +118,20 @@ test.describe('Drawing Tool Performance', () => {
           const frameTime = timestamp - lastTimestamp;
           lastTimestamp = timestamp;
 
-          if ((window as any).__DRAWING_PERF__) {
-            (window as any).__DRAWING_PERF__.frameCount++;
-            (window as any).__DRAWING_PERF__.totalFrameTime += frameTime;
-            (window as any).__DRAWING_PERF__.maxFrameTime = Math.max(
-              (window as any).__DRAWING_PERF__.maxFrameTime,
+          interface DrawingPerfWindow extends Window {
+            __DRAWING_PERF__?: {
+              frameCount: number;
+              totalFrameTime: number;
+              maxFrameTime: number;
+            };
+          }
+
+          const win = window as unknown as DrawingPerfWindow;
+          if (win.__DRAWING_PERF__) {
+            win.__DRAWING_PERF__.frameCount++;
+            win.__DRAWING_PERF__.totalFrameTime += frameTime;
+            win.__DRAWING_PERF__.maxFrameTime = Math.max(
+              win.__DRAWING_PERF__.maxFrameTime,
               frameTime
             );
           }
@@ -133,7 +159,15 @@ test.describe('Drawing Tool Performance', () => {
 
     // Collect performance metrics
     const perfMetrics = await page.evaluate(() => {
-      const perf = (window as any).__DRAWING_PERF__;
+      interface DrawingPerfWindow extends Window {
+        __DRAWING_PERF__?: {
+          frameCount: number;
+          totalFrameTime: number;
+          maxFrameTime: number;
+        };
+      }
+      const perf = (window as unknown as DrawingPerfWindow).__DRAWING_PERF__;
+      if (!perf) return { frameCount: 0, avgFrameTime: 0, maxFrameTime: 0, fps: 0 };
       return {
         frameCount: perf.frameCount,
         avgFrameTime: perf.totalFrameTime / perf.frameCount,
@@ -191,7 +225,17 @@ test.describe('Drawing Tool Performance', () => {
 
     // Verify deduplication worked
     const drawingData = await page.evaluate(() => {
-      const store = (window as any).__GAME_STORE__;
+      interface DrawingData {
+        points?: unknown[];
+      }
+      interface GameStoreWindow extends Window {
+        __GAME_STORE__?: {
+          getState?: () => {
+            drawings?: DrawingData[];
+          };
+        };
+      }
+      const store = (window as unknown as GameStoreWindow).__GAME_STORE__;
       const drawings = store?.getState?.()?.drawings || [];
       return drawings[0];
     });
@@ -251,7 +295,14 @@ test.describe('Drawing Tool Performance', () => {
 
     // Verify all drawings were created
     const drawingsCount = await page.evaluate(() => {
-      const store = (window as any).__GAME_STORE__;
+      interface GameStoreWindow extends Window {
+        __GAME_STORE__?: {
+          getState?: () => {
+            drawings?: unknown[];
+          };
+        };
+      }
+      const store = (window as unknown as GameStoreWindow).__GAME_STORE__;
       const drawings = store?.getState?.()?.drawings || [];
       return drawings.length;
     });
@@ -298,7 +349,14 @@ test.describe('Drawing Memory Management', () => {
 
     // Verify all drawings were created
     const drawingsCount = await page.evaluate(() => {
-      const store = (window as any).__GAME_STORE__;
+      interface GameStoreWindow extends Window {
+        __GAME_STORE__?: {
+          getState?: () => {
+            drawings?: unknown[];
+          };
+        };
+      }
+      const store = (window as unknown as GameStoreWindow).__GAME_STORE__;
       const drawings = store?.getState?.()?.drawings || [];
       return drawings.length;
     });
