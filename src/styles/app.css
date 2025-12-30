@@ -13,8 +13,8 @@
 
 /* Toolbar */
 .toolbar {
-  background: var(--app-bg-surface);
-  border: 1px solid var(--app-border-subtle);
+  background: #000000;
+  border: 2px solid rgb(82, 82, 82); /* neutral-600 */
 }
 
 .toolbar-divider {
