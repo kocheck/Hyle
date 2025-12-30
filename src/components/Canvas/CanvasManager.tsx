@@ -390,49 +390,6 @@ const CanvasManager = ({
       performZoom(newScale, centerX, centerY, scale, position);
   }, [scale, position, size.width, size.height, performZoom]);
 
-    // CRITICAL FIX: Direct DOM mousedown listener for drawing tools
-  // This bypasses Konva's event system which seems to be blocking mousedown for drawing tools
-  useEffect(() => {
-    if (!stageRef.current || tool === 'select') return;
-
-    const canvas = stageRef.current.content?.querySelector('canvas');
-    if (!canvas) {
-      console.log('[CanvasManager] Canvas element not found for direct DOM listener');
-      return;
-    }
-
-    const handleCanvasMouseDown = (e: MouseEvent) => {
-      console.log('[CanvasManager] RAW DOM mousedown on canvas!', 'tool:', tool);
-
-      // Convert DOM event to Konva-like event object
-      const stage = stageRef.current;
-      if (!stage) return;
-
-      const rect = canvas.getBoundingClientRect();
-      const x = (e.clientX - rect.left - stage.x()) / stage.scaleX();
-      const y = (e.clientY - rect.top - stage.y()) / stage.scaleY();
-
-      // Create a minimal Konva-like event object
-      const konvaEvent = {
-        target: { getStage: () => stage },
-        evt: e
-      };
-
-      // Inject the pointer position
-      stage.setPointersPositions(e);
-
-      handleMouseDown(konvaEvent);
-    };
-
-    console.log('[CanvasManager] Attaching direct DOM mousedown listener to canvas');
-    canvas.addEventListener('mousedown', handleCanvasMouseDown);
-
-    return () => {
-      console.log('[CanvasManager] Removing direct DOM mousedown listener from canvas');
-      canvas.removeEventListener('mousedown', handleCanvasMouseDown);
-    };
-  }, [tool, handleMouseDown]);
-
   // Consolidated keyboard event handling for canvas operations
   useEffect(() => {
     const isEditableElement = (el: EventTarget | null): boolean => {
@@ -1049,6 +1006,50 @@ const CanvasManager = ({
          // Konva handles dragging automatically if draggable=true.
     }
   };
+
+  // CRITICAL FIX: Direct DOM mousedown listener for drawing tools
+  // This bypasses Konva's event system which seems to be blocking mousedown for drawing tools
+  // NOTE: Must be AFTER handleMouseDown is defined to avoid initialization errors
+  useEffect(() => {
+    if (!stageRef.current || tool === 'select') return;
+
+    const canvas = stageRef.current.content?.querySelector('canvas');
+    if (!canvas) {
+      console.log('[CanvasManager] Canvas element not found for direct DOM listener');
+      return;
+    }
+
+    const handleCanvasMouseDown = (e: MouseEvent) => {
+      console.log('[CanvasManager] RAW DOM mousedown on canvas!', 'tool:', tool);
+
+      // Convert DOM event to Konva-like event object
+      const stage = stageRef.current;
+      if (!stage) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = (e.clientX - rect.left - stage.x()) / stage.scaleX();
+      const y = (e.clientY - rect.top - stage.y()) / stage.scaleY();
+
+      // Create a minimal Konva-like event object
+      const konvaEvent = {
+        target: { getStage: () => stage },
+        evt: e
+      };
+
+      // Inject the pointer position
+      stage.setPointersPositions(e);
+
+      handleMouseDown(konvaEvent);
+    };
+
+    console.log('[CanvasManager] Attaching direct DOM mousedown listener to canvas');
+    canvas.addEventListener('mousedown', handleCanvasMouseDown);
+
+    return () => {
+      console.log('[CanvasManager] Removing direct DOM mousedown listener from canvas');
+      canvas.removeEventListener('mousedown', handleCanvasMouseDown);
+    };
+  }, [tool, handleMouseDown]);
 
   const handleMouseMove = (e: any) => {
     if (tool === 'marker' || tool === 'wall') {
