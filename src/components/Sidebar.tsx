@@ -49,7 +49,7 @@
  * @component
  */
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { processImage, ProcessingHandle } from '../utils/AssetProcessor';
 import AddToLibraryDialog from './AssetLibrary/AddToLibraryDialog';
@@ -72,9 +72,7 @@ const Sidebar = () => {
     const activeMapId = useGameStore(state => state.campaign.activeMapId);
     const switchMap = useGameStore(state => state.switchMap);
     const tokenLibrary = useGameStore(state => state.campaign.tokenLibrary);
-    const removeTokenFromLibrary = useGameStore(state => state.removeTokenFromLibrary);
     const showToast = useGameStore(state => state.showToast);
-    const showConfirmDialog = useGameStore(state => state.showConfirmDialog);
     const tokens = useGameStore(state => state.tokens);
 
     // Refs
@@ -105,6 +103,13 @@ const Sidebar = () => {
     const isMobile = useIsMobile();
     const isMobileDrawerOpen = useGameStore(state => state.isMobileSidebarOpen);
     const setMobileDrawerOpen = useGameStore(state => state.setMobileSidebarOpen);
+
+    // Reset sidebar collapse state when switching to mobile
+    useEffect(() => {
+        if (isMobile) {
+            setIsSidebarCollapsed(false);
+        }
+    }, [isMobile]);
 
     /**
      * Handles drag start for library tokens
@@ -335,19 +340,19 @@ const Sidebar = () => {
                                 </h4>
                                 <div className="flex gap-2">
                                     {recentTokens.map(token => (
-                                        <div
-                                            key={token.id}
-                                            className="sidebar-token w-16 h-16 rounded cursor-grab flex items-center justify-center transition relative group"
-                                            draggable
-                                            onDragStart={(e) => handleDragStart(e, 'LIBRARY_TOKEN', token.src)}
-                                            title={token.name}
-                                        >
-                                            <img
-                                                src={token.thumbnailSrc.replace('file:', 'media:')}
-                                                alt={token.name}
-                                                className="w-full h-full object-contain pointer-events-none rounded"
-                                            />
-                                        </div>
+                                        <Tooltip key={token.id} content={token.name}>
+                                            <div
+                                                className="sidebar-token w-16 h-16 rounded cursor-grab flex items-center justify-center transition relative group"
+                                                draggable
+                                                onDragStart={(e) => handleDragStart(e, 'LIBRARY_TOKEN', token.src)}
+                                            >
+                                                <img
+                                                    src={token.thumbnailSrc.replace('file:', 'media:')}
+                                                    alt={token.name}
+                                                    className="w-full h-full object-contain pointer-events-none rounded"
+                                                />
+                                            </div>
+                                        </Tooltip>
                                     ))}
                                 </div>
                             </div>

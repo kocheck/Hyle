@@ -289,6 +289,7 @@ export interface GameState {
 
   // Campaign Actions
   loadCampaign: (campaign: Campaign) => void;
+  resetToNewCampaign: () => void;
   addMap: (name?: string) => void;
   deleteMap: (mapId: string) => void;
   switchMap: (mapId: string) => void;
@@ -425,6 +426,28 @@ export const useGameStore = create<GameState>((set, get) => {
         map: activeMap.map || null,
         exploredRegions: activeMap.exploredRegions || [],
         isDaylightMode: activeMap.isDaylightMode || false,
+      });
+    },
+
+    resetToNewCampaign: () => {
+      // Create a fresh campaign with a single default map
+      const newMap = createDefaultMap('Map 1');
+      const newCampaign = createDefaultCampaign(newMap);
+      
+      set({
+        campaign: newCampaign,
+        // Reset active map state
+        tokens: newMap.tokens,
+        drawings: newMap.drawings,
+        doors: newMap.doors,
+        stairs: newMap.stairs,
+        gridSize: newMap.gridSize,
+        gridType: newMap.gridType,
+        map: newMap.map,
+        exploredRegions: newMap.exploredRegions,
+        isDaylightMode: newMap.isDaylightMode,
+        // Reset calibration state
+        isCalibrating: false,
       });
     },
 
