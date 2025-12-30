@@ -1015,31 +1015,36 @@ const CanvasManager = ({
 
     const canvas = stageRef.current.content?.querySelector('canvas');
     if (!canvas) {
-      console.log('[CanvasManager] Canvas element not found for direct DOM listener');
+      console.error('[CanvasManager] Canvas element not found for direct DOM listener!', 'stageRef.current:', stageRef.current, 'content:', stageRef.current?.content);
       return;
     }
+    console.log('[CanvasManager] Canvas element found:', canvas);
 
     const handleCanvasMouseDown = (e: MouseEvent) => {
       console.log('[CanvasManager] RAW DOM mousedown on canvas!', 'tool:', tool);
 
-      // Convert DOM event to Konva-like event object
-      const stage = stageRef.current;
-      if (!stage) return;
+      try {
+        // Convert DOM event to Konva-like event object
+        const stage = stageRef.current;
+        if (!stage) {
+          console.error('[CanvasManager] Stage ref is null!');
+          return;
+        }
 
-      const rect = canvas.getBoundingClientRect();
-      const x = (e.clientX - rect.left - stage.x()) / stage.scaleX();
-      const y = (e.clientY - rect.top - stage.y()) / stage.scaleY();
+        // Inject the pointer position into Konva's internal state
+        stage.setPointersPositions(e);
 
-      // Create a minimal Konva-like event object
-      const konvaEvent = {
-        target: { getStage: () => stage },
-        evt: e
-      };
+        // Create a minimal Konva-like event object
+        const konvaEvent = {
+          target: { getStage: () => stage },
+          evt: e
+        };
 
-      // Inject the pointer position
-      stage.setPointersPositions(e);
-
-      handleMouseDown(konvaEvent);
+        console.log('[CanvasManager] Calling handleMouseDown with synthetic event');
+        handleMouseDown(konvaEvent);
+      } catch (error) {
+        console.error('[CanvasManager] Error in handleCanvasMouseDown:', error);
+      }
     };
 
     console.log('[CanvasManager] Attaching direct DOM mousedown listener to canvas');
