@@ -32,6 +32,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
   const [hideMacBanner, setHideMacBanner] = useState(() =>
     localStorage.getItem('hideMacBanner') === 'true'
   );
+  const [tokenPositions, setTokenPositions] = useState<Record<string, { x: number; y: number; size: number }>>({});
 
   const loadCampaign = useGameStore((state) => state.loadCampaign);
   const showToast = useGameStore((state) => state.showToast);
@@ -203,41 +204,47 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
 
   // Generate random playground tokens with flavor text (memoized to prevent recreation on re-renders)
   const playgroundTokens = useMemo(() => {
+    const tokenSize = 40;
     const tokens = [
       {
         id: 'demo-hero',
         color: '#3b82f6',
         label: 'Hero',
         flavorText: 'Definitely has protagonist energy.',
+        size: tokenSize,
       },
       {
         id: 'demo-monster',
         color: '#ef4444',
         label: 'Dragon',
         flavorText: "This ancient wyrm hasn't had breakfast yet. You look crunchy.",
+        size: tokenSize,
       },
       {
         id: 'demo-npc',
         color: '#8b5cf6',
         label: 'Wizard',
         flavorText: 'Contemplating the nature of reality... or maybe just lunch.',
+        size: tokenSize,
       },
       {
         id: 'demo-ally',
         color: '#10b981',
         label: 'Ranger',
         flavorText: 'Survival check: 18. They know exactly where the nearest tavern is.',
+        size: tokenSize,
       },
       {
         id: 'demo-enemy',
         color: '#f59e0b',
         label: 'Goblin',
         flavorText: 'Rolled a 3 on Stealth. You can smell them from here.',
+        size: tokenSize,
       },
     ];
 
     // Distribute tokens around the viewport in a scattered pattern
-    return tokens.map((token, index) => {
+    const positioned = tokens.map((token, index) => {
       const angle = (index / tokens.length) * Math.PI * 2;
       const distance = 200 + Math.random() * 150;
       return {
@@ -246,7 +253,32 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
         y: window.innerHeight / 2 + Math.sin(angle) * distance,
       };
     });
+
+    // Initialize token positions for collision detection
+    const positions: Record<string, { x: number; y: number; size: number }> = {};
+    positioned.forEach(token => {
+      positions[token.id] = { x: token.x, y: token.y, size: token.size };
+    });
+    setTokenPositions(positions);
+
+    return positioned;
   }, []);
+
+  /**
+   * Handle token position change (for collision detection)
+   */
+  const handleTokenPositionChange = (id: string, x: number, y: number) => {
+    setTokenPositions(prev => ({
+      ...prev,
+      [id]: { ...prev[id], x, y },
+    }));
+  };
+
+  // Convert tokenPositions to array for passing to tokens
+  const allTokensArray = Object.entries(tokenPositions).map(([id, pos]) => ({
+    id,
+    ...pos,
+  }));
 
   return (
     <div className="home-screen w-full h-screen flex flex-col items-center justify-center" style={{
@@ -257,7 +289,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
     }}>
       {/* Background Layer - Paper texture and grid */}
       <BackgroundCanvas width={window.innerWidth} height={window.innerHeight}>
-        {/* Playground tokens - draggable demo elements */}
+        {/* Playground tokens - draggable demo elements with collision and trail effects */}
         {playgroundTokens.map((token, index) => (
           <PlaygroundToken
             key={token.id}
@@ -266,9 +298,12 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
             y={token.y}
             color={token.color}
             label={token.label}
+            size={token.size}
             flavorText={token.flavorText}
             easterEggTrigger={triggerEasterEgg}
             showHint={index === 0} // Show hint on first token (Hero)
+            onPositionChange={handleTokenPositionChange}
+            allTokens={allTokensArray}
           />
         ))}
       </BackgroundCanvas>
