@@ -296,10 +296,10 @@ export function generateReportBody(sanitizedError: SanitizedError): string {
 
   const timestamp = new Date().toISOString();
 
-  // Escape backticks in all error fields to avoid breaking markdown code blocks
-  const escapedName = sanitizedError.name.replace(/`/g, '\\`');
-  const escapedMessage = sanitizedError.message.replace(/`/g, '\\`');
-  const escapedStack = sanitizedError.stack.replace(/`/g, '\\`');
+  // Escape backslashes first, then backticks to avoid breaking markdown code blocks
+  const escapedName = sanitizedError.name.replace(/\\/g, '\\\\').replace(/`/g, '\\`');
+  const escapedMessage = sanitizedError.message.replace(/\\/g, '\\\\').replace(/`/g, '\\`');
+  const escapedStack = sanitizedError.stack.replace(/\\/g, '\\\\').replace(/`/g, '\\`');
 
   const report = `## Description
 
