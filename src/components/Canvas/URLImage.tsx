@@ -39,7 +39,7 @@ const URLImage = forwardRef<Konva.Image, URLImageProps>(({ src, x, y, width, hei
   const imageRef = useRef<Konva.Image>(null);
 
   // Expose the Konva node to parent via ref
-  useImperativeHandle(ref, () => imageRef.current as Konva.Image);
+  useImperativeHandle(ref, () => imageRef.current as Konva.Image, []);
 
   useEffect(() => {
     // Apply cache when filters are present

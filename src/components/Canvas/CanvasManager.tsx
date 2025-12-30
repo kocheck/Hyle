@@ -821,6 +821,9 @@ const CanvasManager = ({
               throttleDragBroadcast(id, offsetX, offsetY);
 
               // Directly update Konva node position (no React re-render needed)
+              // This creates intentional desynchronization between Konva and React state for performance.
+              // dragPositionsRef maintains the source of truth, ensuring React reconciliation uses
+              // correct positions if re-renders occur during drag.
               const node = tokenNodesRef.current.get(id);
               if (node) {
                 node.x(offsetX);
@@ -832,6 +835,9 @@ const CanvasManager = ({
       }
 
       // Directly update Konva node position for primary token (no React re-render needed)
+      // This creates intentional desynchronization between Konva and React state for performance.
+      // dragPositionsRef maintains the source of truth, ensuring React reconciliation uses
+      // correct positions if re-renders occur during drag.
       const node = tokenNodesRef.current.get(tokenId);
       if (node) {
         node.x(newX);
@@ -1949,10 +1955,12 @@ const CanvasManager = ({
                     width={gridSize * token.scale}
                     height={gridSize * token.scale}
                     draggable={false}
+                    // Visual props (scaleX, scaleY, opacity, shadow) are transformation properties
+                    // that multiply with base dimensions to create hover/drag feedback effects
                     {...visualProps}
                     onSelect={(e) => handleTokenMouseDown(e, token.id)}
                     onMouseEnter={() => tool === 'select' && setHoveredTokenId(token.id)}
-                    onMouseLeave={() => setHoveredTokenId(null)}
+                    onMouseLeave={() => tool === 'select' && setHoveredTokenId(null)}
                     onDragStart={emptyDragHandler}
                     onDragMove={emptyDragHandler}
                     onDragEnd={emptyDragHandler}
