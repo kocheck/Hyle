@@ -277,6 +277,8 @@ const CanvasManager = ({
   const dragBroadcastThrottleRef = useRef<Map<string, number>>(new Map());
   const dragStartOffsetsRef = useRef<Map<string, { x: number, y: number }>>(new Map()); // For multi-token drag
   const DRAG_BROADCAST_THROTTLE_MS = 16; // ~60fps
+  const tokenNodesRef = useRef<Map<string, any>>(new Map()); // Direct refs to Konva nodes for smooth drag without React re-renders
+  const [hoveredTokenId, setHoveredTokenId] = useState<string | null>(null); // Track hovered token for interactive feedback
 
   // Press-and-Hold Drag State (threshold-based drag detection)
   const DRAG_THRESHOLD = 5; // pixels - minimum movement to trigger drag
@@ -295,6 +297,31 @@ const CanvasManager = ({
   // Touch/Pinch State
   const lastPinchDistance = useRef<number | null>(null);
   const lastPinchCenter = useRef<{ x: number, y: number } | null>(null);
+
+  /**
+   * Determines the appropriate cursor style based on current interaction state.
+   * Priority order (highest to lowest):
+   * 1. Space + panning (isDragging) → 'grabbing'
+   * 2. Space pressed (ready to pan) → 'grab'
+   * 3. Token dragging → 'grabbing'
+   * 4. Select tool → 'default'
+   * 5. Other tools (marker, eraser, wall) → 'crosshair'
+   */
+  const getCursorStyle = useCallback((): React.CSSProperties['cursor'] => {
+    if (isSpacePressed && isDragging) {
+      return 'grabbing';
+    }
+    if (isSpacePressed) {
+      return 'grab';
+    }
+    if (isDraggingWithThreshold) {
+      return 'grabbing';
+    }
+    if (tool === 'select') {
+      return 'default';
+    }
+    return 'crosshair';
+  }, [isSpacePressed, isDragging, isDraggingWithThreshold, tool]);
 
   // Notify parent of selection changes
   useEffect(() => {
@@ -792,12 +819,32 @@ const CanvasManager = ({
               const offsetY = newY + offset.y;
               dragPositionsRef.current.set(id, { x: offsetX, y: offsetY });
               throttleDragBroadcast(id, offsetX, offsetY);
+
+              // Directly update Konva node position (no React re-render needed)
+              // This creates intentional desynchronization between Konva and React state for performance.
+              // dragPositionsRef maintains the source of truth, ensuring React reconciliation uses
+              // correct positions if re-renders occur during drag.
+              const node = tokenNodesRef.current.get(id);
+              if (node) {
+                node.x(offsetX);
+                node.y(offsetY);
+              }
             }
           }
         });
       }
 
-      // Redraw token layer directly instead of forcing a full React re-render
+      // Directly update Konva node position for primary token (no React re-render needed)
+      // This creates intentional desynchronization between Konva and React state for performance.
+      // dragPositionsRef maintains the source of truth, ensuring React reconciliation uses
+      // correct positions if re-renders occur during drag.
+      const node = tokenNodesRef.current.get(tokenId);
+      if (node) {
+        node.x(newX);
+        node.y(newY);
+      }
+
+      // Batch redraw the layer for smooth visual updates
       if (tokenLayerRef.current) {
         tokenLayerRef.current.batchDraw();
       }
@@ -1574,7 +1621,7 @@ const CanvasManager = ({
                  // No action needed here; see comment above.
              }
         }}
-        style={{ cursor: (isSpacePressed && isDragging) ? 'grabbing' : (isSpacePressed ? 'grab' : (tool === 'select' ? 'default' : 'crosshair')) }}
+        style={{ cursor: getCursorStyle() }}
       >
         {/* Layer 1: Background & Map (Listening False to let internal events pass to Stage for selection) */}
         <Layer listening={false}>
@@ -1810,6 +1857,7 @@ const CanvasManager = ({
                 const displayY = dragPos ? dragPos.y : token.y;
                 const isDragging = draggingTokenIds.has(token.id);
                 const isSelected = selectedIds.includes(token.id);
+                const isHovered = hoveredTokenId === token.id && tool === 'select' && !isDragging;
 
                 // Check if token should be visible based on Fog of War rules
                 // In World View with Fog of War enabled:
@@ -1836,10 +1884,69 @@ const CanvasManager = ({
                   return null;
                 }
 
+                /**
+                 * Visual Effects & Performance
+                 *
+                 * Tokens render with dynamic shadows and scaling for visual feedback:
+                 * - Hover state: Enhanced shadow (12px blur) + 2% scale increase
+                 * - Dragging state: Strong shadow (20px blur) + 5% scale + opacity change
+                 *
+                 * Performance optimizations:
+                 * - shadowForStrokeEnabled=false (only shadow fills, not strokes)
+                 * - RAF-throttled batchDraw() during drag (limited to browser refresh rate, typically 60fps)
+                 * - Konva-level caching for complex visual effects
+                 * - Resting state has no shadow to reduce continuous rendering cost
+                 */
+                const getVisualProps = () => {
+                  // Common performance optimization: disable shadow for strokes
+                  const baseShadowProps = {
+                    shadowForStrokeEnabled: false, // Performance: Only shadow fill, not stroke
+                  };
+
+                  if (isDragging) {
+                    return {
+                      ...baseShadowProps,
+                      opacity: 0.5,
+                      scaleX: 1.05,
+                      scaleY: 1.05,
+                      shadowColor: 'rgba(0, 0, 0, 0.6)',
+                      shadowBlur: 20,
+                      shadowOffsetX: 5,
+                      shadowOffsetY: 5,
+                    };
+                  }
+                  if (isHovered) {
+                    return {
+                      ...baseShadowProps,
+                      scaleX: 1.02,
+                      scaleY: 1.02,
+                      shadowColor: 'rgba(0, 0, 0, 0.4)',
+                      shadowBlur: 12,
+                      shadowOffsetX: 2,
+                      shadowOffsetY: 2,
+                    };
+                  }
+                  // Resting state - no shadow for better performance
+                  return {
+                    ...baseShadowProps,
+                    scaleX: 1,
+                    scaleY: 1,
+                  };
+                };
+
+                const visualProps = getVisualProps();
+
                 return (
                 <Group key={token.id}>
                 <TokenErrorBoundary tokenId={token.id}>
                 <URLImage
+                    ref={(node) => {
+                      if (node) {
+                        tokenNodesRef.current.set(token.id, node);
+                      } else {
+                        tokenNodesRef.current.delete(token.id);
+                      }
+                    }}
                     name="token"
                     id={token.id}
                     src={token.src}
@@ -1848,13 +1955,17 @@ const CanvasManager = ({
                     width={gridSize * token.scale}
                     height={gridSize * token.scale}
                     draggable={false}
-                    opacity={isDragging ? 0.7 : undefined}
+                    // Visual props (scaleX, scaleY, opacity, shadow) are transformation properties
+                    // that multiply with base dimensions to create hover/drag feedback effects
+                    {...visualProps}
                     onSelect={(e) => handleTokenMouseDown(e, token.id)}
+                    onMouseEnter={() => tool === 'select' && setHoveredTokenId(token.id)}
+                    onMouseLeave={() => tool === 'select' && setHoveredTokenId(null)}
                     onDragStart={emptyDragHandler}
                     onDragMove={emptyDragHandler}
                     onDragEnd={emptyDragHandler}
                 />
-                {/* Selection border - visible feedback when token is selected */}
+                {/* Selection border - enhanced with glow effect */}
                 {isSelected && (
                   <Rect
                     x={displayX}
@@ -1863,6 +1974,9 @@ const CanvasManager = ({
                     height={gridSize * token.scale}
                     stroke="#2563eb"
                     strokeWidth={3}
+                    shadowColor="#2563eb"
+                    shadowBlur={8}
+                    shadowEnabled={true}
                     listening={false}
                   />
                 )}

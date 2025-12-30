@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Image as KonvaImage } from 'react-konva';
 import useImage from 'use-image';
 import Konva from 'konva';
@@ -18,18 +18,28 @@ export interface URLImageProps {
   onDragStart?: (e: KonvaEventObject<DragEvent>) => void;
   onDragMove?: (e: KonvaEventObject<DragEvent>) => void;
   onDragEnd?: (e: KonvaEventObject<DragEvent>) => void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
   draggable: boolean;
   opacity?: number;
   listening?: boolean;
   filters?: Filter[];
   blurRadius?: number;
   brightness?: number;
+  shadowColor?: string;
+  shadowBlur?: number;
+  shadowOffsetX?: number;
+  shadowOffsetY?: number;
+  shadowForStrokeEnabled?: boolean;
 }
 
-const URLImage = ({ src, x, y, width, height, scaleX = 1, scaleY = 1, id, onSelect, onDragEnd, onDragStart, onDragMove, draggable, name, opacity, listening, filters, blurRadius, brightness }: URLImageProps) => {
+const URLImage = forwardRef<Konva.Image, URLImageProps>(({ src, x, y, width, height, scaleX = 1, scaleY = 1, id, onSelect, onDragEnd, onDragStart, onDragMove, onMouseEnter, onMouseLeave, draggable, name, opacity, listening, filters, blurRadius, brightness, shadowColor, shadowBlur, shadowOffsetX, shadowOffsetY, shadowForStrokeEnabled }, ref) => {
   const safeSrc = src.startsWith('file:') ? src.replace('file:', 'media:') : src;
   const [img] = useImage(safeSrc);
   const imageRef = useRef<Konva.Image>(null);
+
+  // Expose the Konva node to parent via ref
+  useImperativeHandle(ref, () => imageRef.current as Konva.Image, []);
 
   useEffect(() => {
     // Apply cache when filters are present
@@ -60,6 +70,8 @@ const URLImage = ({ src, x, y, width, height, scaleX = 1, scaleY = 1, id, onSele
       draggable={draggable}
       onMouseDown={onSelect}
       onTouchStart={onSelect}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       onDragEnd={onDragEnd}
       onDragStart={onDragStart}
       onDragMove={onDragMove}
@@ -68,8 +80,15 @@ const URLImage = ({ src, x, y, width, height, scaleX = 1, scaleY = 1, id, onSele
       filters={filters}
       blurRadius={blurRadius}
       brightness={brightness}
+      shadowColor={shadowColor}
+      shadowBlur={shadowBlur}
+      shadowOffsetX={shadowOffsetX}
+      shadowOffsetY={shadowOffsetY}
+      shadowForStrokeEnabled={shadowForStrokeEnabled}
     />
   );
-};
+});
+
+URLImage.displayName = 'URLImage';
 
 export default URLImage;
