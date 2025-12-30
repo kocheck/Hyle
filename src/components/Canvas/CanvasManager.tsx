@@ -389,28 +389,30 @@ const CanvasManager = ({
       performZoom(newScale, centerX, centerY, scale, position);
   }, [scale, position, size.width, size.height, performZoom]);
 
-    // DEBUG: Global mousedown listener to trace event capture
+    // DEBUG: Global event listeners to trace ALL pointer/mouse/touch events
   useEffect(() => {
-    const globalMouseDownCapture = (e: MouseEvent) => {
+    const logEvent = (eventName: string, e: Event) => {
       if (tool === 'marker' || tool === 'wall') {
-        console.log('[GLOBAL CAPTURE] mousedown on:', e.target, 'tagName:', (e.target as HTMLElement)?.tagName, 'className:', (e.target as HTMLElement)?.className);
+        console.log(`[GLOBAL ${eventName}]`, 'target:', e.target, 'tagName:', (e.target as HTMLElement)?.tagName);
       }
     };
 
-    const globalMouseDownBubble = (e: MouseEvent) => {
-      if (tool === 'marker' || tool === 'wall') {
-        console.log('[GLOBAL BUBBLE] mousedown reached window!', 'target:', e.target);
-      }
-    };
+    const mouseDown = (e: MouseEvent) => logEvent('MOUSEDOWN', e);
+    const pointerDown = (e: PointerEvent) => logEvent('POINTERDOWN', e);
+    const touchStart = (e: TouchEvent) => logEvent('TOUCHSTART', e);
+    const click = (e: MouseEvent) => logEvent('CLICK', e);
 
-    // Listen in capture phase (fires first, top-down)
-    window.addEventListener('mousedown', globalMouseDownCapture, true);
-    // Listen in bubble phase (fires last, bottom-up)
-    window.addEventListener('mousedown', globalMouseDownBubble, false);
+    // Listen to ALL possible down events
+    window.addEventListener('mousedown', mouseDown, true);
+    window.addEventListener('pointerdown', pointerDown, true);
+    window.addEventListener('touchstart', touchStart, true);
+    window.addEventListener('click', click, true);
 
     return () => {
-      window.removeEventListener('mousedown', globalMouseDownCapture, true);
-      window.removeEventListener('mousedown', globalMouseDownBubble, false);
+      window.removeEventListener('mousedown', mouseDown, true);
+      window.removeEventListener('pointerdown', pointerDown, true);
+      window.removeEventListener('touchstart', touchStart, true);
+      window.removeEventListener('click', click, true);
     };
   }, [tool]);
 
