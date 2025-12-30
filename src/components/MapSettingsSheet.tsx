@@ -49,6 +49,13 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({
 
   // Local state for map name
   const [mapName, setMapName] = useState('');
+  
+  // Local state for pending map data in CREATE mode
+  const [pendingMapData, setPendingMapData] = useState<{
+    src: string;
+    width: number;
+    height: number;
+  } | null>(null);
 
   // Load current map data when in EDIT mode
   useEffect(() => {
@@ -67,6 +74,8 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({
         ? Math.max(...mapNumbers) + 1
         : maps.length + 1;
       setMapName(`Map ${nextNumber}`);
+      // Clear pending map data when opening in CREATE mode
+      setPendingMapData(null);
     }
   }, [mode, mapId, campaign.maps, isOpen]);
 
@@ -110,15 +119,28 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({
       const img = new Image();
       img.src = objectUrl;
       img.onload = () => {
-        setMap({
+        const nextMap = {
           src,
           x: 0,
           y: 0,
           width: img.width,
           height: img.height,
           scale: 1
-        });
-        setIsCalibrating(true);
+        };
+
+        // Only apply to the active map immediately when editing an existing map.
+        // In CREATE mode, store in local state to avoid mutating the global active map
+        // so that cancelling the sheet does not leave behind unintended changes.
+        if (mode === 'EDIT') {
+          setMap(nextMap);
+          setIsCalibrating(true);
+        } else if (mode === 'CREATE') {
+          setPendingMapData({
+            src,
+            width: img.width,
+            height: img.height
+          });
+        }
         URL.revokeObjectURL(objectUrl);
       };
       img.onerror = (e) => {
@@ -136,15 +158,33 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({
   };
 
   const handleSave = () => {
+    const trimmedName = mapName.trim();
+
     if (mode === 'CREATE') {
       // Create new map
-      addMap(mapName.trim() || 'Untitled Map');
+      addMap(trimmedName || 'Untitled Map');
+      
+      // Apply pending map data if it exists
+      if (pendingMapData) {
+        setMap({
+          src: pendingMapData.src,
+          x: 0,
+          y: 0,
+          width: pendingMapData.width,
+          height: pendingMapData.height,
+          scale: 1
+        });
+        setIsCalibrating(true);
+      }
+      
       onClose();
     } else if (mode === 'EDIT' && mapId) {
       // Update existing map name
-      if (mapName.trim()) {
-        renameMap(mapId, mapName.trim());
+      if (!trimmedName) {
+        showToast('Map name cannot be empty.', 'error');
+        return;
       }
+      renameMap(mapId, trimmedName);
       onClose();
     }
   };

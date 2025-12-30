@@ -327,8 +327,8 @@ function App() {
             'Create a new campaign? Any unsaved changes will be lost.',
             () => {
                 // Reset to default campaign
-                const { addMap } = useGameStore.getState();
-                addMap('Map 1');
+                const { resetToNewCampaign } = useGameStore.getState();
+                resetToNewCampaign();
             },
             'Create New Campaign'
         );
@@ -583,8 +583,8 @@ function App() {
 
             {/* Recent colors - Smaller circles */}
             <div className="flex gap-1.5">
-              {recentColors.map((recentColor, index) => (
-                <Tooltip key={index} content={`Use color ${recentColor}`}>
+              {recentColors.map((recentColor) => (
+                <Tooltip key={recentColor} content={`Use color ${recentColor}`}>
                   <button
                     onClick={() => handleColorChange(recentColor)}
                     className="w-8 h-8 rounded-full border-2 border-neutral-600 shadow-md hover:scale-110 transition-transform cursor-pointer"

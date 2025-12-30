@@ -170,6 +170,11 @@ const CommandPalette = ({
         onClose();
       } else if (e.key === 'Enter' && results.length > 0) {
         // Select highlighted result on Enter
+        const selectedItem = results[selectedIndex];
+        if (!selectedItem || selectedItem.type === 'section') {
+          // Don't trigger selection when a section header is highlighted
+          return;
+        }
         handleSelectItem(selectedIndex);
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
