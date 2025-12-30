@@ -6,8 +6,8 @@ import { rollForMessage } from '../utils/systemMessages';
 import { BackgroundCanvas } from './HomeScreen/BackgroundCanvas';
 import { PlaygroundToken } from './HomeScreen/PlaygroundToken';
 import { VignetteOverlay } from './HomeScreen/VignetteOverlay';
-import { LogoIcon } from './HomeScreen/LogoIcon';
-import { AboutModal } from './HomeScreen/AboutModal';
+import { LogoIcon } from './LogoIcon';
+import { AboutModal } from './AboutModal';
 
 interface HomeScreenProps {
   onStartEditor: () => void;
