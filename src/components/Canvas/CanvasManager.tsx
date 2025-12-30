@@ -1579,6 +1579,43 @@ const CanvasManager = ({
             console.log('[CanvasManager] DIV onMouseMove');
           }
         }}
+        onMouseUp={(e) => {
+          console.log('[CanvasManager] DIV onMouseUp captured!', 'tool:', tool);
+
+          // CRITICAL FIX: Handle mouseup at container level to match mousedown handling
+          if (tool !== 'select' && stageRef.current) {
+            console.log('[CanvasManager] Handling drawing tool mouseup at DIV level');
+
+            // Convert browser coordinates to Konva stage coordinates
+            const stage = stageRef.current;
+            const container = stage.container();
+            const rect = container.getBoundingClientRect();
+
+            // Calculate stage-relative coordinates
+            const x = (e.clientX - rect.left - stage.x()) / stage.scaleX();
+            const y = (e.clientY - rect.top - stage.y()) / stage.scaleY();
+
+            // Create synthetic Konva event
+            const syntheticEvent = {
+              target: {
+                getStage: () => stage,
+                id: () => null,
+                constructor: { name: 'Stage' }
+              },
+              evt: e.nativeEvent
+            };
+
+            // Override getRelativePointerPosition to return our calculated coords
+            const originalGetRelativePointerPosition = stage.getRelativePointerPosition;
+            stage.getRelativePointerPosition = () => ({ x, y });
+
+            console.log('[CanvasManager] Calling handleMouseUp with synthetic event, coords:', { x, y });
+            handleMouseUp(syntheticEvent);
+
+            // Restore original method
+            stage.getRelativePointerPosition = originalGetRelativePointerPosition;
+          }
+        }}
     >
       {pendingCrop && (
         <AssetProcessingErrorBoundary>
