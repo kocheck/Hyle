@@ -904,12 +904,10 @@ const CanvasManager = ({
 
   // Drawing Handlers
   const handleMouseDown = (e: any) => {
-    console.log('[CanvasManager] handleMouseDown fired, tool:', tool, 'target:', e.target.constructor.name, 'isDrawing:', isDrawing.current);
     if (isSpacePressed) return; // Allow panning
 
     // DOOR TOOL - Do nothing on mouse down, wait for mouse up
     if (tool === 'door') {
-      console.log('[CanvasManager] Door tool active - ignoring mouseDown');
       return;
     }
 
@@ -941,11 +939,9 @@ const CanvasManager = ({
     // If marker/eraser/wall, draw
     // BLOCKED in World View (players cannot draw)
     if (tool !== 'select') {
-        console.log('[CanvasManager] Drawing tool detected:', tool);
         if (isWorldView) return; // Block drawing tools in World View
         isDrawing.current = true;
         const pos = e.target.getStage().getRelativePointerPosition();
-        console.log('[CanvasManager] Setting isDrawing to true, pos:', pos);
 
         // Set color and size based on tool type
         let drawColor = color;
@@ -966,7 +962,6 @@ const CanvasManager = ({
             color: drawColor,
             size: drawSize,
         };
-        console.log('[CanvasManager] Created currentLine with', currentLine.current.points.length / 2, 'points');
         return;
     }
 
@@ -1012,9 +1007,6 @@ const CanvasManager = ({
   // Using onContentClick instead (fires on mouseup, like the old onClick behavior)
 
   const handleMouseMove = (e: any) => {
-    if (tool === 'marker' || tool === 'wall') {
-      console.log('[CanvasManager] handleMouseMove, tool:', tool, 'isDrawing:', isDrawing.current, 'isSpacePressed:', isSpacePressed);
-    }
     if (isSpacePressed) return;
 
     // DOOR TOOL PREVIEW - Show preview while hovering
@@ -1099,17 +1091,12 @@ const CanvasManager = ({
     }
 
     if (tool !== 'select') {
-        console.log('[CanvasManager] In drawing section, isWorldView:', isWorldView, 'isDrawing:', isDrawing.current);
         // BLOCKED in World View (no drawing tools)
         if (isWorldView) return;
-        if (!isDrawing.current) {
-          console.log('[CanvasManager] Exiting because isDrawing is false');
-          return;
-        }
+        if (!isDrawing.current) return;
         const stage = e.target.getStage();
         let point = stage.getRelativePointerPosition();
         const cur = currentLine.current;
-        console.log('[CanvasManager] Adding point to line:', point, 'currentLine has', cur?.points.length, 'coords');
 
         // Guard against null currentLine
         if (!cur) return;
@@ -1538,12 +1525,8 @@ const CanvasManager = ({
         onDragOver={handleDragOver}
         onDrop={handleDrop}
         onMouseDown={(e) => {
-          console.log('[CanvasManager] DIV onMouseDown captured!', e.target, 'tool:', tool);
-
           // CRITICAL FIX: Handle drawing tools at container level since Stage mousedown is blocked
           if (tool !== 'select' && !isSpacePressed && stageRef.current) {
-            console.log('[CanvasManager] Handling drawing tool mousedown at DIV level');
-
             // Convert browser coordinates to Konva stage coordinates
             const stage = stageRef.current;
             const container = stage.container();
@@ -1567,7 +1550,6 @@ const CanvasManager = ({
             const originalGetRelativePointerPosition = stage.getRelativePointerPosition;
             stage.getRelativePointerPosition = () => ({ x, y });
 
-            console.log('[CanvasManager] Calling handleMouseDown with synthetic event, coords:', { x, y });
             handleMouseDown(syntheticEvent);
 
             // Restore original method
@@ -1575,17 +1557,38 @@ const CanvasManager = ({
           }
         }}
         onMouseMove={(e) => {
-          if (tool === 'marker' || tool === 'wall') {
-            console.log('[CanvasManager] DIV onMouseMove');
+          // CRITICAL FIX: Handle mouse move at DIV level for drawing tools
+          if (tool !== 'select' && stageRef.current && isDrawing.current) {
+            // Convert browser coordinates to Konva stage coordinates
+            const stage = stageRef.current;
+            const container = stage.container();
+            const rect = container.getBoundingClientRect();
+
+            const x = (e.clientX - rect.left - stage.x()) / stage.scaleX();
+            const y = (e.clientY - rect.top - stage.y()) / stage.scaleY();
+
+            // Create synthetic Konva event
+            const syntheticEvent = {
+              target: {
+                getStage: () => stage,
+                constructor: { name: 'Stage' }
+              },
+              evt: e.nativeEvent
+            };
+
+            // Override getRelativePointerPosition
+            const originalGetRelativePointerPosition = stage.getRelativePointerPosition;
+            stage.getRelativePointerPosition = () => ({ x, y });
+
+            handleMouseMove(syntheticEvent);
+
+            // Restore original method
+            stage.getRelativePointerPosition = originalGetRelativePointerPosition;
           }
         }}
         onMouseUp={(e) => {
-          console.log('[CanvasManager] DIV onMouseUp captured!', 'tool:', tool);
-
           // CRITICAL FIX: Handle mouseup at container level to match mousedown handling
           if (tool !== 'select' && stageRef.current) {
-            console.log('[CanvasManager] Handling drawing tool mouseup at DIV level');
-
             // Convert browser coordinates to Konva stage coordinates
             const stage = stageRef.current;
             const container = stage.container();
@@ -1609,7 +1612,6 @@ const CanvasManager = ({
             const originalGetRelativePointerPosition = stage.getRelativePointerPosition;
             stage.getRelativePointerPosition = () => ({ x, y });
 
-            console.log('[CanvasManager] Calling handleMouseUp with synthetic event, coords:', { x, y });
             handleMouseUp(syntheticEvent);
 
             // Restore original method
@@ -1634,7 +1636,6 @@ const CanvasManager = ({
         draggable={isSpacePressed}
         onMouseDown={(e) => {
           // Only handle select tool here - drawing tools handled at DIV level
-          console.log('[CanvasManager] Stage onMouseDown captured!', e.target.constructor.name);
           if (tool === 'select') {
             handleMouseDown(e);
           }
@@ -1643,10 +1644,7 @@ const CanvasManager = ({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onWheel={handleWheel}
-        onTouchStart={(e) => {
-          console.log('[CanvasManager] Stage onTouchStart captured!', e.evt.touches.length, 'touches');
-          handleTouchStart(e);
-        }}
+        onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         scaleX={scale}
