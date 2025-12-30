@@ -1160,8 +1160,15 @@ const CanvasManager = ({
             }
         }
 
-        // Update points in ref: create a new points array and assign it to the ref object
-        cur.points = cur.points.concat([point.x, point.y]);
+        // Performance optimization: Skip duplicate points to reduce memory and render overhead
+        const lastIdx = cur.points.length - 2;
+        if (lastIdx >= 0 && cur.points[lastIdx] === point.x && cur.points[lastIdx + 1] === point.y) {
+            return; // Skip duplicate point
+        }
+
+        // Performance optimization: Use push (in-place mutation) instead of concat (array copy)
+        // This reduces GC pressure and is faster for large stroke collections
+        cur.points.push(point.x, point.y);
 
         // Cancel previous animation frame
         if (drawingAnimationFrameRef.current) {
@@ -1325,8 +1332,8 @@ const CanvasManager = ({
              drawingAnimationFrameRef.current = null;
          }
 
-         if (tempLine) {
-             let processedLine: Drawing = { ...tempLine };
+         if (currentLine.current) {
+             let processedLine: Drawing = { ...currentLine.current };
 
              // Apply path smoothing for wall tool (if enabled)
              if (processedLine.tool === 'wall' && wallToolPrefs.enableSmoothing) {
@@ -1372,6 +1379,7 @@ const CanvasManager = ({
              }
 
              addDrawing(processedLine);
+             currentLine.current = null;
              setTempLine(null);
          }
          return;

@@ -728,3 +728,8 @@ export const useGameStore = create<GameState>((set, get) => {
     setDmMeasurement: (measurement: Measurement | null) => set({ dmMeasurement: measurement }),
   };
 });
+
+// Expose store to window for E2E testing
+if (typeof window !== 'undefined' && (import.meta.env.DEV || import.meta.env.MODE === 'test')) {
+  (window as any).__GAME_STORE__ = useGameStore;
+}
