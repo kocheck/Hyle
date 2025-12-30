@@ -1561,10 +1561,9 @@ const CanvasManager = ({
         width={size.width}
         height={size.height}
         draggable={isSpacePressed}
-        onContentClick={(e) => {
-          // Use click instead of mousedown for drawing tools - fires reliably unlike mousedown
-          // This mimics the old onClick behavior that worked before PR #126
-          console.log('[CanvasManager] Stage onContentClick captured!', e.target.constructor.name, 'tool:', tool);
+        onClick={(e) => {
+          // Use click for drawing tools since mousedown is being blocked
+          console.log('[CanvasManager] Stage onClick captured!', e.target.constructor.name, 'tool:', tool);
           if (tool !== 'select') {
             handleMouseDown(e);
           }
