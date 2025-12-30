@@ -1532,6 +1532,14 @@ const CanvasManager = ({
         className="canvas-container w-full h-full overflow-hidden relative"
         onDragOver={handleDragOver}
         onDrop={handleDrop}
+        onMouseDown={(e) => {
+          console.log('[CanvasManager] DIV onMouseDown captured!', e.target, 'tool:', tool);
+        }}
+        onMouseMove={(e) => {
+          if (tool === 'marker' || tool === 'wall') {
+            console.log('[CanvasManager] DIV onMouseMove');
+          }
+        }}
     >
       {pendingCrop && (
         <AssetProcessingErrorBoundary>
