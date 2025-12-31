@@ -1,10 +1,7 @@
 ```
 <div align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="public/branding/logo-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="public/branding/logo-light.svg">
-    <img alt="Hyle Logo" src="public/branding/logo-light.svg" width="600">
-  </picture>
+  <img src="public/branding/logo-light.svg#gh-light-mode-only" alt="Hyle Logo" width="600">
+  <img src="public/branding/logo-dark.svg#gh-dark-mode-only" alt="Hyle Logo" width="600">
 </div>
 
 ### *An Arcane Battlemat for the Discerning Dungeon Master*
