@@ -18,8 +18,8 @@
  * - 'create-world-window': Creates World View window
  * - 'SYNC_WORLD_STATE': Broadcasts state changes to World Window
  * - 'SAVE_ASSET_TEMP': Saves processed asset to temp directory
- * - 'SAVE_CAMPAIGN': Serializes campaign to .hyle ZIP file
- * - 'LOAD_CAMPAIGN': Deserializes .hyle file and restores assets
+ * - 'SAVE_CAMPAIGN': Serializes campaign to .graphium ZIP file
+ * - 'LOAD_CAMPAIGN': Deserializes .graphium file and restores assets
  * - 'SELECT_LIBRARY_PATH': Opens directory picker for library location
  * - 'SAVE_ASSET_TO_LIBRARY': Saves asset to persistent library
  * - 'LOAD_LIBRARY_INDEX': Loads library metadata index
@@ -436,7 +436,7 @@ if (!gotTheLock) {
       mainWindow.focus();
 
       // Extract file path from command line
-      const filePath = commandLine.find(arg => arg.endsWith('.hyle'));
+      const filePath = commandLine.find(arg => arg.endsWith('.graphium'));
       if (filePath) {
         mainWindow.webContents.send('OPEN_FILE_FROM_OS', filePath);
       }
@@ -496,7 +496,7 @@ app.whenReady().then(() => {
   }
 
   // Check for cold-start file open (Windows/Linux)
-  const argvFile = process.argv.find(arg => arg.endsWith('.hyle'));
+  const argvFile = process.argv.find(arg => arg.endsWith('.graphium'));
   if (argvFile && mainWindow) {
        mainWindow.webContents.on('did-finish-load', () => {
           mainWindow?.webContents.send('OPEN_FILE_FROM_OS', argvFile);
@@ -621,7 +621,7 @@ app.whenReady().then(() => {
    * **Why temp storage:**
    * - Assets need to persist until campaign is saved
    * - Temp directory is cleaned on app restart (no orphaned files)
-   * - Campaign save copies assets into .hyle ZIP (permanent storage)
+   * - Campaign save copies assets into .graphium ZIP (permanent storage)
    *
    * @param buffer - WebP image data as ArrayBuffer
    * @param name - Original filename (with .webp extension)
@@ -735,7 +735,7 @@ app.whenReady().then(() => {
   /**
    * IPC handler: SAVE_CAMPAIGN
    *
-   * Serializes campaign state to a .hyle ZIP file.
+   * Serializes campaign state to a .graphium ZIP file.
    * Handles multi-map campaigns by iterating through all maps and collecting assets.
    *
    * @param campaign - Campaign data from useGameStore.campaign
@@ -744,7 +744,7 @@ app.whenReady().then(() => {
     'SAVE_CAMPAIGN',
     async (_event: IpcMainInvokeEvent, campaign: unknown) => {
       const { filePath } = await dialog.showSaveDialog({
-        filters: [{ name: 'Hyle Campaign', extensions: ['hyle'] }],
+        filters: [{ name: 'Graphium Campaign', extensions: ['graphium'] }],
       });
       if (!filePath) return false;
 
@@ -810,7 +810,7 @@ app.whenReady().then(() => {
   /**
    * IPC handler: LOAD_CAMPAIGN
    *
-   * Deserializes a .hyle ZIP file and restores campaign state.
+   * Deserializes a .graphium ZIP file and restores campaign state.
    * Handles migration from legacy single-map files to new Campaign format.
    */
   ipcMain.handle('LOAD_CAMPAIGN', async () => {
@@ -1337,7 +1337,7 @@ app.whenReady().then(() => {
       try {
         const { filePath, canceled } = await dialog.showSaveDialog({
           title: 'Save Error Report',
-          defaultPath: `hyle-error-report-${Date.now()}.txt`,
+          defaultPath: `graphium-error-report-${Date.now()}.txt`,
           filters: [
             { name: 'Text Files', extensions: ['txt'] },
             { name: 'All Files', extensions: ['*'] },

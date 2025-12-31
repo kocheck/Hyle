@@ -54,9 +54,9 @@ const PendingErrorsIndicator: React.FC<PendingErrorsIndicatorProps> = ({
       refreshErrors();
     };
 
-    window.addEventListener('hyle-error', handleNewError);
+    window.addEventListener('graphium-error', handleNewError);
     return () => {
-      window.removeEventListener('hyle-error', handleNewError);
+      window.removeEventListener('graphium-error', handleNewError);
     };
   }, [refreshErrors]);
 
@@ -90,7 +90,7 @@ const PendingErrorsIndicator: React.FC<PendingErrorsIndicatorProps> = ({
           // Truncate non-encoded string first, then encode to avoid breaking escape sequences
           let currentLength = 0;
           const encodedChunks: string[] = [];
-          
+
           for (const char of issueBody) {
             const encodedChar = encodeURIComponent(char);
             if (currentLength + encodedChar.length > allowedBodyLength) {
@@ -99,7 +99,7 @@ const PendingErrorsIndicator: React.FC<PendingErrorsIndicatorProps> = ({
             encodedChunks.push(encodedChar);
             currentLength += encodedChar.length;
           }
-          
+
           const truncatedEncodedBody = encodedChunks.join('');
           githubUrl = `${baseWithTitle}${bodyPrefix}${truncatedEncodedBody}`;
         }

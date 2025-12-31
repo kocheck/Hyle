@@ -63,7 +63,7 @@ describe('HomeScreen', () => {
     it('should render home screen with branding', () => {
       render(<HomeScreen onStartEditor={mockOnStartEditor} />);
 
-      expect(screen.getByText('Hyle')).toBeInTheDocument();
+      expect(screen.getByText('Graphium')).toBeInTheDocument();
       expect(screen.getByText('Virtual Tabletop for Dungeon Masters')).toBeInTheDocument();
     });
 
@@ -192,7 +192,7 @@ describe('HomeScreen', () => {
 
       await waitFor(() => {
         expect(mockShowToast).toHaveBeenCalledWith(
-          'Recent campaigns are a reference list only right now. Use "Load Campaign" and select the matching .hyle file.',
+          'Recent campaigns are a reference list only right now. Use "Load Campaign" and select the matching .graphium file.',
           'info'
         );
       });
@@ -321,7 +321,7 @@ describe('HomeScreen', () => {
         'Create a new campaign and start the editor'
       );
       const loadCampaignButton = screen.getByLabelText(
-        'Load an existing campaign from a .hyle file'
+        'Load an existing campaign from a .graphium file'
       );
 
       expect(newCampaignButton).toBeInTheDocument();

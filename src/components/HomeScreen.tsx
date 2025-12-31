@@ -640,7 +640,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
                 </p>
               </div>
               <a
-                href="https://github.com/kocheck/Hyle/releases"
+                href="https://github.com/kocheck/Graphium/releases"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="btn btn-primary px-4 py-2 rounded font-medium whitespace-nowrap"
@@ -706,11 +706,11 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
               setIsAboutOpen(true);
             }}
             className="learn-basics-btn w-full p-4 rounded-lg text-center transition-all hover:scale-102"
-            aria-label="Learn about Hyle features"
+            aria-label="Learn about Graphium features"
           >
             <div className="flex items-center justify-center gap-2">
               <RiInformationLine className="w-5 h-5" />
-              <span className="font-medium">✨ New to Hyle? Learn the basics</span>
+              <span className="font-medium">✨ New to Graphium? Learn the basics</span>
             </div>
           </button>
         </div>
@@ -780,7 +780,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
           {/* Links */}
           <div className="flex items-center gap-4 text-sm" style={{ pointerEvents: 'auto' }}>
             <a
-              href="https://github.com/kocheck/Hyle"
+              href="https://github.com/kocheck/Graphium"
               target="_blank"
               rel="noopener noreferrer"
               className="footer-link"
@@ -799,7 +799,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
             </button>
             <span style={{ color: 'var(--app-border-default)' }}>·</span>
             <a
-              href="https://github.com/kocheck/Hyle/issues"
+              href="https://github.com/kocheck/Graphium/issues"
               target="_blank"
               rel="noopener noreferrer"
               className="footer-link"
