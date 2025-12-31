@@ -69,7 +69,7 @@ export default defineConfig({
       use: {
         // Launch actual Electron executable
         // Note: Requires Electron build to exist (npm run build)
-        // @ts-ignore - _electron is a valid Playwright context
+        // @ts-expect-error - _electron is a valid Playwright context
         _electron: {
           executablePath: require('electron'),
           args: [
