@@ -30,7 +30,7 @@
 
 **The Sacred Philosophy:** Hyle is a **generic digital battlemat**—no more, no less. It cares not whether you run D&D 5e, Pathfinder, or a homebrew system powered by coin flips and interpretive dance. Your data remains **yours**, stored locally in sacred `.hyle` files that no cloud wizard can touch.
 
-![Hyle Screenshot](https://via.placeholder.com/800x450?text=Hyle+Application+Preview)
+![Hyle Screenshot](public/screenshots/hyle-overview.png)
 
 ---
 
@@ -159,11 +159,11 @@ npm run dev
 <summary>🔮 Summoning Circle ASCII</summary>
 
 ```text
-                    ____ 
+                    ____
                   .'* *.'
                __/_*_*(_
               / _______ \
-             _\_)/___\(_/_ 
+             _\_)/___\(_/_
             / _((\- -/))_ \
             \ \())(-)(()/ /
              ' \(((()))/ '
@@ -386,9 +386,9 @@ npm run test:e2e -- tests/campaign-management.spec.ts
 
 ```text
               __...--~~~~~-._   _.-~~~~~--...__
-            //               `V'               \\ 
-           //                 |                 \\ 
-          //__...--~~~~~~-._  |  _.-~~~~~~--...__\\ 
+            //               `V'               \\
+           //                 |                 \\
+          //__...--~~~~~~-._  |  _.-~~~~~~--...__\\
          //__.....----~~~~._\ | /_.~~~~----.....__\\
         ====================\\|//====================
                             `---`
@@ -498,7 +498,7 @@ Found a bug? [Open an issue](https://github.com/kocheck/hyle/issues/new) with:
 
 ### **Application Won't Launch**
 
-**Issue**: Electron window doesn't appear  
+**Issue**: Electron window doesn't appear
 **Solution**:
 ```bash
 # Clear cache and rebuild
@@ -507,7 +507,7 @@ npm install
 npm run dev
 ```
 
-**Issue**: "Module not found" errors  
+**Issue**: "Module not found" errors
 **Solution**: Ensure Node.js version is 18+
 ```bash
 node --version  # Should be v18.0.0 or higher
@@ -515,27 +515,27 @@ node --version  # Should be v18.0.0 or higher
 
 ### **Map/Token Loading Issues**
 
-**Issue**: Images don't appear after drag-and-drop  
+**Issue**: Images don't appear after drag-and-drop
 **Solution**:
 - Check image format (JPG, PNG, WebP only)
 - Ensure file size is < 50MB
 - Try converting image to PNG
 
-**Issue**: Blurry/pixelated maps  
+**Issue**: Blurry/pixelated maps
 **Solution**:
 - Use higher resolution images (recommended: 2048x2048+)
 - Disable image optimization in settings
 
 ### **Performance Issues**
 
-**Issue**: Laggy canvas or slow rendering  
+**Issue**: Laggy canvas or slow rendering
 **Solution**:
 - Reduce map size/resolution
 - Close unnecessary tokens
 - Enable hardware acceleration:
   - Settings → Performance → GPU Acceleration
 
-**Issue**: High memory usage  
+**Issue**: High memory usage
 **Solution**:
 - Limit number of tokens on canvas (< 50 recommended)
 - Use compressed WebP images
@@ -543,26 +543,26 @@ node --version  # Should be v18.0.0 or higher
 
 ### **Fog of War Problems**
 
-**Issue**: Fog doesn't reveal correctly  
+**Issue**: Fog doesn't reveal correctly
 **Solution**:
 - Check token vision radius is > 0
 - Ensure walls aren't blocking vision unintentionally
 - Refresh fog calculations: Right-click canvas → "Recalculate Fog"
 
-**Issue**: Walls not blocking line of sight  
+**Issue**: Walls not blocking line of sight
 **Solution**:
 - Walls must form closed loops to block vision
 - Check wall layer is visible in Architect View
 
 ### **File Saving/Loading**
 
-**Issue**: Campaign won't save  
+**Issue**: Campaign won't save
 **Solution**:
 - Check disk space
 - Ensure write permissions in save directory
 - Try saving to different location
 
-**Issue**: `.hyle` file won't load  
+**Issue**: `.hyle` file won't load
 **Solution**:
 - File may be corrupted—restore from backup
 - Check file integrity: Extract as ZIP and inspect `campaign.json`
@@ -580,52 +580,52 @@ node --version  # Should be v18.0.0 or higher
 
 ### **General**
 
-**Q: Is Hyle free?**  
+**Q: Is Hyle free?**
 A: Yes! Hyle is 100% free and open-source under the MIT License.
 
-**Q: Do I need an internet connection?**  
+**Q: Do I need an internet connection?**
 A: No. Hyle is fully local-first and works completely offline.
 
-**Q: Does Hyle work with online sessions?**  
+**Q: Does Hyle work with online sessions?**
 A: Yes! Share the World View window via Discord, Zoom, or any screen sharing tool.
 
-**Q: What game systems does Hyle support?**  
+**Q: What game systems does Hyle support?**
 A: Hyle is system-agnostic. It works with D&D, Pathfinder, OSR, homebrews—anything using a grid-based map.
 
 ### **Technical**
 
-**Q: What file format does Hyle use?**  
+**Q: What file format does Hyle use?**
 A: `.hyle` files are ZIP archives containing JSON metadata and image assets. They're human-readable and portable.
 
-**Q: Can I extract/modify .hyle files manually?**  
+**Q: Can I extract/modify .hyle files manually?**
 A: Yes! Rename `.hyle` to `.zip`, extract, and edit `campaign.json`. Re-zip and rename back to `.hyle`.
 
-**Q: How much storage do campaigns use?**  
+**Q: How much storage do campaigns use?**
 A: Depends on map size. Typical campaigns: 10-50MB. Large campaigns with many maps: 100-200MB.
 
-**Q: Can I share campaigns with other DMs?**  
+**Q: Can I share campaigns with other DMs?**
 A: Yes! Just send them the `.hyle` file. They can open it in their Hyle installation.
 
 ### **Features**
 
-**Q: Does Hyle have character sheets?**  
+**Q: Does Hyle have character sheets?**
 A: Not yet. Hyle focuses on the battlemap. Use D&D Beyond, Roll20, or paper for character management.
 
-**Q: Can players control their own tokens?**  
-A: Not in the current version. The DM controls all tokens. 
+**Q: Can players control their own tokens?**
+A: Not in the current version. The DM controls all tokens.
 
-**Q: Does Hyle support hexagonal grids?**  
+**Q: Does Hyle support hexagonal grids?**
 A: Not yet. Only square grids are currently supported. Hex grid support is on the roadmap.
 
 
 ### **Comparison**
 
-**Q: How does Hyle compare to Roll20/Foundry?**  
-A: 
+**Q: How does Hyle compare to Roll20/Foundry?**
+A:
 - **Hyle**: Lightweight, local-first, zero setup, free, focused on battlemap only
 - **Roll20/Foundry**: Full-featured VTTs with character sheets, dice rolling, rules automation
 
-**Q: Why use Hyle instead of [other tool]?**  
+**Q: Why use Hyle instead of [other tool]?**
 A: Choose Hyle if you want:
 - Complete privacy (no cloud/servers)
 - Minimal setup (no accounts/subscriptions)
