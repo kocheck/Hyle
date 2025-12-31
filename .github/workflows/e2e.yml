@@ -14,6 +14,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Required for electron-builder to access GitHub API
+permissions:
+  contents: write
+
 jobs:
   # ===== JOB 1: Web Tests (Sharded) =====
   test-web:
@@ -91,6 +95,8 @@ jobs:
 
       - name: Build Electron app
         run: npm run build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Playwright tests (Electron-App)
         run: npx playwright test --project=Electron-App
