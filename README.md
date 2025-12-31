@@ -19,15 +19,17 @@
 ![Tests](https://img.shields.io/badge/tests-172%20passing-success)
 ![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
 
-[Quick Start](#-quick-start) • [Philosophy](#-philosophy) • [Installation](#-the-forge) • [Usage](#-usage) • [Contributing](#-contributing)
+[Quick Start](#-quick-start-ritual) • [Philosophy](#--the-etched-philosophy) • [Tools](#-the-tools-of-creation) • [Installation](#-the-forge-installation) • [Contributing](#-join-the-guild)
 
 </div>
 
 ---
 
-> **Graphium** (Latin, from Greek *grapheîon*): A Roman stylus; a pointed writing tool for incising letters into wax tablets.
+> **Graphium** (Latin: a sharp stylus).
+> A tool for **Tactile Cartography** that treats your world not as a slippery whiteboard, but as a permanent etching.
 
-**Graphium** is a digital tool for **Tactile Cartography**. We are moving away from "whiteboarding"—which feels slippery and temporary—to **Graphium**, which implies etching and permanence. When a Dungeon Master or Designer uses this app, they aren't just sketching; they are carving the unknown into existence.
+**Graphium** is a Virtual Tabletop designed for the **Dungeon Master who prefers weight over fluff.**
+We believe map-making should feel like *carving* the unknown into existence. No cloud accounts. No subscriptions. No "slippery" controls. Just you, the stylus, and the infinite canvas.
 
 **Pronunciation**: GRAF-ee-um
 **Tagline**: "Inscribe the World."
@@ -36,58 +38,57 @@
 
 ---
 
-## 🏛 Philosophy
+## 🏛 The Etched Philosophy
 
-**From passive "matter" to active "tool".**
+***"Whiteboards are for brainstorming. Graphium is for history."***
 
-Romans drafted notes, letters, and plans with a *graphium* on wax; finalized history in ink; and surveyed with instruments. We bring that etched decisiveness to the digital age.
+Most VTTs feel floaty and temporary. Graphium is built with **funicular friction**—a satisfying "bite" to every interaction that makes your choices feel deliberate.
 
-Most digital canvases feel slippery and disposable. Graphium builds in controlled friction and "bite," so marks read as choices, not guesses. Edits are easy (as they were on wax), but every stroke carries intention.
-
-Your ideas don't float; they stick. Pick up the tool. **Inscribe the world.**
+- **From "Matter" to "Tool":** We evolved from *Hyle* (raw matter) to *Graphium* (the tool that shapes it).
+- **The Wax Tablet:** Romans drafted on wax because it was durable yet correctable. We bring that same tactile decisiveness to your digital campaign.
+- **Local Sovereignty:** Your world lives on *your* drive in sacred `.graphium` tomes. No cloud wizard can gaze upon your maps or hold your campaign hostage.
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick Start Ritual
 
-**TL;DR**: Local-first virtual tabletop. No accounts, no cloud, no slippery whiteboards. Just you, the stylus, and the infinite canvas.
+**TL;DR**: A local-first, dual-window VTT. Launch it, drag a map, and start carving walls.
 
 ```bash
-# Clone, install, and run
+# Summon the code
 git clone https://github.com/kocheck/Graphium.git
 cd Graphium
+
+# Bind dependencies
 npm install
+
+# Awakening
 npm run dev
 ```
 
-**First Session Setup:**
-1. Launch Graphium.
-2. Create or load a campaign.
-3. Drag a map image onto the surface.
-4. Click "World View" to open the player display.
-5. Inscribe tokens and etch fog of war.
-6. Save your session (`.graphium` file).
+**Your First Incantation:**
+1. **Launch Graphium**.
+2. **New Campaign** (`Cmd+N`).
+3. **Drag & Drop** any map image onto the Iron Grid.
+4. **Open World View**: Project this clean window to your players (or second monitor).
+5. **Carve Fog**: Use the **Wall Tool (W)** to block line-of-sight.
+6. **Inscribe**: Place tokens that reveal the map as they move.
 
 ---
 
-## ⚔️ The Tools of Interaction
+## ⚔️ The Tools of Creation
+
+Graphium gives you a dedicated "Architect's View" full of arcane instruments, while your players see only the "World View"—a pristine projection of your reality.
 
 ### **The Stylus (Marker Tools)**
-- **Etch**: Annotate the map with decisive lines.
-- **Inscribe**: Place tokens and markers that feel weighted and permanent.
-- **Surface**: The infinite canvas that accepts your inscription.
+- **Etch (Draw)**: Annotate the map. Marks feel physical and permanent.
+- **Inscribe (Tokens)**: Place characters and monsters.
+- **Occlude (Walls)**: Draw dynamic light-blocking barriers.
 
-### **Dual-Window Architecture**
-- **Architect View**: Your workshop. Tools, files, and hidden knowledge.
-- **World View**: The projection. A pristine view for your players, revealing only what you choose to show.
-
-### **The Wax Tablet (Persistence)**
-- **`.graphium` Files**: Your campaigns are stored in compressed archives.
-- **Local Sovereignty**: No cloud wizard touches your data. It stays on your machine, etched into your drive.
-
-### **Fog of War**
-- **Incision**: Cut through the darkness. Tokens reveal what they see.
-- **Occlusion**: Walls block sight, creating mystery and tactical depth.
+### **The Tablet (System)**
+- **Dual-Window Architecture**: One brain, two faces. You control the chaos; they witness the glory.
+- **Fog of War**: A hardware-accelerated raycasting engine that creates true mystery.
+- **Asset Conjuration**: Drag and drop images directly onto the canvas. We optimize them automatically.
 
 ---
 
@@ -95,67 +96,54 @@ npm run dev
 
 ### **Prerequisites**
 - **Node.js** (v18+)
-- **npm**
+- **npm** (The package summoner)
 
-### **Forging the Tool**
+### **Forging Instructions**
 
 ```bash
-# Clone the repository
+# 1. Claim the Source
 git clone https://github.com/kocheck/Graphium.git
 
-# Enter the workshop
+# 2. Enter the Workshop
 cd Graphium
 
-# Gather materials
+# 3. Gather Materials
 npm install
-```
 
-### **Awakening (Development)**
-
-```bash
-# Strike the anvil
+# 4. Strike the Anvil (Dev Mode)
 npm run dev
-```
 
-### **Final Polish (Production Build)**
-
-```bash
-# Forge for your platform
+# 5. Final Polish (Production Build)
 npm run build
 ```
 
 ---
 
-## 📖 Usage
+## 📖 Keyboard Sigils (Shortcuts)
 
-### **Inscribing a Campaign**
-1. **Launch Graphium**.
-2. **New Campaign**: `Ctrl/Cmd + N`.
-3. **Add Map**: Drag an image onto the surface.
-4. **Set Grid**: Align the matrix to your map.
-
-### **The Stylus in Action**
-- **Select (V)**: Manipulation mode.
-- **Marker (M)**: Draw/Etch on the surface.
-- **Eraser (E)**: Smooth the wax (remove marks).
-- **Wall (W)**: Define boundaries.
-- **Door (D)**: Create passages.
-
-### **Saving**
-- Campaigns are saved as `.graphium` files.
-- Press `Ctrl/Cmd + S` to preserve your work.
+- **V**: Select / Manipulate
+- **M**: Marker / Etch
+- **E**: Eraser / Smooth Wax
+- **W**: Wall / Occlude
+- **D**: Door / Passage
+- **I**: Color Picker
+- **Cmd + S**: Save the Tome (.graphium)
+- **Cmd + O**: Open a Tome
+- **Shift + Drag**: Lock Axis
 
 ---
 
-## 🤝 Contributing
+## 🤝 Join the Guild
 
-We welcome fellow smiths to the forge.
+We welcome fellow smiths to the forge. If you wish to improve the tool:
 
-1. Fork the repository.
-2. Create a feature branch.
-3. Submit a Pull Request.
+1. **Fork** the repository.
+2. **Create a branch** (`git checkout -b feature/my-cool-spell`).
+3. **Commit** (`git commit -m 'Cast a fireball'`).
+4. **Push** (`git push origin feature/my-cool-spell`).
+5. **Open a Pull Request**.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the rules of engagement.
 
 ---
 
