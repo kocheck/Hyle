@@ -13,9 +13,9 @@ import {
 } from '@remixicon/react';
 import { BackgroundCanvas } from './HomeScreen/BackgroundCanvas';
 import { PlaygroundToken } from './HomeScreen/PlaygroundToken';
+import { PlaygroundDrawings } from './HomeScreen/PlaygroundDrawings';
 import { VignetteOverlay } from './HomeScreen/VignetteOverlay';
-import { LogoIcon } from './LogoIcon';
-import { AboutModal } from './AboutModal';
+import { AboutModal, type AboutModalTab } from './AboutModal';
 
 interface HomeScreenProps {
   onStartEditor: () => void;
@@ -34,16 +34,28 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
   const [isElectron, setIsElectron] = useState(false);
   const [isMac, setIsMac] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
-  const [shouldAnimateLogo, setShouldAnimateLogo] = useState(true);
-  const [logoClickCount, setLogoClickCount] = useState(0);
-  const [triggerEasterEgg, setTriggerEasterEgg] = useState(0);
+  const [aboutInitialTab, setAboutInitialTab] = useState<AboutModalTab>('about');
+  const [triggerEasterEgg] = useState(0); // Easter egg disabled for now
   const [hideMacBanner, setHideMacBanner] = useState(() =>
     localStorage.getItem('hideMacBanner') === 'true'
   );
   const [tokenPositions, setTokenPositions] = useState<Record<string, { x: number; y: number; size: number }>>({});
   const [windowDimensions, setWindowDimensions] = useState({ width: 0, height: 0 });
 
-  const logoClickTimeoutRef = useRef<number | null>(null);
+  // Random inclusive subtitle (stable for session)
+  const [subtitle] = useState(() => {
+    const titles = [
+      "Storytellers", "World Builders", "Game Guides", "Adventure Architects",
+      "Keepers of Lore", "Dice Rollers", "Party Leaders", "Campaign Curators",
+      "Narrative Weavers", "Fantasy Facilitators", "Myth Makers", "Legend Spinners",
+      "Plot Twisters", "Tabletop Tacticians", "Grid Guardians", "Scene Setters",
+      "Roleplay Referees", "Quest Givers", "Map Makers", "Saga Shapers",
+      "Chroniclers", "Chaos Coordinators", "Rules Lawyers (The Good Kind)"
+    ];
+    return titles[Math.floor(Math.random() * titles.length)];
+  });
+
+  // const logoClickTimeoutRef = useRef<number | null>(null);
   const openModalTimeoutRef = useRef<number | null>(null);
 
   const loadCampaign = useGameStore((state) => state.loadCampaign);
@@ -95,6 +107,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
       // Check if '?' was pressed (shift + / on most keyboards)
       if ((e.key === '?' || (e.shiftKey && e.key === '/')) && !isAboutOpen) {
         e.preventDefault();
+        setAboutInitialTab('shortcuts');
         setIsAboutOpen(true);
       }
       // Also support Escape to close
@@ -110,9 +123,9 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
   // Cleanup timeouts on unmount
   useEffect(() => {
     return () => {
-      if (logoClickTimeoutRef.current !== null) {
-        clearTimeout(logoClickTimeoutRef.current);
-      }
+      // if (logoClickTimeoutRef.current !== null) {
+      //   clearTimeout(logoClickTimeoutRef.current);
+      // }
       if (openModalTimeoutRef.current !== null) {
         clearTimeout(openModalTimeoutRef.current);
       }
@@ -193,7 +206,9 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
   /**
    * Handle logo clicks for easter egg detection
    * Rapid clicks (5+ within 2 seconds) trigger easter egg
+   * NOTE: Currently disabled in UI to reduce clutter
    */
+  /*
   const handleLogoClick = () => {
     const newCount = logoClickCount + 1;
     setLogoClickCount(newCount);
@@ -224,10 +239,12 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
       setLogoClickCount(0);
     }, 2000);
   };
+  */
 
   /**
    * Handle dice roll animation completion
    */
+  /*
   const handleAnimationComplete = (roll: number) => {
     // Could show different messages based on roll
     if (roll === 20) {
@@ -238,6 +255,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
       console.log('💀 Critical failure on the entrance roll. Proceed with caution!');
     }
   };
+  */
 
   /**
    * Dismiss Mac download banner permanently
@@ -254,64 +272,169 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
       return [];
     }
 
-    const tokenSize = 40;
-    const tokens = [
+    const tokenSize = 60;
+
+    // Cliché names lists
+    const heroNames = [
+      "Sir Loin", "Ara-gone", "Generic Protagonist", "Main Character Energy", "Plot Armor",
+      "Sir Dies-a-Lot", "The Chosen One", "Edgy Loner", "Paladin Dan", "Smite Master",
+      "Hero McHeroFace", "Inventory Manager", "Quest Acceptor", "Moral Compass", "Lawful Goody",
+      "Sword Guy", "Shield Carrier", "Destiny's Child", "Prophecy Fulfiller", "Village Savior",
+      "Dragon Slayer (Self-Proclaimed)", "Shiny Armor", "Leader of Men", "Speech Giver", "Backstory Tragedy"
+    ];
+    const wizardNames = [
+      "Merlin's Beard", "Fireball McGee", "Gandalf the Grey-ish", "Squishy", "Glass Cannon",
+      "Spell Slot Machine", "Cantrip Spammer", "Bookworm", "Walking Library", "Beard Enthusiast",
+      "Mana Addict", "Scroll Hoarder", "Robes & Slippers", "Staff Infection", "Magic Missile Man",
+      "Arcane Dave", "Mystic Mike", "Potion Seller", "Wisdom Dump Stat", "Intelligence Overload",
+      "Fireworks Technician", "Shadow Wizard", "Orb Ponderer", "Hex Master", "Rune Reader"
+    ];
+    const rangerNames = [
+      "Leg-o-less", "Bush Camper", "Sneaky Pete", "Hoodie", "Dart Master",
+      "Nature Boy", "Tree Hugger", "Bear Grylls", "Bow Stringer", "Dual Wielder",
+      "Pet Collector", "Tracker Jacker", "Forest Gump", "Path Finder", "Leaf Lover",
+      "Arrow Smith", "Quiver Full", "Stealth Archer (Skyrim Build)", "Wolf Friend", "Eagle Eye",
+      "Scout Master", "Wilderness Guide", "Dark Corner Sitter", "Rogue Lite", "Crit Fisher"
+    ];
+    const goblinNames = [
+      "Boblin", "Snargle", "Toe-Biter", "Clogg", "Ratbag", "Stabby",
+      "XP Piñata", "Loot Bag", "Minion #42", "Cannon Fodder", "Ankle Biter",
+      "Shiny Finder", "Trash goblin", "Bucket Head", "Stick Wielder", "Green Guy",
+      "Muck Dweller", "Cave Creeper", "Noise Maker", "Trap Springer", "Arrow Catcher",
+      "Meat Shield", "Gold Pincher", "Scrap Collector", "Boss's Favorite", "Expendable"
+    ];
+    const dragonNames = [
+      "Trogdor", "Smaug's Cousin", "Spicy Lizard", "Hoarder", "Party Wiper",
+      "TPK Machine", "Breath Mint Needed", "Scale Scale", "Gold Sitter", "Fire Breather",
+      "Ancient One", "Wyrm Deal", "Big Lizard", "Flying Toaster", "Dungeon Boss",
+      "End Game Content", "Stat Block of Doom", "Winged Terror", "Sulfur Breath", "Cave Landlord",
+      "Treasure Guard", "Princess Keeper", "Mountain Top", "Sky Shadow", "Heat Source"
+    ];
+
+    const getRandomName = (list: string[]) => list[Math.floor(Math.random() * list.length)];
+
+    const rawTokens = [
       {
         id: 'demo-hero',
         color: '#3b82f6',
-        label: 'Hero',
+        label: getRandomName(heroNames),
         flavorText: 'Definitely has protagonist energy.',
         size: tokenSize,
+        imageSrc: '/tokens/hero.png',
       },
       {
-        id: 'demo-monster',
-        color: '#ef4444',
-        label: 'Dragon',
-        flavorText: "This ancient wyrm hasn't had breakfast yet. You look crunchy.",
-        size: tokenSize,
-      },
-      {
-        id: 'demo-npc',
+        id: 'demo-wizard',
         color: '#8b5cf6',
-        label: 'Wizard',
+        label: getRandomName(wizardNames),
         flavorText: 'Contemplating the nature of reality... or maybe just lunch.',
         size: tokenSize,
+        imageSrc: '/tokens/wizard.png',
       },
       {
-        id: 'demo-ally',
+        id: 'demo-ranger',
         color: '#10b981',
-        label: 'Ranger',
+        label: getRandomName(rangerNames),
         flavorText: 'Survival check: 18. They know exactly where the nearest tavern is.',
         size: tokenSize,
+        imageSrc: '/tokens/ranger.png',
       },
       {
-        id: 'demo-enemy',
+        id: 'demo-goblin',
         color: '#f59e0b',
-        label: 'Goblin',
+        label: getRandomName(goblinNames),
         flavorText: 'Rolled a 3 on Stealth. You can smell them from here.',
         size: tokenSize,
+        imageSrc: '/tokens/goblin.png',
+      },
+      {
+        id: 'demo-dragon',
+        color: '#ef4444',
+        label: getRandomName(dragonNames),
+        flavorText: "This ancient wyrm hasn't had breakfast yet. You look crunchy.",
+        size: tokenSize * 4,
+        imageSrc: '/tokens/dragon.png',
       },
     ];
 
-    // Distribute tokens around the viewport in a scattered pattern
-    const positioned = tokens.map((token, index) => {
-      const angle = (index / tokens.length) * Math.PI * 2;
-      const distance = 200 + Math.random() * 150;
-      return {
+    // Distribute tokens using "dart throwing" for collision-free random placement
+    // restricted to the top 60% of the screen
+    const width = windowDimensions.width;
+    const height = windowDimensions.height;
+
+    type TokenWithPos = typeof rawTokens[0] & { x: number; y: number };
+    const placedTokens: TokenWithPos[] = [];
+
+    const padding = 60; // Keep away from edges
+    const playAreaHeight = height * 0.55;
+
+    rawTokens.forEach(token => {
+      let bestPosition = { x: width / 2, y: playAreaHeight / 2 };
+      let maxDistance = -1;
+
+      // Try 50 times to find a good spot specifically for this token
+      for (let i = 0; i < 50; i++) {
+        const x = padding + Math.random() * (width - padding * 2);
+        const y = padding + Math.random() * (playAreaHeight - padding);
+
+        // EXCLUSION ZONE: Keep clear of the Logo/Title area
+        // Assuming logo is roughly centered horizontally and in the upper-middle of the play area
+        const logoZoneWidth = 600;
+        const logoZoneHeight = 250;
+        const logoZoneY = height * 0.15; // Start a bit down from top
+
+        const inLogoZone =
+          x > (width / 2 - logoZoneWidth / 2) &&
+          x < (width / 2 + logoZoneWidth / 2) &&
+          y > logoZoneY &&
+          y < (logoZoneY + logoZoneHeight);
+
+        if (inLogoZone) {
+          continue; // Skip this spot, it's behind the text
+        }
+
+        // Calculate distance to nearest existing token
+        let minDistanceToOthers = Infinity;
+        if (placedTokens.length === 0) {
+           minDistanceToOthers = Infinity; // First token is always fine
+        } else {
+          for (const other of placedTokens) {
+            const dx = x - other.x;
+            const dy = y - other.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < minDistanceToOthers) {
+              minDistanceToOthers = dist;
+            }
+          }
+        }
+
+        // If this spot is better (further from others), keep it
+        // Or if it's the first attempt, keep it
+        if (minDistanceToOthers > maxDistance) {
+          maxDistance = minDistanceToOthers;
+          bestPosition = { x, y };
+        }
+
+        // If we found a spot that is "good enough" (e.g. > 150px away), take it immediately
+        if (minDistanceToOthers > 150) {
+          break;
+        }
+      }
+
+      placedTokens.push({
         ...token,
-        x: windowDimensions.width / 2 + Math.cos(angle) * distance,
-        y: windowDimensions.height / 2 + Math.sin(angle) * distance,
-      };
+        x: bestPosition.x,
+        y: bestPosition.y
+      });
     });
 
     // Initialize token positions for collision detection
     const positions: Record<string, { x: number; y: number; size: number }> = {};
-    positioned.forEach(token => {
+    placedTokens.forEach(token => {
       positions[token.id] = { x: token.x, y: token.y, size: token.size };
     });
     setTokenPositions(positions);
 
-    return positioned;
+    return placedTokens;
   }, [windowDimensions.width, windowDimensions.height]);
 
   /**
@@ -337,8 +460,14 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
       background: 'var(--app-bg-base)',
       color: 'var(--app-text-primary)',
     }}>
-      {/* Background Layer - Paper texture and grid */}
+      {/* Vignette overlay - creates fade to infinity effect */}
+      {/* Placed BEFORE tokens so they float on top */}
+      <VignetteOverlay />
+
       <BackgroundCanvas width={windowDimensions.width} height={windowDimensions.height}>
+        {/* Decorative tactical drawings - CONNECTED to token positions */}
+        <PlaygroundDrawings tokens={playgroundTokens} />
+
         {/* Playground tokens - draggable demo elements with collision and trail effects */}
         {playgroundTokens.map((token, index) => (
           <PlaygroundToken
@@ -349,6 +478,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
             color={token.color}
             label={token.label}
             size={token.size}
+            imageSrc={token.imageSrc}
             flavorText={token.flavorText}
             easterEggTrigger={triggerEasterEgg}
             showHint={index === 0} // Show hint on first token (Hero)
@@ -358,8 +488,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
         ))}
       </BackgroundCanvas>
 
-      {/* Vignette overlay - creates fade to infinity effect */}
-      <VignetteOverlay />
+
 
       <style>{`
         @keyframes fadeIn {
@@ -468,47 +597,31 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
       `}</style>
 
       {/* Main Content Container - Above background and vignette */}
-      <div className="max-w-2xl w-full px-8" style={{
+      <div className="max-w-2xl w-full px-8 flex flex-col justify-end pb-12" style={{
         position: 'relative',
         zIndex: 10,
+        height: '100%',
+        pointerEvents: 'none', // Allow clicks to pass through empty space to the canvas
       }}>
         {/* Branding */}
-        <div className="text-center mb-12">
-          <button
-            onClick={() => {
-              const currentCount = logoClickCount;
-              handleLogoClick();
-              // Open about modal on single click (not during easter egg sequence)
-              if (currentCount < 4) {
-                // Clear previous timeout if exists
-                if (openModalTimeoutRef.current !== null) {
-                  clearTimeout(openModalTimeoutRef.current);
-                }
-                openModalTimeoutRef.current = window.setTimeout(() => setIsAboutOpen(true), 100);
-              }
-            }}
-            className="logo-button"
-            aria-label="Open About Hyle dialog"
-          >
-            <div style={{ marginBottom: '0.75rem' }}>
-              <LogoIcon
-                size={80}
-                animate={shouldAnimateLogo}
-                onAnimationComplete={handleAnimationComplete}
-              />
-            </div>
+        <div className="text-center mb-16">
+          <div>
             <h1 className="text-6xl font-bold mb-4" style={{
               background: 'linear-gradient(135deg, var(--app-accent-solid), var(--app-accent-text))',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
+              filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.3))', // Add depth to make it pop
             }}>
               Hyle
             </h1>
-            <p className="text-xl" style={{ color: 'var(--app-text-secondary)' }}>
-              Virtual Tabletop for Dungeon Masters
+            <p className="text-xl font-medium" style={{
+              color: 'var(--app-text-primary)', // HIGHER contrast (was secondary)
+              textShadow: '0 2px 4px rgba(0,0,0,0.5)', // improve legibility against map
+            }}>
+              Virtual Tabletop for {subtitle}
             </p>
-          </button>
+          </div>
         </div>
 
         {/* Mac App Download Banner (Web only, Mac only) */}
@@ -517,6 +630,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
             background: 'var(--app-accent-bg)',
             border: '1px solid var(--app-accent-solid)',
             position: 'relative',
+            pointerEvents: 'auto',
           }}>
             {/* Dismiss button */}
             <button
@@ -555,7 +669,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
         )}
 
         {/* Primary Actions */}
-        <div className="mb-8">
+        <div className="mb-8" style={{ pointerEvents: 'auto' }}>
           <div className="grid grid-cols-2 gap-4 mb-4">
             <button
               onClick={handleNewCampaign}
@@ -600,7 +714,10 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
 
           {/* Take a Tour button */}
           <button
-            onClick={() => setIsAboutOpen(true)}
+            onClick={() => {
+              setAboutInitialTab('tutorial');
+              setIsAboutOpen(true);
+            }}
             className="learn-basics-btn w-full p-4 rounded-lg text-center transition-all hover:scale-102"
             aria-label="Learn about Hyle features"
           >
@@ -613,7 +730,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
 
         {/* Recent Campaigns */}
         {recentCampaigns.length > 0 && (
-          <div>
+          <div style={{ pointerEvents: 'auto' }}>
             <h3 className="text-lg font-semibold mb-3" style={{ color: 'var(--app-text-secondary)' }}>
               Recent Campaigns
             </h3>
@@ -671,10 +788,11 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
       <div className="absolute bottom-4 left-0 right-0" style={{
         position: 'relative',
         zIndex: 10,
+        pointerEvents: 'none',
       }}>
         <div className="flex flex-col items-center gap-3">
           {/* Links */}
-          <div className="flex items-center gap-4 text-sm">
+          <div className="flex items-center gap-4 text-sm" style={{ pointerEvents: 'auto' }}>
             <a
               href="https://github.com/kocheck/Hyle"
               target="_blank"
@@ -685,7 +803,10 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
             </a>
             <span style={{ color: 'var(--app-border-default)' }}>·</span>
             <button
-              onClick={() => setIsAboutOpen(true)}
+              onClick={() => {
+                setAboutInitialTab('about');
+                setIsAboutOpen(true);
+              }}
               className="footer-button"
             >
               About
@@ -701,7 +822,10 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
             </a>
             <span style={{ color: 'var(--app-border-default)' }}>·</span>
             <button
-              onClick={() => setIsAboutOpen(true)}
+              onClick={() => {
+                setAboutInitialTab('shortcuts');
+                setIsAboutOpen(true);
+              }}
               className="footer-button"
               title="Press ? to open"
             >
@@ -716,7 +840,11 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
       </div>
 
       {/* About Modal */}
-      <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
+      <AboutModal
+        isOpen={isAboutOpen}
+        onClose={() => setIsAboutOpen(false)}
+        initialTab={aboutInitialTab}
+      />
     </div>
   );
 }

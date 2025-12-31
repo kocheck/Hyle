@@ -49,10 +49,6 @@ export function BackgroundCanvas({ width, height, children }: BackgroundCanvasPr
     height: dimensions.height * 2,
   };
 
-  // Guard clause: Don't render if dimensions are invalid (prevents Konva InvalidStateError)
-  if (dimensions.width === 0 || dimensions.height === 0) {
-    return null;
-  }
 
   return (
     <div
@@ -66,6 +62,8 @@ export function BackgroundCanvas({ width, height, children }: BackgroundCanvasPr
         overflow: 'hidden',
       }}
     >
+      {/* Only render stage if dimensions are valid to prevent Konva errors */}
+      {dimensions.width > 0 && dimensions.height > 0 && (
       <Stage width={dimensions.width} height={dimensions.height}>
         {/* Background Layer */}
         <Layer listening={false}>
@@ -107,6 +105,7 @@ export function BackgroundCanvas({ width, height, children }: BackgroundCanvasPr
         {/* Content Layer - for draggable tokens */}
         {children && <Layer>{children}</Layer>}
       </Stage>
+      )}
     </div>
   );
 }

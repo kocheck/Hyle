@@ -18,9 +18,8 @@ export function VignetteOverlay() {
         background: `radial-gradient(
           ellipse at center,
           transparent 0%,
-          transparent 40%,
-          rgba(0, 0, 0, 0.3) 70%,
-          rgba(0, 0, 0, 0.6) 100%
+          transparent 50%,
+          var(--app-bg-base) 100%
         )`,
       }}
     />

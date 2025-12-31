@@ -1,9 +1,12 @@
-import { useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { LogoIcon } from './LogoIcon';
+
+export type AboutModalTab = 'about' | 'tutorial' | 'shortcuts';
 
 interface AboutModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialTab?: AboutModalTab;
 }
 
 // Add styles tag for modal-specific classes
@@ -29,6 +32,23 @@ const modalStyles = `
     background: var(--app-bg-hover);
     color: var(--app-text-primary);
   }
+  .tab-button {
+    padding: 0.5rem 1rem;
+    border: none;
+    background: none;
+    color: var(--app-text-secondary);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+  .tab-button:hover {
+    color: var(--app-text-primary);
+  }
+  .tab-button.active {
+    color: var(--app-accent-solid);
+    border-bottom-color: var(--app-accent-solid);
+  }
 `;
 
 /**
@@ -37,8 +57,16 @@ const modalStyles = `
  * A modal explaining what Hyle is and how to use it,
  * written in the signature "Digital Dungeon Master" tone.
  */
-export function AboutModal({ isOpen, onClose }: AboutModalProps) {
+export function AboutModal({ isOpen, onClose, initialTab = 'about' }: AboutModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
+  const [activeTab, setActiveTab] = useState<AboutModalTab>(initialTab);
+
+  // Sync active tab with props when opening
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
 
   // Focus trap implementation
   useEffect(() => {
@@ -112,148 +140,174 @@ export function AboutModal({ isOpen, onClose }: AboutModalProps) {
           maxWidth: '700px',
           width: '100%',
           maxHeight: '85vh',
-          overflow: 'auto',
-          padding: '2rem',
+          display: 'flex',
+          flexDirection: 'column',
           border: '2px solid var(--app-border-default)',
           boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
           position: 'relative',
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          className="about-modal-close-btn"
-          aria-label="Close About dialog"
-        >
-          ×
-        </button>
-
-        {/* Header with logo */}
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{ marginBottom: '1rem' }}>
-            <LogoIcon size={100} />
-          </div>
-          <h2
-            style={{
-              fontSize: '2.5rem',
-              fontWeight: 'bold',
-              background: 'linear-gradient(135deg, var(--app-accent-solid), var(--app-accent-text))',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              marginBottom: '0.5rem',
-            }}
+        {/* Header with Close button */}
+        <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--app-border-subtle)' }}>
+          <button
+            onClick={onClose}
+            className="about-modal-close-btn"
+            aria-label="Close About dialog"
           >
-            HYLE
-          </h2>
-          <p style={{ fontSize: '1.1rem', color: 'var(--app-text-secondary)', fontStyle: 'italic' }}>
-            World Given Form
-          </p>
-          <p style={{ fontSize: '0.9rem', color: 'var(--app-text-muted)', marginTop: '0.25rem' }}>
-            Version {__APP_VERSION__}
-          </p>
+            ×
+          </button>
+
+          <div className="flex items-center gap-4">
+             <LogoIcon size={32} />
+             <h2 className="text-2xl font-bold" style={{
+               background: 'linear-gradient(135deg, var(--app-accent-solid), var(--app-accent-text))',
+               WebkitBackgroundClip: 'text',
+               WebkitTextFillColor: 'transparent',
+               backgroundClip: 'text',
+             }}>
+               HYLE
+             </h2>
+          </div>
+
+          {/* Navigation Tabs */}
+          <div className="flex gap-2 mt-4">
+            <button
+              className={`tab-button ${activeTab === 'about' ? 'active' : ''}`}
+              onClick={() => setActiveTab('about')}
+            >
+              About
+            </button>
+            <button
+              className={`tab-button ${activeTab === 'tutorial' ? 'active' : ''}`}
+              onClick={() => setActiveTab('tutorial')}
+            >
+              Tutorial
+            </button>
+            <button
+              className={`tab-button ${activeTab === 'shortcuts' ? 'active' : ''}`}
+              onClick={() => setActiveTab('shortcuts')}
+            >
+              Shortcuts
+            </button>
+          </div>
         </div>
 
-        {/* Content */}
-        <div style={{ lineHeight: '1.7' }}>
-          <section style={{ marginBottom: '1.5rem' }}>
-            <h3 style={{ fontSize: '1.3rem', fontWeight: 'bold', marginBottom: '0.75rem', color: 'var(--app-accent-text)' }}>
-              🎲 What is Hyle?
-            </h3>
-            <p style={{ color: 'var(--app-text-secondary)', marginBottom: '0.75rem' }}>
-              Greetings, Master of Dungeons! <strong>Hyle</strong> (from ancient Greek <em>ὕλη</em>: "matter") is your arcane battlemat—a
-              local-first virtual tabletop designed to replace your physical grid with digital sorcery.
-            </p>
-            <p style={{ color: 'var(--app-text-secondary)' }}>
-              Project your campaign map onto a second monitor or share your screen, maintaining <strong>total control</strong> over
-              what your players see while you orchestrate the chaos from your Architect's throne.
-            </p>
-          </section>
+        {/* Scrollable Content */}
+        <div style={{ padding: '2rem', overflow: 'auto' }}>
 
-          <section style={{ marginBottom: '1.5rem' }}>
-            <h3 style={{ fontSize: '1.3rem', fontWeight: 'bold', marginBottom: '0.75rem', color: 'var(--app-accent-text)' }}>
-              ⚔️ Core Powers
-            </h3>
-            <ul style={{ color: 'var(--app-text-secondary)', paddingLeft: '1.5rem', margin: 0 }}>
-              <li style={{ marginBottom: '0.5rem' }}>
-                <strong>Dual-Window Enchantment:</strong> Architect View for you, pristine World View for your players
-              </li>
-              <li style={{ marginBottom: '0.5rem' }}>
-                <strong>Fog of War:</strong> Dynamic vision with raycasting, wall occlusion, and blurred aesthetics
-              </li>
-              <li style={{ marginBottom: '0.5rem' }}>
-                <strong>Drawing Tools:</strong> Markers, erasers, and vision-blocking walls (Shift to lock axes!)
-              </li>
-              <li style={{ marginBottom: '0.5rem' }}>
-                <strong>Local-First:</strong> Your data stays <em>yours</em>—saved as <code>.hyle</code> files, no cloud required
-              </li>
-              <li style={{ marginBottom: '0.5rem' }}>
-                <strong>Asset Conjuration:</strong> Drag &amp; drop images, auto-optimized to WebP for performance
-              </li>
-              <li style={{ marginBottom: '0.5rem' }}>
-                <strong>System Agnostic:</strong> Works with D&amp;D, Pathfinder, or homebrew systems—we don't judge
-              </li>
-            </ul>
-          </section>
+          {/* ABOUT TAB */}
+          {activeTab === 'about' && (
+            <div style={{ lineHeight: '1.7' }}>
+              <section style={{ marginBottom: '1.5rem' }}>
+                <h3 style={{ fontSize: '1.3rem', fontWeight: 'bold', marginBottom: '0.75rem', color: 'var(--app-accent-text)' }}>
+                  🎲 World Given Form
+                </h3>
+                 <p style={{ color: 'var(--app-text-secondary)', marginBottom: '0.75rem' }}>
+                  Greetings, Master of Dungeons! <strong>Hyle</strong> (from ancient Greek <em>ὕλη</em>: "matter") is your arcane battlemat—a
+                  local-first virtual tabletop designed to replace your physical grid with digital sorcery.
+                </p>
+                <p style={{ color: 'var(--app-text-secondary)' }}>
+                  Project your campaign map onto a second monitor or share your screen, maintaining <strong>total control</strong> over
+                  what your players see while you orchestrate the chaos from your Architect's throne.
+                </p>
+              </section>
 
-          <section style={{ marginBottom: '1.5rem' }}>
-            <h3 style={{ fontSize: '1.3rem', fontWeight: 'bold', marginBottom: '0.75rem', color: 'var(--app-accent-text)' }}>
-              📜 Quick Start Incantations
-            </h3>
-            <div style={{ background: 'var(--app-bg-base)', padding: '1rem', borderRadius: '6px', fontSize: '0.95rem' }}>
-              <p style={{ color: 'var(--app-text-secondary)', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-                Keyboard Shortcuts:
-              </p>
-              <ul style={{ color: 'var(--app-text-muted)', paddingLeft: '1.5rem', margin: 0, fontFamily: 'monospace' }}>
-                <li><code>V</code> – Select Tool</li>
-                <li><code>M</code> – Marker Tool</li>
-                <li><code>E</code> – Eraser Tool</li>
-                <li><code>W</code> – Wall Tool (vision blocking)</li>
-                <li><code>I</code> – Color Picker</li>
-                <li><code>Shift</code> (while drawing) – Lock to axis</li>
-              </ul>
+               <section style={{ marginBottom: '1.5rem' }}>
+                <h3 style={{ fontSize: '1.3rem', fontWeight: 'bold', marginBottom: '0.75rem', color: 'var(--app-accent-text)' }}>
+                  🌟 The Sacred Philosophy
+                </h3>
+                <p style={{ color: 'var(--app-text-secondary)' }}>
+                  Hyle is a <strong>generic digital battlemat</strong>—no more, no less. It handles maps, tokens, and fog of war
+                  without demanding tribute to corporate overlords. Your campaigns are stored locally in sacred <code>.hyle</code> tomes
+                  that no cloud wizard can touch. Simple, powerful, and <em>yours</em>.
+                </p>
+              </section>
+
+              <div
+                style={{
+                  marginTop: '2rem',
+                  paddingTop: '1.5rem',
+                  borderTop: '1px solid var(--app-border-subtle)',
+                  textAlign: 'center',
+                  fontSize: '0.9rem',
+                }}
+              >
+                 <p style={{ color: 'var(--app-text-secondary)' }}>Version {__APP_VERSION__}</p>
+                 <a
+                  href="https://github.com/kocheck/Hyle"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: 'var(--app-accent-text)',
+                    textDecoration: 'underline',
+                    fontWeight: 'bold',
+                    display: 'block',
+                    marginTop: '0.5rem',
+                  }}
+                >
+                  View Source on GitHub
+                </a>
+              </div>
             </div>
-          </section>
+          )}
 
-          <section style={{ marginBottom: '1.5rem' }}>
-            <h3 style={{ fontSize: '1.3rem', fontWeight: 'bold', marginBottom: '0.75rem', color: 'var(--app-accent-text)' }}>
-              🌟 The Sacred Philosophy
-            </h3>
-            <p style={{ color: 'var(--app-text-secondary)' }}>
-              Hyle is a <strong>generic digital battlemat</strong>—no more, no less. It handles maps, tokens, and fog of war
-              without demanding tribute to corporate overlords. Your campaigns are stored locally in sacred <code>.hyle</code> tomes
-              that no cloud wizard can touch. Simple, powerful, and <em>yours</em>.
-            </p>
-          </section>
+          {/* TUTORIAL TAB */}
+          {activeTab === 'tutorial' && (
+            <div style={{ lineHeight: '1.7' }}>
+              <section style={{ marginBottom: '1.5rem' }}>
+                <h3 style={{ fontSize: '1.3rem', fontWeight: 'bold', marginBottom: '0.75rem', color: 'var(--app-accent-text)' }}>
+                  ⚔️ Core Powers
+                </h3>
+                <ul style={{ color: 'var(--app-text-secondary)', paddingLeft: '1.5rem', margin: 0 }}>
+                  <li style={{ marginBottom: '0.5rem' }}>
+                    <strong>Dual-Window Enchantment:</strong> Architect View for you, pristine World View for your players
+                  </li>
+                  <li style={{ marginBottom: '0.5rem' }}>
+                    <strong>Fog of War:</strong> Dynamic vision with raycasting, wall occlusion, and blurred aesthetics
+                  </li>
+                  <li style={{ marginBottom: '0.5rem' }}>
+                    <strong>Drawing Tools:</strong> Markers, erasers, and vision-blocking walls (Shift to lock axes!)
+                  </li>
+                  <li style={{ marginBottom: '0.5rem' }}>
+                    <strong>Local-First:</strong> Your data stays <em>yours</em>—saved as <code>.hyle</code> files, no cloud required
+                  </li>
+                  <li style={{ marginBottom: '0.5rem' }}>
+                    <strong>Asset Conjuration:</strong> Drag &amp; drop images, auto-optimized to WebP for performance
+                  </li>
+                </ul>
+              </section>
+            </div>
+          )}
 
-          <section>
-            <h3 style={{ fontSize: '1.3rem', fontWeight: 'bold', marginBottom: '0.75rem', color: 'var(--app-accent-text)' }}>
-              🔗 Seek Further Knowledge
-            </h3>
-            <p style={{ color: 'var(--app-text-secondary)', marginBottom: '0.5rem' }}>
-              For documentation, bug reports, and source code, consult the Grand Repository:
-            </p>
-            <a
-              href="https://github.com/kocheck/Hyle"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                color: 'var(--app-accent-text)',
-                textDecoration: 'underline',
-                fontWeight: 'bold',
-              }}
-            >
-              github.com/kocheck/Hyle
-            </a>
-          </section>
+          {/* SHORTCUTS TAB */}
+          {activeTab === 'shortcuts' && (
+            <div style={{ lineHeight: '1.7' }}>
+              <section style={{ marginBottom: '1.5rem' }}>
+                 <h3 style={{ fontSize: '1.3rem', fontWeight: 'bold', marginBottom: '0.75rem', color: 'var(--app-accent-text)' }}>
+                  📜 Quick Start Incantations
+                </h3>
+                <div style={{ background: 'var(--app-bg-base)', padding: '1rem', borderRadius: '6px', fontSize: '0.95rem' }}>
+                  <ul style={{ color: 'var(--app-text-muted)', paddingLeft: '1.5rem', margin: 0, fontFamily: 'monospace' }}>
+                    <li><code>V</code> – Select Tool</li>
+                    <li><code>M</code> – Marker Tool</li>
+                    <li><code>E</code> – Eraser Tool</li>
+                    <li><code>W</code> – Wall Tool (vision blocking)</li>
+                    <li><code>I</code> – Color Picker</li>
+                    <li><code>Shift</code> (while drawing) – Lock to axis</li>
+                    <li><code>?</code> – Open this help modal</li>
+                  </ul>
+                </div>
+              </section>
+            </div>
+          )}
+
         </div>
 
         {/* Footer */}
         <div
           style={{
-            marginTop: '2rem',
-            paddingTop: '1.5rem',
+            padding: '1rem',
             borderTop: '1px solid var(--app-border-subtle)',
             textAlign: 'center',
             color: 'var(--app-text-muted)',

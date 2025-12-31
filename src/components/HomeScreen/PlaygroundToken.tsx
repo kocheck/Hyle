@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Circle, Group, Text, Line } from 'react-konva';
+import URLImage from '../Canvas/URLImage';
 import Konva from 'konva';
+import { useThemeColor } from '../../hooks/useThemeColor';
 
 interface PlaygroundTokenProps {
   id: string;
@@ -10,6 +12,7 @@ interface PlaygroundTokenProps {
   label: string;
   size?: number;
   flavorText?: string;
+  imageSrc?: string;
   easterEggTrigger?: number;
   showHint?: boolean;
   onPositionChange?: (id: string, x: number, y: number) => void;
@@ -36,6 +39,7 @@ export function PlaygroundToken({
   label,
   size = 40,
   flavorText,
+  imageSrc,
   easterEggTrigger = 0,
   showHint = false,
   onPositionChange,
@@ -44,36 +48,14 @@ export function PlaygroundToken({
   const [position, setPosition] = useState({ x: initialX, y: initialY });
   const [isDragging, setIsDragging] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const [idleOffset, setIdleOffset] = useState(0);
   const [hintPulse, setHintPulse] = useState(0.4);
   const [trailPoints, setTrailPoints] = useState<number[]>([]);
   const groupRef = useRef<Konva.Group>(null);
   const lastPositionRef = useRef({ x: initialX, y: initialY });
-  const animationFrameRef = useRef<number | null>(null);
   const hintAnimationFrameRef = useRef<number | null>(null);
 
-  // Idle breathing animation
-  useEffect(() => {
-    const amplitude = 3; // pixels
-    const frequency = 2000; // milliseconds
-    const startTime = Date.now();
-
-    const animate = () => {
-      if (!isDragging) {
-        const elapsed = Date.now() - startTime;
-        const offset = Math.sin((elapsed / frequency) * Math.PI * 2) * amplitude;
-        setIdleOffset(offset);
-      }
-      animationFrameRef.current = requestAnimationFrame(animate);
-    };
-
-    animationFrameRef.current = requestAnimationFrame(animate);
-    return () => {
-      if (animationFrameRef.current !== null) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, [isDragging]);
+  // Dynamic text color for high contrast adaptability (Day=Black, Night=White)
+  const textColor = useThemeColor('--app-text-primary');
 
   // Hint pulse animation (only when showHint is true)
   useEffect(() => {
@@ -194,7 +176,8 @@ export function PlaygroundToken({
     }
   };
 
-  const scale = isDragging ? 1.15 : isHovered ? 1.05 : 1;
+  // Removed scaling effect as requested
+  // const scale = isDragging ? 1.15 : isHovered ? 1.05 : 1;
   const shadowBlur = isDragging ? 20 : isHovered ? 10 : showHint ? 15 : 5;
 
   return (
@@ -218,7 +201,7 @@ export function PlaygroundToken({
         ref={groupRef}
         id={id}
         x={position.x}
-        y={position.y + idleOffset}
+        y={position.y}
         draggable
         onDragStart={handleDragStart}
         onDragMove={handleDragMove}
@@ -226,6 +209,14 @@ export function PlaygroundToken({
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
+        {/* Invisible expanded hit target */}
+        <Circle
+          radius={size / 2 + 15} // 15px extra padding around the token
+          fill="transparent"
+          strokeEnabled={false}
+          listening={true} // This captures the events
+        />
+
         {/* Hint pulsing outer glow */}
         {showHint && (
           <Circle
@@ -237,7 +228,24 @@ export function PlaygroundToken({
           />
         )}
 
-      {/* Token circle */}
+      {/* Token Image or Circle */}
+      {imageSrc ? (
+         <URLImage
+           src={imageSrc}
+           x={-size / 2}
+           y={-size / 2}
+           width={size}
+           height={size}
+           id={`token-img-${id}`}
+           draggable={false}
+           scaleX={1}
+           scaleY={1}
+           shadowColor="rgba(0, 0, 0, 0.5)"
+           shadowBlur={shadowBlur}
+           shadowOffsetX={0}
+           shadowOffsetY={2}
+         />
+      ) : (
       <Circle
         radius={size / 2}
         fill={color}
@@ -246,17 +254,16 @@ export function PlaygroundToken({
         shadowColor="rgba(0, 0, 0, 0.5)"
         shadowBlur={shadowBlur}
         shadowOffset={{ x: 0, y: 2 }}
-        scaleX={scale}
-        scaleY={scale}
         opacity={isDragging ? 0.8 : 1}
       />
+      )}
 
       {/* Token label */}
       <Text
         text={label}
         fontSize={12}
         fontFamily="IBM Plex Sans, sans-serif"
-        fill="#fff"
+        fill={textColor}
         fontStyle="bold"
         align="center"
         verticalAlign="middle"
@@ -264,10 +271,6 @@ export function PlaygroundToken({
         x={-size}
         y={size / 2 + 8}
         listening={false}
-        shadowColor="rgba(0, 0, 0, 0.8)"
-        shadowBlur={4}
-        scaleX={scale}
-        scaleY={scale}
       />
 
       {/* Flavor text on hover */}
@@ -276,7 +279,7 @@ export function PlaygroundToken({
           text={flavorText}
           fontSize={10}
           fontFamily="IBM Plex Sans, sans-serif"
-          fill="#fff"
+          fill={textColor}
           fontStyle="italic"
           align="center"
           width={size * 4}
@@ -284,8 +287,6 @@ export function PlaygroundToken({
           y={-size - 30}
           listening={false}
           padding={6}
-          shadowColor="rgba(0, 0, 0, 0.9)"
-          shadowBlur={8}
           opacity={0.95}
         />
       )}
