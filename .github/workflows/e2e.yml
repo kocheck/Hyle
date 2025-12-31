@@ -14,10 +14,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Required for electron-builder to access GitHub API
-permissions:
-  contents: write
-
 jobs:
   # ===== JOB 1: Web Tests (Sharded) =====
   test-web:
