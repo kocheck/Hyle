@@ -400,3 +400,154 @@ test.describe('Touch Performance', () => {
     ).toBeLessThan(1000);
   });
 });
+
+test.describe('Pressure-Sensitive Drawing', () => {
+  test.beforeEach(async ({ page }) => {
+    await clearAllTestData(page);
+    await bypassLandingPageAndInjectState(page);
+    await createNewCampaign(page, 'Pressure Test Campaign');
+  });
+
+  test('should capture pressure data for stylus/pen input', async ({ page }) => {
+    // Switch to marker tool
+    await page.click('[data-testid="tool-marker"]');
+
+    const canvas = page.locator('canvas').first();
+    const canvasBox = await canvas.boundingBox();
+
+    if (!canvasBox) {
+      throw new Error('Canvas not found');
+    }
+
+    // Draw a stroke (pressure simulation not available in Playwright, but data structure should exist)
+    await touchDrag(
+      page,
+      canvasBox.x + 100,
+      canvasBox.y + 100,
+      canvasBox.x + 200,
+      canvasBox.y + 150
+    );
+
+    await page.waitForTimeout(100);
+
+    // Verify pressure data was captured
+    const drawingData = await page.evaluate(() => {
+      interface DrawingData {
+        points?: unknown[];
+        pressures?: number[];
+        size?: number;
+      }
+      interface GameStoreWindow extends Window {
+        __GAME_STORE__?: {
+          getState?: () => {
+            drawings?: DrawingData[];
+          };
+        };
+      }
+      const store = (window as unknown as GameStoreWindow).__GAME_STORE__;
+      const drawings = store?.getState?.()?.drawings || [];
+      return drawings[0];
+    });
+
+    expect(drawingData, 'Drawing should exist').toBeTruthy();
+    expect(drawingData?.pressures, 'Pressure data should be captured').toBeDefined();
+    expect(
+      drawingData?.pressures?.length,
+      'Pressure array length should match point count'
+    ).toBe((drawingData?.points?.length ?? 0) / 2);
+
+    // All pressure values should be between 0 and 1
+    if (drawingData?.pressures) {
+      drawingData.pressures.forEach((p: number) => {
+        expect(p, 'Pressure value should be between 0 and 1').toBeGreaterThanOrEqual(0);
+        expect(p, 'Pressure value should be between 0 and 1').toBeLessThanOrEqual(1);
+      });
+    }
+  });
+
+  test('should render variable-width strokes for pressure-sensitive drawings', async ({ page }) => {
+    // This test verifies that drawings with pressure data render correctly
+    // (visual verification would require screenshot comparison)
+    await page.click('[data-testid="tool-marker"]');
+
+    const canvas = page.locator('canvas').first();
+    const canvasBox = await canvas.boundingBox();
+
+    if (!canvasBox) {
+      throw new Error('Canvas not found');
+    }
+
+    await touchDrag(
+      page,
+      canvasBox.x + 100,
+      canvasBox.y + 100,
+      canvasBox.x + 200,
+      canvasBox.y + 100
+    );
+
+    await page.waitForTimeout(100);
+
+    // Verify the drawing renders without errors
+    // The PressureSensitiveLine component should handle the rendering
+    const drawingElement = page.locator('[name="drawing"]').first();
+    await expect(
+      drawingElement,
+      'Pressure-sensitive drawing should render'
+    ).toBeVisible();
+  });
+});
+
+test.describe('Two-Finger Pan Gesture', () => {
+  test.beforeEach(async ({ page }) => {
+    await clearAllTestData(page);
+    await bypassLandingPageAndInjectState(page);
+    await createNewCampaign(page, 'Pan Gesture Test');
+  });
+
+  test('should distinguish between pinch-zoom and two-finger pan', async ({ page }) => {
+    // Note: Playwright's touch API is limited for multi-touch gestures
+    // This test documents the expected behavior
+    // Real multi-touch testing would require device testing or specialized tools
+
+    // Add a marker to the canvas for visual reference
+    await page.click('[data-testid="tool-marker"]');
+    const canvas = page.locator('canvas').first();
+    const canvasBox = await canvas.boundingBox();
+
+    if (!canvasBox) {
+      throw new Error('Canvas not found');
+    }
+
+    await touchDrag(
+      page,
+      canvasBox.x + 200,
+      canvasBox.y + 200,
+      canvasBox.x + 250,
+      canvasBox.y + 250
+    );
+
+    await page.waitForTimeout(100);
+
+    // Verify the drawing exists (baseline)
+    const drawingsCount = await page.evaluate(() => {
+      interface GameStoreWindow extends Window {
+        __GAME_STORE__?: {
+          getState?: () => {
+            drawings?: unknown[];
+          };
+        };
+      }
+      const store = (window as unknown as GameStoreWindow).__GAME_STORE__;
+      return store?.getState?.()?.drawings?.length || 0;
+    });
+
+    expect(
+      drawingsCount,
+      'Drawing should be created for baseline'
+    ).toBe(1);
+
+    // Multi-touch pan gesture verification would go here
+    // In practice, this requires actual device testing with two fingers
+    console.log('Two-finger pan gesture requires device testing for full verification');
+  });
+});

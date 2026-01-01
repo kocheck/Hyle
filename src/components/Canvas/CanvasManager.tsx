@@ -25,6 +25,7 @@ import MeasurementOverlay from './MeasurementOverlay';
 import { resolveTokenData } from '../../hooks/useTokenData';
 
 import URLImage from './URLImage';
+import PressureSensitiveLine from './PressureSensitiveLine';
 
 import { MeasurementMode, Measurement } from '../../types/measurement';
 import {
@@ -344,6 +345,8 @@ const CanvasManager = ({
   // Touch/Pinch State
   const lastPinchDistance = useRef<number | null>(null);
   const lastPinchCenter = useRef<{ x: number, y: number } | null>(null);
+  const lastPanCenter = useRef<{ x: number, y: number } | null>(null);
+  const PINCH_DISTANCE_THRESHOLD = 10; // pixels - minimum distance change to trigger pinch vs pan
 
   /**
    * Determines the appropriate cursor style based on current interaction state.
@@ -598,7 +601,7 @@ const CanvasManager = ({
 
   const handleTouchMove = (e: KonvaEventObject<TouchEvent>) => {
       const touches = e.evt.touches;
-      // ONLY handle 2+ finger gestures (pinch-to-zoom)
+      // ONLY handle 2-finger gestures (pinch-to-zoom or two-finger pan)
       if (touches.length === 2) {
           e.evt.preventDefault();
 
@@ -611,22 +614,48 @@ const CanvasManager = ({
               // Prevent division by zero
               if (lastPinchDistance.current < MIN_PINCH_DISTANCE) return;
 
-              // Convert viewport coordinates to canvas coordinates
-              const stageRect = containerRef.current?.getBoundingClientRect();
-              if (!stageRect) return;
+              // Calculate distance change to determine gesture type
+              const distanceChange = Math.abs(distance - lastPinchDistance.current);
+              const isPinchGesture = distanceChange > PINCH_DISTANCE_THRESHOLD;
 
-              const canvasX = center.x - stageRect.left;
-              const canvasY = center.y - stageRect.top;
+              if (isPinchGesture) {
+                  // PINCH-TO-ZOOM: Fingers moving together/apart
+                  const stageRect = containerRef.current?.getBoundingClientRect();
+                  if (!stageRect) return;
 
-              // Calculate scale change
-              const scaleChange = distance / lastPinchDistance.current;
-              const newScale = scale * scaleChange;
+                  const canvasX = center.x - stageRect.left;
+                  const canvasY = center.y - stageRect.top;
 
-              // Use the pinch center for zoom
-              performZoom(newScale, canvasX, canvasY, scale, position);
+                  // Calculate scale change
+                  const scaleChange = distance / lastPinchDistance.current;
+                  const newScale = scale * scaleChange;
 
-              lastPinchDistance.current = distance;
-              lastPinchCenter.current = center;
+                  // Use the pinch center for zoom
+                  performZoom(newScale, canvasX, canvasY, scale, position);
+
+                  lastPinchDistance.current = distance;
+                  lastPinchCenter.current = center;
+                  lastPanCenter.current = null; // Reset pan tracking
+              } else if (lastPanCenter.current) {
+                  // TWO-FINGER PAN: Fingers moving together without changing distance
+                  const dx = center.x - lastPanCenter.current.x;
+                  const dy = center.y - lastPanCenter.current.y;
+
+                  // Update canvas position (pan)
+                  const newPos = {
+                      x: position.x + dx,
+                      y: position.y + dy
+                  };
+
+                  // Clamp to valid bounds and update position
+                  const clampedPos = clampPosition(newPos, scale);
+                  setPosition(clampedPos);
+
+                  lastPanCenter.current = center;
+              } else {
+                  // Initialize pan tracking
+                  lastPanCenter.current = center;
+              }
           }
       }
       // Single-touch events are handled by handlePointerMove
@@ -634,10 +663,11 @@ const CanvasManager = ({
 
   const handleTouchEnd = (e: KonvaEventObject<TouchEvent>) => {
       const touches = e.evt.touches;
-      // Reset pinch state when fewer than 2 fingers remain
+      // Reset gesture state when fewer than 2 fingers remain
       if (touches.length < 2) {
           lastPinchDistance.current = null;
           lastPinchCenter.current = null;
+          lastPanCenter.current = null;
       }
       // Single-touch events are handled by handlePointerUp
   };
@@ -1060,6 +1090,9 @@ const CanvasManager = ({
         const pos = getPointerPosition(e);
         if (!pos) return;
 
+        // Get initial pressure for pressure-sensitive drawing
+        const pressure = getPointerPressure(e);
+
         // Set color and size based on tool type
         let drawColor = color;
         let drawSize = 5;
@@ -1078,6 +1111,7 @@ const CanvasManager = ({
             points: [pos.x, pos.y],
             color: drawColor,
             size: drawSize,
+            pressures: [pressure], // Capture initial pressure
         };
         return;
     }
@@ -1244,17 +1278,23 @@ const CanvasManager = ({
             return; // Skip consecutive duplicate point
         }
 
+        // Get pressure for this point (for variable-width strokes with pen/stylus)
+        const pressure = getPointerPressure(e);
+
         // Performance optimization: Use push (in-place mutation) instead of concat (array copy)
         // This reduces GC pressure and is faster for large stroke collections
         //
-        // IMMUTABILITY EXCEPTION: This mutates currentLine.current.points directly, which
+        // IMMUTABILITY EXCEPTION: This mutates currentLine.current.points/pressures directly, which
         // violates the general immutability pattern established in the codebase. This is
         // acceptable here because:
         // 1. currentLine.current is a ref, not Zustand state
-        // 2. The points array is never shared with React state during drawing
+        // 2. The arrays are never shared with React state during drawing
         // 3. The performance benefit is significant for smooth drawing (60fps target)
         // 4. The mutation is isolated to the drawing operation
         cur.points.push(point.x, point.y);
+        if (cur.pressures) {
+            cur.pressures.push(pressure);
+        }
 
         // Cancel previous animation frame
         if (drawingAnimationFrameRef.current) {
@@ -1797,87 +1837,96 @@ const CanvasManager = ({
                 />
             ))}
 
-            {drawings.map((line) => (
-                <Line
-                    key={line.id}
-                    id={line.id}
-                    name="drawing"
-                    points={line.points}
-                    x={line.x || 0}
-                    y={line.y || 0}
-                    scaleX={line.scale || 1}
-                    scaleY={line.scale || 1}
-                    stroke={line.color}
-                    strokeWidth={line.size}
-                    tension={0.5}
-                    lineCap="round"
-                    dash={line.tool === 'wall' ? [10, 5] : undefined}
-                    opacity={line.tool === 'wall' && isWorldView ? 0 : 1}
-                    globalCompositeOperation={
-                        line.tool === 'eraser' ? 'destination-out' : 'source-over'
-                    }
-                    draggable={tool === 'select' && line.tool !== 'wall'}
-                    onClick={(e) => {
-                        if (tool === 'select' && line.tool !== 'wall') {
-                            e.evt.stopPropagation();
-                            if (e.evt.shiftKey) {
-                                if (selectedIds.includes(line.id)) {
-                                    setSelectedIds(selectedIds.filter(id => id !== line.id));
+            {drawings.map((line) => {
+                // Use pressure-sensitive rendering if pressure data is available
+                const LineComponent = line.pressures && line.pressures.length > 0 ? PressureSensitiveLine : Line;
+                const lineProps = {
+                    key: line.id,
+                    id: line.id,
+                    name: 'drawing' as const,
+                    points: line.points,
+                    x: line.x || 0,
+                    y: line.y || 0,
+                    scale: line.pressures ? { x: line.scale || 1, y: line.scale || 1 } : undefined,
+                    scaleX: !line.pressures ? (line.scale || 1) : undefined,
+                    scaleY: !line.pressures ? (line.scale || 1) : undefined,
+                    stroke: line.color,
+                    strokeWidth: line.size,
+                    pressures: line.pressures, // Only used by PressureSensitiveLine
+                    tension: !line.pressures ? 0.5 : undefined, // Only Line component uses tension
+                    lineCap: 'round' as const,
+                    // @ts-ignore - dash prop incompatibility between Line and Shape
+                    dash: line.tool === 'wall' ? [10, 5] : undefined,
+                    opacity: line.tool === 'wall' && isWorldView ? 0 : 1,
+                    globalCompositeOperation: line.tool === 'eraser' ? 'destination-out' : 'source-over',
+                };
+
+                return (
+                    <LineComponent
+                        {...lineProps}
+                        draggable={tool === 'select' && line.tool !== 'wall'}
+                        onClick={(e: any) => {
+                            if (tool === 'select' && line.tool !== 'wall') {
+                                e.evt.stopPropagation();
+                                if (e.evt.shiftKey) {
+                                    if (selectedIds.includes(line.id)) {
+                                        setSelectedIds(selectedIds.filter(id => id !== line.id));
+                                    } else {
+                                        setSelectedIds([...selectedIds, line.id]);
+                                    }
                                 } else {
-                                    setSelectedIds([...selectedIds, line.id]);
+                                    setSelectedIds([line.id]);
                                 }
-                            } else {
-                                setSelectedIds([line.id]);
                             }
-                        }
-                    }}
-                    onDragStart={() => {
-                         if (selectedIds.includes(line.id)) {
-                             setItemsForDuplication(selectedIds);
-                         } else {
-                             setItemsForDuplication([line.id]);
-                         }
-                     }}
-                     onDragEnd={(e) => {
-                         const node = e.target;
-                         const x = node.x();
-                         const y = node.y();
+                        }}
+                        onDragStart={() => {
+                            if (selectedIds.includes(line.id)) {
+                                setItemsForDuplication(selectedIds);
+                            } else {
+                                setItemsForDuplication([line.id]);
+                            }
+                        }}
+                        onDragEnd={(e: any) => {
+                            const node = e.target;
+                            const x = node.x();
+                            const y = node.y();
 
-                         // Duplication Logic (Option/Alt + Drag)
-                         // BLOCKED in World View (players cannot duplicate drawings)
-                         // Use isAltPressed state for consistency instead of e.evt.altKey
-                         if (isAltPressed && !isWorldView) {
-                             const idsToDuplicate = selectedIds.includes(line.id) ? selectedIds : [line.id];
-                             idsToDuplicate.forEach(id => {
-                                 // Only duplicate drawings here; tokens are handled in their own handler.
-                                 const drawing = drawings.find(d => d.id === id);
-                                 if (drawing) {
-                                     // Calculate drag offset and apply to all points
-                                     // Points array format: [x1, y1, x2, y2, ...] (alternating x,y coordinates)
-                                     const points = drawing.points;
-                                     const dx = x - (drawing.x || 0);
-                                     const dy = y - (drawing.y || 0);
-                                     // Offset all points by (dx, dy)
-                                     const newPoints = points.map((val, idx) =>
-                                         idx % 2 === 0 ? val + dx : val + dy // Even indices are X, odd are Y
-                                     );
-                                     addDrawing({ ...drawing, id: crypto.randomUUID(), points: newPoints, x: 0, y: 0 });
-                                 }
-                             });
-                         }
+                            // Duplication Logic (Option/Alt + Drag)
+                            // BLOCKED in World View (players cannot duplicate drawings)
+                            // Use isAltPressed state for consistency instead of e.evt.altKey
+                            if (isAltPressed && !isWorldView) {
+                                const idsToDuplicate = selectedIds.includes(line.id) ? selectedIds : [line.id];
+                                idsToDuplicate.forEach(id => {
+                                    // Only duplicate drawings here; tokens are handled in their own handler.
+                                    const drawing = drawings.find(d => d.id === id);
+                                    if (drawing) {
+                                        // Calculate drag offset and apply to all points
+                                        // Points array format: [x1, y1, x2, y2, ...] (alternating x,y coordinates)
+                                        const points = drawing.points;
+                                        const dx = x - (drawing.x || 0);
+                                        const dy = y - (drawing.y || 0);
+                                        // Offset all points by (dx, dy)
+                                        const newPoints = points.map((val, idx) =>
+                                            idx % 2 === 0 ? val + dx : val + dy // Even indices are X, odd are Y
+                                        );
+                                        addDrawing({ ...drawing, id: crypto.randomUUID(), points: newPoints, x: 0, y: 0 });
+                                    }
+                                });
+                            }
 
-                         // Update Position (Transform)
-                         // Drawings utilize `points` but usually we just move the node (x,y).
-                         // However, for persistence we should probably update the `points` OR store x,y offset.
-                         // But `Line` points are absolute.
-                         // If we move the Node, Konva applies a transform (x,y).
-                         // We should use `updateDrawingTransform`.
-                         updateDrawingTransform(line.id, x, y, line.scale || 1);
+                            // Update Position (Transform)
+                            // Drawings utilize `points` but usually we just move the node (x,y).
+                            // However, for persistence we should probably update the `points` OR store x,y offset.
+                            // But `Line` points are absolute.
+                            // If we move the Node, Konva applies a transform (x,y).
+                            // We should use `updateDrawingTransform`.
+                            updateDrawingTransform(line.id, x, y, line.scale || 1);
 
-                         setItemsForDuplication([]);
-                     }}
-                />
-            ))}
+                            setItemsForDuplication([]);
+                        }}
+                    />
+                );
+            })}
              {/* Temp Line */}
             {tempLine && (
                 <Line
