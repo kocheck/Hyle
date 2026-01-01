@@ -396,7 +396,7 @@ function App() {
 
   // Otherwise, render the full editor (both Architect and World View)
   return (
-    <div className="app-root w-full h-screen flex overflow-hidden">
+    <div className="app-root w-full h-screen flex overflow-hidden" data-testid="main-canvas">
       {/* Global components (rendered in both Architect and World View) */}
       <ThemeManager />
       <SyncManager />

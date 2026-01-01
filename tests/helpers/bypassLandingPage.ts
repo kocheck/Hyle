@@ -104,8 +104,7 @@ export async function bypassLandingPageAndInjectState(
   await page.goto('/');
 
   // 5. Wait for main app to render
-  // Note: This selector should match your actual app's main container
-  // Adjust if your app uses a different data-testid or selector
+  // Note: The app now uses data-testid="main-canvas" on the app root div
   await page.waitForSelector('[data-testid="main-canvas"]', {
     timeout: 10000,
     state: 'visible',
