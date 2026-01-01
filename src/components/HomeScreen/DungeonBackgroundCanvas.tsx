@@ -243,7 +243,7 @@ export function DungeonBackgroundCanvas({
       {/* Only render stage if dimensions are valid to prevent Konva errors */}
       {dimensions.width > 0 && dimensions.height > 0 && (
         <Stage width={dimensions.width} height={dimensions.height}>
-          {/* Background Layer */}
+          {/* Single Combined Layer - for proper fog of war compositing */}
           <Layer listening={false}>
             {/* Solid background color */}
             <Rect
@@ -265,7 +265,7 @@ export function DungeonBackgroundCanvas({
               opacity={0.15}
             />
 
-            {/* Dungeon Walls */}
+            {/* Dungeon Walls - will be covered by fog and revealed by vision */}
             {activeDrawings.map((drawing) => {
               if (drawing.tool === 'wall') {
                 return (
@@ -282,7 +282,7 @@ export function DungeonBackgroundCanvas({
               return null;
             })}
 
-            {/* Doors (simple rectangles for now) */}
+            {/* Doors - will be covered by fog and revealed by vision */}
             {activeDoors.map((door) => (
               <Rect
                 key={door.id}
@@ -294,10 +294,8 @@ export function DungeonBackgroundCanvas({
                 rotation={door.orientation === 'vertical' ? 90 : 0}
               />
             ))}
-          </Layer>
 
-          {/* Fog of War Layer */}
-          <Layer listening={false}>
+            {/* Fog of War - covers everything above and erases based on token vision */}
             <FogOfWarLayer
               tokens={tokens}
               drawings={activeDrawings}
@@ -308,7 +306,7 @@ export function DungeonBackgroundCanvas({
             />
           </Layer>
 
-          {/* Content Layer - for draggable tokens */}
+          {/* Token Layer - tokens always visible on top of fog */}
           {children && <Layer>{children}</Layer>}
         </Stage>
       )}
