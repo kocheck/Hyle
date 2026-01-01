@@ -104,12 +104,12 @@ export async function bypassLandingPageAndInjectState(
   await page.goto('/');
 
   // 5. Wait for main app to render
-  // Note: The app now uses data-testid="main-canvas" on the app root div
-  await page.waitForSelector('[data-testid="main-canvas"]', {
+  // Note: The app uses data-testid="editor-view" on the editor root div (when in EDITOR state)
+  await page.waitForSelector('[data-testid="editor-view"]', {
     timeout: 10000,
     state: 'visible',
   }).catch(async () => {
-    // Fallback: If main-canvas doesn't exist, wait for root to be visible
+    // Fallback: If editor-view doesn't exist, wait for root to be visible
     await page.waitForSelector('#root:visible', { timeout: 10000 });
   });
 

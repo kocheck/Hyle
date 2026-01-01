@@ -15,6 +15,9 @@ import { bypassLandingPageAndInjectState } from '../helpers/bypassLandingPage';
 import { createNewCampaign, exportCampaign, importCampaign } from '../helpers/campaignHelpers';
 
 test.describe('Campaign Workflow', () => {
+  // Note: Skipped tests in this suite were written for a different UI flow
+  // When un-skipping tests, they will need individual setup or this beforeEach should be removed
+
   test.beforeEach(async ({ page }) => {
     // Import the mock function
     const { injectMockElectronAPIs } = await import('../helpers/mockElectronAPIs');
@@ -34,10 +37,10 @@ test.describe('Campaign Workflow', () => {
     // Create campaign (currently creates with default name "New Campaign")
     await createNewCampaign(page, 'Epic Adventure');
 
-    // Verify campaign was created (main canvas should be visible)
+    // Verify campaign was created (editor view should be visible)
     await expect(
-      page.locator('[data-testid="main-canvas"]'),
-      'Main canvas should be visible after campaign creation'
+      page.locator('[data-testid="editor-view"]'),
+      'Editor view should be visible after campaign creation'
     ).toBeVisible();
 
     // Current UI doesn't display campaign title, so we can't verify the name
