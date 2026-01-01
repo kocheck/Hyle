@@ -3,6 +3,21 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { act } from 'react';
 import DungeonGeneratorErrorBoundary from './DungeonGeneratorErrorBoundary';
 import { useGameStore } from '../store/gameStore';
+import { rollForMessage } from '../utils/systemMessages';
+
+// Mock system messages
+vi.mock('../utils/systemMessages', () => ({
+  rollForMessage: vi.fn((key) => {
+    switch (key) {
+      case 'ERROR_DUNGEON_GENERATION_TITLE':
+        return 'Dungeon Generation Error';
+      case 'ERROR_DUNGEON_GENERATION_DESC':
+        return 'Something went wrong while generating the dungeon';
+      default:
+        return key;
+    }
+  }),
+}));
 
 // Component that throws an error for testing
 function ThrowError({ shouldThrow }: { shouldThrow: boolean }) {
@@ -121,7 +136,7 @@ describe('DungeonGeneratorErrorBoundary', () => {
 
   it('should reset error state when Try Again is clicked', async () => {
     let shouldThrow = true;
-    
+
     function ConditionalErrorTrigger() {
       return <ThrowError shouldThrow={shouldThrow} />;
     }

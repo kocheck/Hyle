@@ -110,7 +110,7 @@ function distance(p1: Point, p2: Point): number {
 /**
  * Calculate distance from point to line segment and return the closest point
  * (accounts for segment endpoints, not just infinite line)
- * 
+ *
  * @returns Object with distance and the closest point on the segment
  */
 function pointToSegmentDistanceWithPoint(
@@ -205,6 +205,39 @@ export function snapPointToPaths(
   existingPaths: number[][],
   threshold: number
 ): { point: Point; snapped: boolean; pathIndex: number } {
+  // 1. Check for vertex matches first (higher priority than edge snapping)
+  let bestVertexMatch: { point: Point; distance: number; pathIndex: number } | null = null;
+
+  for (let i = 0; i < existingPaths.length; i++) {
+    const path = existingPaths[i];
+    for (let j = 0; j < path.length; j += 2) {
+      const vx = path[j];
+      const vy = path[j+1];
+      const dx = point.x - vx;
+      const dy = point.y - vy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist < threshold) {
+        if (!bestVertexMatch || dist < bestVertexMatch.distance) {
+          bestVertexMatch = {
+            point: { x: vx, y: vy },
+            distance: dist,
+            pathIndex: i
+          };
+        }
+      }
+    }
+  }
+
+  if (bestVertexMatch) {
+    return {
+      point: bestVertexMatch.point,
+      snapped: true,
+      pathIndex: bestVertexMatch.pathIndex
+    };
+  }
+
+  // 2. Fall back to segment snapping
   let bestSnapPoint = point;
   let minDistance = threshold;
   let snapped = false;

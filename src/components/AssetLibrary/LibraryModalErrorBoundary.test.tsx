@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import LibraryModalErrorBoundary from './LibraryModalErrorBoundary';
 
@@ -202,11 +203,16 @@ describe('LibraryModalErrorBoundary', () => {
   });
 
   it('should reset error state after closing', async () => {
-    const { rerender } = render(
-      <LibraryModalErrorBoundary onClose={mockOnClose}>
-        <ThrowError shouldThrow={true} />
-      </LibraryModalErrorBoundary>
-    );
+    function TestWrapper() {
+      const [hasError, setHasError] = React.useState(true);
+      return (
+        <LibraryModalErrorBoundary onClose={() => setHasError(false)}>
+          {hasError ? <ThrowError shouldThrow={true} /> : <div data-testid="valid-child">Valid Content</div>}
+        </LibraryModalErrorBoundary>
+      );
+    }
+
+    render(<TestWrapper />);
 
     await waitFor(() => {
       expect(screen.getByText('Something went wrong')).toBeInTheDocument();
@@ -215,13 +221,6 @@ describe('LibraryModalErrorBoundary', () => {
     // Click close button
     const closeButtons = screen.getAllByText('Close');
     fireEvent.click(closeButtons[0]);
-
-    // Rerender with valid children
-    rerender(
-      <LibraryModalErrorBoundary onClose={mockOnClose}>
-        <div data-testid="valid-child">Valid Content</div>
-      </LibraryModalErrorBoundary>
-    );
 
     // Should show valid children now
     await waitFor(() => {

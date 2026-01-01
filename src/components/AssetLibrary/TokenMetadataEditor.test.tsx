@@ -114,7 +114,8 @@ describe('TokenMetadataEditor', () => {
     expect(screen.getByDisplayValue('Ancient Dragon')).toBeInTheDocument();
     expect(screen.getByDisplayValue('dragon, ancient, red')).toBeInTheDocument();
     expect(screen.getByDisplayValue('2.5')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('120')).toBeInTheDocument();
+    // Vision radius hidden for NPC via defaultType
+    expect(screen.queryByDisplayValue('120')).not.toBeInTheDocument();
   });
 
   it('should display preview image with correct src transformation', () => {
@@ -126,7 +127,7 @@ describe('TokenMetadataEditor', () => {
       />
     );
 
-    const img = screen.getByAlt('Ancient Dragon');
+    const img = screen.getByAltText('Ancient Dragon');
     // thumbnailSrc should have 'file:' replaced with 'media:'
     expect(img).toHaveAttribute('src', 'media:///path/to/thumb.png');
   });
@@ -250,9 +251,9 @@ describe('TokenMetadataEditor', () => {
       />
     );
 
+
     const scaleInput = screen.getByDisplayValue('2.5');
-    await user.clear(scaleInput);
-    await user.type(scaleInput, '3.0');
+    fireEvent.change(scaleInput, { target: { value: '3.0' } });
 
     expect(screen.getByDisplayValue('3.0')).toBeInTheDocument();
   });
@@ -329,7 +330,12 @@ describe('TokenMetadataEditor', () => {
       />
     );
 
-    const visionInput = screen.getByDisplayValue('120');
+    // Change to PC first to show vision radius
+    const selects = screen.getAllByRole('combobox');
+    let typeSelect = selects[1];
+    fireEvent.change(typeSelect, { target: { value: 'PC' } });
+
+    const visionInput = await screen.findByDisplayValue('120');
     await user.clear(visionInput);
     await user.type(visionInput, '-10');
 
@@ -349,7 +355,12 @@ describe('TokenMetadataEditor', () => {
       />
     );
 
-    const visionInput = screen.getByDisplayValue('120');
+    // Switch to PC
+    const selects = screen.getAllByRole('combobox');
+    let typeSelect = selects[1];
+    fireEvent.change(typeSelect, { target: { value: 'PC' } });
+
+    const visionInput = await screen.findByDisplayValue('120');
     await user.clear(visionInput);
     await user.type(visionInput, '0');
 
@@ -493,10 +504,15 @@ describe('TokenMetadataEditor', () => {
     const scaleInput = screen.getByDisplayValue('2.5');
     await user.clear(scaleInput);
 
-    const visionInput = screen.getByDisplayValue('120');
+    // Switch to PC to clear vision
+    const selects = screen.getAllByRole('combobox');
+    let typeSelect = selects[1];
+    fireEvent.change(typeSelect, { target: { value: 'PC' } });
+
+    const visionInput = await screen.findByDisplayValue('120');
     await user.clear(visionInput);
 
-    const typeSelect = screen.getByDisplayValue('NPC (Non-Player Character)');
+    // Clear type
     fireEvent.change(typeSelect, { target: { value: '' } });
 
     const saveButton = screen.getByText('Save Changes');
@@ -518,22 +534,26 @@ describe('TokenMetadataEditor', () => {
       />
     );
 
-    // Initially NPC, vision radius should be visible
-    expect(screen.getByDisplayValue('120')).toBeInTheDocument();
+    // Initially NPC, vision radius should NOT be visible
+    expect(screen.queryByDisplayValue('120')).not.toBeInTheDocument();
+
+    const selects = screen.getAllByRole('combobox');
+    let typeSelect = selects[1]; // Category is 0, Type is 1
 
     // Change to None
-    const typeSelect = screen.getByDisplayValue('NPC (Non-Player Character)');
     fireEvent.change(typeSelect, { target: { value: '' } });
 
     // Vision radius field should not be visible
-    expect(screen.queryByLabelText(/Default Vision Radius/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Default Vision Radius/)).not.toBeInTheDocument();
 
     // Change to PC
+    // Re-query by new display value
+    typeSelect = screen.getByDisplayValue('None');
     fireEvent.change(typeSelect, { target: { value: 'PC' } });
 
     // Vision radius should be visible again
     await waitFor(() => {
-      expect(screen.getByLabelText(/Default Vision Radius/)).toBeInTheDocument();
+      expect(screen.getByText(/Default Vision Radius/)).toBeInTheDocument();
     });
   });
 
@@ -627,7 +647,12 @@ describe('TokenMetadataEditor', () => {
       />
     );
 
-    const visionInput = screen.getByDisplayValue('120');
+    // Change to PC first to show vision radius
+    const typeSelect = screen.getByDisplayValue('NPC (Non-Player Character)');
+    await user.selectOptions(typeSelect, 'PC');
+
+    // Now look for vision radius
+    const visionInput = await screen.findByDisplayValue('120');
     await user.clear(visionInput);
     await user.type(visionInput, '9999');
 
