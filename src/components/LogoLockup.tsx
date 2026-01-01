@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-const logoDarkUrl = '/branding/logo-dark.png';
-const logoLightUrl = '/branding/logo-light.png';
+const logoDarkUrl = '/branding/logo-dark.svg';
+const logoLightUrl = '/branding/logo-light.svg';
 
 interface LogoLockupProps {
   /**
