@@ -1,11 +1,22 @@
+// 1. External imports (React and core libraries)
 import { useEffect, useState, useRef, useMemo } from 'react';
+
+// 2. Third-party UI libraries
 import { Stage, Layer, Rect, Line } from 'react-konva';
+
+// 3. Utilities (relative paths)
 import { DungeonGenerator } from '../../utils/DungeonGenerator';
+import { isNearDoor } from '../../utils/collisionDetection';
+
+// 4. Stores
 import { Drawing, Door } from '../../store/gameStore';
+
+// 5. Components
 import PaperNoiseOverlay from '../Canvas/PaperNoiseOverlay';
 import FogOfWarLayer from '../Canvas/FogOfWarLayer';
-import { ResolvedTokenData } from '../../hooks/useTokenData';
-import { isNearDoor } from '../../utils/collisionDetection';
+
+// 6. Types
+import type { ResolvedTokenData } from '../../hooks/useTokenData';
 
 interface DungeonBackgroundCanvasProps {
   width: number;
@@ -92,11 +103,10 @@ export function DungeonBackgroundCanvas({
           generationTime: `${generationTime.toFixed(2)}ms`,
         });
 
-        // Check if generation took too long (> 500ms)
-        if (generationTime > 500) {
-          console.warn('[DungeonBackgroundCanvas] Generation took too long, using fallback');
-          setGenerationFailed(true);
-          return;
+        // Clear timeout on successful generation
+        if (generationTimeoutRef.current) {
+          clearTimeout(generationTimeoutRef.current);
+          generationTimeoutRef.current = null;
         }
 
         setDungeonDrawings(result.drawings);
@@ -108,32 +118,39 @@ export function DungeonBackgroundCanvas({
 
       } catch (error) {
         console.error('[DungeonBackgroundCanvas] Generation failed:', error);
+        // Clear timeout on error
+        if (generationTimeoutRef.current) {
+          clearTimeout(generationTimeoutRef.current);
+          generationTimeoutRef.current = null;
+        }
         setGenerationFailed(true);
       }
     };
 
     // Only generate if dimensions are valid
     if (dimensions.width > 0 && dimensions.height > 0) {
+      // Clear any existing timeout from previous dimension changes
+      if (generationTimeoutRef.current) {
+        clearTimeout(generationTimeoutRef.current);
+      }
+
       // Timeout fallback - if generation doesn't complete in 500ms, use fallback
       generationTimeoutRef.current = setTimeout(() => {
         console.warn('[DungeonBackgroundCanvas] Generation timeout, using fallback');
         setGenerationFailed(true);
+        generationTimeoutRef.current = null;
       }, 500);
 
       generateDungeon();
-
-      // Clear timeout if generation completed
-      if (generationTimeoutRef.current) {
-        clearTimeout(generationTimeoutRef.current);
-      }
     }
 
     return () => {
       if (generationTimeoutRef.current) {
         clearTimeout(generationTimeoutRef.current);
+        generationTimeoutRef.current = null;
       }
     };
-  }, [dimensions.width, dimensions.height]);
+  }, [dimensions.width, dimensions.height, onDungeonGenerated]);
 
   // Fallback dungeon layout (simple cross pattern)
   const fallbackDrawings = useMemo(() => {
@@ -143,41 +160,30 @@ export function DungeonBackgroundCanvas({
     const centerY = dimensions.height / 2;
     const roomSize = gridSize * 6;
 
-    // Create a simple cross-shaped dungeon
+    // Create a simple closed square room
+    // Points array contains all coordinates in sequence to form a connected path
     const drawings: Drawing[] = [
-      // Center room
       {
-        id: 'fallback-wall-1',
+        id: 'fallback-wall-square',
         tool: 'wall',
-        points: [centerX - roomSize, centerY - roomSize, centerX + roomSize, centerY - roomSize],
-        color: '#ff0000',
-        size: 8,
-      },
-      {
-        id: 'fallback-wall-2',
-        tool: 'wall',
-        points: [centerX + roomSize, centerY - roomSize, centerX + roomSize, centerY + roomSize],
-        color: '#ff0000',
-        size: 8,
-      },
-      {
-        id: 'fallback-wall-3',
-        tool: 'wall',
-        points: [centerX + roomSize, centerY + roomSize, centerX - roomSize, centerY + roomSize],
-        color: '#ff0000',
-        size: 8,
-      },
-      {
-        id: 'fallback-wall-4',
-        tool: 'wall',
-        points: [centerX - roomSize, centerY + roomSize, centerX - roomSize, centerY - roomSize],
+        points: [
+          // Top-left to top-right
+          centerX - roomSize, centerY - roomSize,
+          // Top-right to bottom-right
+          centerX + roomSize, centerY - roomSize,
+          // Bottom-right to bottom-left
+          centerX + roomSize, centerY + roomSize,
+          // Bottom-left back to top-left (close the square)
+          centerX - roomSize, centerY + roomSize,
+          centerX - roomSize, centerY - roomSize,
+        ],
         color: '#ff0000',
         size: 8,
       },
     ];
 
     return drawings;
-  }, [generationFailed, dimensions.width, dimensions.height]);
+  }, [generationFailed, dimensions.width, dimensions.height, gridSize]);
 
   // Use fallback if generation failed, otherwise use generated dungeon
   const activeDrawings = generationFailed ? fallbackDrawings : dungeonDrawings;
@@ -190,35 +196,45 @@ export function DungeonBackgroundCanvas({
 
   // Door opening mechanic - open doors when tokens get near
   useEffect(() => {
-    if (activeDoors.length === 0 || tokens.length === 0) return;
+    if (tokens.length === 0) return;
 
     const interactionRange = gridSize * 1.5; // 1.5 grid cells
-    let doorsChanged = false;
-    const updatedDoors = activeDoors.map((door) => {
-      // Skip if already open
-      if (door.isOpen) return door;
 
-      // Check if any token is near this door
-      const nearbyToken = tokens.some((token) => {
-        const tokenCenterX = token.x + (gridSize * token.scale) / 2;
-        const tokenCenterY = token.y + (gridSize * token.scale) / 2;
-        return isNearDoor(tokenCenterX, tokenCenterY, door, interactionRange);
+    setActiveDoors((prevDoors) => {
+      if (prevDoors.length === 0) return prevDoors;
+
+      let doorsChanged = false;
+      const updatedDoors = prevDoors.map((door) => {
+        // Skip if already open
+        if (door.isOpen) return door;
+
+        // Check if any token is near this door
+        const nearbyToken = tokens.some((token) => {
+          // Token positioning model: token.x/y is top-left corner
+          // Token size in pixels: gridSize * token.scale
+          // Token center: top-left + (size / 2)
+          const tokenCenterX = token.x + (gridSize * token.scale) / 2;
+          const tokenCenterY = token.y + (gridSize * token.scale) / 2;
+          return isNearDoor(tokenCenterX, tokenCenterY, door, interactionRange);
+        });
+
+        if (nearbyToken) {
+          console.log('[DungeonBackgroundCanvas] Opening door:', door.id);
+          doorsChanged = true;
+          return { ...door, isOpen: true };
+        }
+
+        return door;
       });
 
-      if (nearbyToken) {
-        console.log('[DungeonBackgroundCanvas] Opening door:', door.id);
-        doorsChanged = true;
-        return { ...door, isOpen: true };
+      if (doorsChanged) {
+        onDoorStatesChange?.(updatedDoors);
+        return updatedDoors;
       }
 
-      return door;
+      return prevDoors;
     });
-
-    if (doorsChanged) {
-      setActiveDoors(updatedDoors);
-      onDoorStatesChange?.(updatedDoors);
-    }
-  }, [tokens, activeDoors, gridSize, onDoorStatesChange]);
+  }, [tokens, gridSize, onDoorStatesChange]);
 
   // Calculate visible bounds for fog of war
   const visibleBounds = {

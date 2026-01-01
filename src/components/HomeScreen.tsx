@@ -376,6 +376,15 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
   /**
    * Convert playground tokens to ResolvedTokenData format for FogOfWarLayer
    * These tokens act as light/vision sources in the dungeon
+   * 
+   * Vision radius: 15ft (3 grid cells at 5ft/cell)
+   * - FogOfWarLayer expects visionRadius in feet
+   * - Conversion to pixels: (visionRadius / 5) * gridSize
+   * - Example: 15ft / 5 = 3 cells, 3 * 50px = 150px vision circle
+   * 
+   * Scale calculation: token.size / 60
+   * - Assumes base token size of 60px (1 grid cell + padding)
+   * - Normalizes various token sizes to a consistent scale
    */
   const resolvedTokens = useMemo<ResolvedTokenData[]>(() => {
     return playgroundTokens.map((token) => ({
@@ -383,7 +392,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
       x: tokenPositions[token.id]?.x ?? token.x,
       y: tokenPositions[token.id]?.y ?? token.y,
       src: token.imageSrc,
-      scale: token.size / 60, // Normalize to base token size
+      scale: token.size / 60, // Normalize to base token size (60px = 1 grid cell + padding)
       type: 'PC' as const, // All demo tokens are PCs with vision
       visionRadius: 15, // 15ft vision radius (3 grid cells) - small for dramatic fog effect
       name: token.label,
@@ -473,6 +482,9 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
         // 4. Wall collision check (if dungeon is generated)
         if (dungeonDrawings.length > 0) {
           const tokenSize = currentPos.size;
+          // Token positioning: newX/newY represent top-left corner
+          // Token center = top-left + (size / 2)
+          // Token size in pixels = tokenSize (already includes scale)
           const tokenCenterX = newX + tokenSize / 2;
           const tokenCenterY = newY + tokenSize / 2;
 
@@ -658,12 +670,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
         pointerEvents: 'none', // Allow clicks to pass through empty space to the canvas
       }}>
         {/* Branding */}
-        <div className="text-center mb-16" style={{
-          backdropFilter: 'blur(8px)',
-          background: 'rgba(0, 0, 0, 0.3)',
-          borderRadius: '12px',
-          padding: '2rem',
-        }}>
+        <div className="text-center mb-16 backdrop-blur-md bg-black/30 rounded-xl p-8">
           <div className="flex flex-col items-center">
             <LogoLockup
               width={400}

@@ -142,8 +142,14 @@ export function checkWallCollision(
 }
 
 /**
- * Finds the nearest valid position to a target that doesn't collide with walls
- * Uses a spiral search pattern to find nearby valid spots
+ * Attempts to find the nearest non-colliding position to a target that doesn't collide with walls.
+ * Uses a spiral search pattern to find nearby valid spots.
+ *
+ * If no non-colliding position can be found within the search radius, the original
+ * target position is returned, even if it collides with walls. Callers that require
+ * a guaranteed non-colliding position should treat this as a best-effort helper and
+ * perform their own collision check (e.g. via `checkWallCollision`) or handle the
+ * "no valid spot found" case when the returned point still collides.
  *
  * @param targetX - Desired X position
  * @param targetY - Desired Y position
@@ -151,7 +157,7 @@ export function checkWallCollision(
  * @param drawings - Array of wall drawings
  * @param doors - Array of doors
  * @param maxSearchRadius - Maximum search distance (default: 100)
- * @returns Valid position or original position if no valid spot found
+ * @returns A nearby non-colliding position when found, otherwise the original target position (which may still collide)
  */
 export function findNearestValidPosition(
   targetX: number,
