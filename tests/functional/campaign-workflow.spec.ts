@@ -16,8 +16,15 @@ import { createNewCampaign, exportCampaign, importCampaign } from '../helpers/ca
 
 test.describe('Campaign Workflow', () => {
   test.beforeEach(async ({ page }) => {
-    // Bypass landing page and start with empty campaign
-    await bypassLandingPageAndInjectState(page);
+    // Import the mock function
+    const { injectMockElectronAPIs } = await import('../helpers/mockElectronAPIs');
+    
+    // Inject mock Electron APIs before the page loads
+    await page.addInitScript(injectMockElectronAPIs);
+    
+    // Navigate to app (will show home screen)
+    await page.goto('/');
+    await page.waitForSelector('#root:visible', { timeout: 10000 });
   });
 
   test('should create new campaign with user-provided name', async ({ page }) => {
@@ -185,7 +192,8 @@ test.describe.skip('Campaign Creation Edge Cases', () => {
   // SKIPPED: These tests require campaign name input dialog that doesn't exist in current UI
   
   test.beforeEach(async ({ page }) => {
-    await bypassLandingPageAndInjectState(page);
+    await page.goto('/');
+    await page.waitForSelector('#root:visible', { timeout: 10000 });
   });
 
   test('should handle empty campaign name gracefully', async ({ page }) => {
