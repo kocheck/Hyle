@@ -15,9 +15,8 @@
 ### *The Weight of Creation*
 
 ![License](https://img.shields.io/badge/license-MIT-blue)
-![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
-![Tests](https://img.shields.io/badge/tests-172%20passing-success)
-![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
+![Build Status](https://github.com/kocheck/Graphium/actions/workflows/build-release.yml/badge.svg)
+![Tests](https://github.com/kocheck/Graphium/actions/workflows/test.yml/badge.svg)
 
 [Quick Start](#quick-start) • [Philosophy](#philosophy) • [Tools](#tools) • [Installation](#installation) • [Contributing](#contributing)
 
