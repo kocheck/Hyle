@@ -115,12 +115,12 @@ describe('fuzzySearch', () => {
       expect(results[0].category).toBe('Props');
     });
 
-    it('should match partial words', () => {
+    it('should match partial words (fuzzy)', () => {
       const results = fuzzySearch(mockLibrary, 'drg');
 
-      // Should NOT match "drg" as a partial word (no match)
-      // fuzzySearch only matches full substrings
-      expect(results).toHaveLength(0);
+      // Should match "Dragon" variants as "drg" is a subsequence of "Dragon"
+      expect(results.length).toBeGreaterThan(0);
+      expect(results.some(r => r.name.includes('Dragon'))).toBe(true);
     });
 
     it('should match multi-word queries', () => {

@@ -27,13 +27,21 @@ Object.defineProperty(window, 'ipcRenderer', {
   writable: true,
 })
 
-// Mock clipboard API
-Object.defineProperty(navigator, 'clipboard', {
-  value: {
-    writeText: vi.fn().mockResolvedValue(undefined),
-    readText: vi.fn().mockResolvedValue(''),
-  },
+
+
+// Mock matchMedia
+Object.defineProperty(window, 'matchMedia', {
   writable: true,
+  value: vi.fn().mockImplementation(query => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(), // deprecated
+    removeListener: vi.fn(), // deprecated
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
 })
 
 // Basic Canvas Mock for Konva in jsdom
@@ -65,6 +73,27 @@ if (typeof HTMLCanvasElement !== 'undefined') {
         transform: vi.fn(),
         rect: vi.fn(),
         clip: vi.fn(),
+        fillText: vi.fn(),
+        strokeText: vi.fn(),
+        createLinearGradient: vi.fn(() => ({
+          addColorStop: vi.fn(),
+        })),
+        createRadialGradient: vi.fn(() => ({
+          addColorStop: vi.fn(),
+        })),
+        createPattern: vi.fn(),
+        bezierCurveTo: vi.fn(),
+        quadraticCurveTo: vi.fn(),
+        arcTo: vi.fn(),
+        ellipse: vi.fn(),
+        isPointInPath: vi.fn(),
+        isPointInStroke: vi.fn(),
+        getLineDash: vi.fn(() => []),
+        setLineDash: vi.fn(),
+        canvas: {
+          width: 800,
+          height: 600,
+        },
       };
     }
     return null;

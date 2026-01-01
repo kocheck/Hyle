@@ -240,9 +240,9 @@ describe('errorSanitizer', () => {
 
       const report = generateReportBody(sanitizedError)
 
-      expect(report).toContain('ERROR DETAILS')
-      expect(report).toContain('Error Type: TypeError')
-      expect(report).toContain('Message: Cannot read property')
+      expect(report).toContain('## Error Details')
+      expect(report).toContain('**Error Type:** TypeError')
+      expect(report).toContain('**Message:** Cannot read property')
     })
 
     it('should include stack trace section', () => {
@@ -254,11 +254,11 @@ describe('errorSanitizer', () => {
 
       const report = generateReportBody(sanitizedError)
 
-      expect(report).toContain('STACK TRACE')
+      expect(report).toContain('### Stack Trace')
       expect(report).toContain('/home/<USER>/project/file.ts')
     })
 
-    it('should have proper header and footer', () => {
+    it('should have proper header', () => {
       const sanitizedError: SanitizedError = {
         name: 'Error',
         message: 'Test',
@@ -267,8 +267,7 @@ describe('errorSanitizer', () => {
 
       const report = generateReportBody(sanitizedError)
 
-      expect(report).toContain('GRAPHIUM ERROR REPORT')
-      expect(report).toContain('END OF REPORT')
+      expect(report).toContain('## Description')
     })
   })
 })

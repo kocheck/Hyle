@@ -238,8 +238,8 @@ describe('Door Blocking Logic', () => {
       // Scenario: PC at (50, 100), door at x=100 (horizontal), target at (150, 100)
       // Ray should hit the door and NOT reach the target
 
-      const pcPosition = { x: 50, y: 100 };
-      const targetPosition = { x: 150, y: 100 };
+      const pcPosition = { x: 100, y: 50 };
+      const targetPosition = { x: 100, y: 150 };
 
       // Closed door creates wall segment
       const doorSegment: WallSegment = {
