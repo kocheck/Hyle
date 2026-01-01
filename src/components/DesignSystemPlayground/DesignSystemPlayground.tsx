@@ -29,7 +29,6 @@ import { getStorage } from '../../services/storage';
 import { ThemeManager } from '../ThemeManager';
 import Toast from '../Toast';
 import ConfirmDialog from '../ConfirmDialog';
-import { useGameStore } from '../../store/gameStore';
 
 /**
  * Shell component to provide necessary context (Theme, Toasts, Dialogs)
