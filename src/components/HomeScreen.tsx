@@ -385,7 +385,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
       src: token.imageSrc,
       scale: token.size / 60, // Normalize to base token size
       type: 'PC' as const, // All demo tokens are PCs with vision
-      visionRadius: 60, // 60ft vision radius (12 grid cells at 5ft/cell)
+      visionRadius: 15, // 15ft vision radius (3 grid cells) - small for dramatic fog effect
       name: token.label,
       _isInherited: {
         scale: false,
