@@ -20,6 +20,7 @@ interface PressureSensitiveLineProps {
   scale?: { x: number; y: number };
   x?: number;
   y?: number;
+  pressureRange?: { min: number; max: number }; // Pressure multiplier range from settings
 }
 
 /**
@@ -89,6 +90,7 @@ const PressureSensitiveLineComponent = ({
   scale,
   x,
   y,
+  pressureRange = { min: 0.3, max: 1.5 }, // Default to 'normal' curve
 }: PressureSensitiveLineProps) => {
   const shapeRef = useRef<Konva.Shape>(null);
 
@@ -127,8 +129,9 @@ const PressureSensitiveLineComponent = ({
       // Calculate average pressure for this segment
       const avgPressure = (pressure1 + pressure2) / 2;
 
-      // Vary stroke width based on pressure (0.3x to 1.5x base width)
-      const pressureMultiplier = 0.3 + avgPressure * 1.2;
+      // Vary stroke width based on pressure using configured range
+      // Map pressure (0.0-1.0) to multiplier (min-max)
+      const pressureMultiplier = pressureRange.min + avgPressure * (pressureRange.max - pressureRange.min);
       const segmentWidth = strokeWidth * pressureMultiplier;
 
       // Draw line segment with calculated width

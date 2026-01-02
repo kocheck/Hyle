@@ -117,12 +117,12 @@ const getPointerPosition = (e: KonvaEventObject<PointerEvent | MouseEvent | Touc
  * };
  */
 const getPointerPressure = (e: KonvaEventObject<PointerEvent | MouseEvent | TouchEvent>): number => {
-  const evt = e.evt as PointerEvent;
-  // PointerEvent has pressure property, MouseEvent/TouchEvent don't
+  const evt = e.evt;
+  // Type guard: Check if this is a PointerEvent with pressure property
   if ('pressure' in evt && typeof evt.pressure === 'number') {
     return evt.pressure;
   }
-  return 0.5; // Default pressure for mouse
+  return 0.5; // Default pressure for mouse/touch without pressure info
 };
 
 /**
@@ -146,8 +146,9 @@ const getPointerPressure = (e: KonvaEventObject<PointerEvent | MouseEvent | Touc
  * };
  */
 const isMultiTouchGesture = (e: KonvaEventObject<PointerEvent | MouseEvent | TouchEvent>): boolean => {
-  const evt = e.evt as TouchEvent;
-  return 'touches' in evt && evt.touches.length >= 2;
+  const evt = e.evt;
+  // Type guard: Check if this is a TouchEvent with touches array
+  return 'touches' in evt && Array.isArray(evt.touches) && evt.touches.length >= 2;
 };
 
 
@@ -448,15 +449,20 @@ const CanvasManager = ({
    * @returns true if event should be rejected, false if should be processed
    */
   const shouldRejectPointerEvent = useCallback((e: KonvaEventObject<PointerEvent | MouseEvent | TouchEvent>): boolean => {
-    const evt = e.evt as PointerEvent;
+    const evt = e.evt;
+
+    // Type guard: Only PointerEvent has pointerType property
+    if (!('pointerType' in evt)) {
+      return false; // MouseEvent/TouchEvent - don't reject
+    }
 
     // Desktop-only mode: reject all touch input
     if (touchSettings.desktopOnlyMode && evt.pointerType === 'touch') {
       return true;
     }
 
-    // Use the store's rejection logic
-    const shouldReject = touchSettings.shouldRejectTouch(evt, stylusActiveRef.current);
+    // Use the store's rejection logic (only if it's a PointerEvent)
+    const shouldReject = touchSettings.shouldRejectTouch(evt as PointerEvent, stylusActiveRef.current);
 
     // Additional smart delay logic (time-based, not in store)
     if (touchSettings.palmRejectionMode === 'smartDelay' && evt.pointerType === 'touch') {
@@ -1910,9 +1916,9 @@ const CanvasManager = ({
                  // No action needed here; see comment above.
              }
         }}
+        className="touch-none" // Prevent browser's default touch behaviors (scroll, zoom, text selection)
         style={{
           cursor: getCursorStyle(),
-          touchAction: 'none', // Prevent browser's default touch behaviors (scroll, zoom, text selection)
         }}
       >
         {/* Layer 1: Background & Map (Listening False to let internal events pass to Stage for selection) */}
@@ -1997,12 +2003,12 @@ const CanvasManager = ({
                     points: line.points,
                     x: line.x || 0,
                     y: line.y || 0,
-                    scale: line.pressures ? { x: line.scale || 1, y: line.scale || 1 } : undefined,
-                    scaleX: !line.pressures ? (line.scale || 1) : undefined,
-                    scaleY: !line.pressures ? (line.scale || 1) : undefined,
+                    scaleX: line.scale || 1,
+                    scaleY: line.scale || 1,
                     stroke: line.color,
                     strokeWidth: line.size,
                     pressures: line.pressures, // Only used by PressureSensitiveLine
+                    pressureRange: line.pressures ? touchSettings.getPressureRange() : undefined, // Only used by PressureSensitiveLine
                     tension: !line.pressures ? 0.5 : undefined, // Only Line component uses tension
                     lineCap: 'round' as const,
                     opacity: line.tool === 'wall' && isWorldView ? 0 : 1,
