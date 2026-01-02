@@ -17,7 +17,9 @@ interface PressureSensitiveLineProps {
   globalCompositeOperation?: GlobalCompositeOperationType;
   opacity?: number;
   listening?: boolean;
-  scale?: { x: number; y: number };
+  scale?: { x: number; y: number }; // Legacy support (use scaleX/scaleY instead)
+  scaleX?: number;
+  scaleY?: number;
   x?: number;
   y?: number;
   pressureRange?: { min: number; max: number }; // Pressure multiplier range from settings
@@ -88,6 +90,8 @@ const PressureSensitiveLineComponent = ({
   opacity,
   listening = false,
   scale,
+  scaleX,
+  scaleY,
   x,
   y,
   pressureRange = { min: 0.3, max: 1.5 }, // Default to 'normal' curve
@@ -157,6 +161,8 @@ const PressureSensitiveLineComponent = ({
       opacity={opacity}
       listening={listening}
       scale={scale}
+      scaleX={scaleX}
+      scaleY={scaleY}
       x={x}
       y={y}
     />
