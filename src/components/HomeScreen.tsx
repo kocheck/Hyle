@@ -391,8 +391,10 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
           align-items: center;
           justify-content: center;
           overflow-x: hidden;
+          overflow-y: auto; /* Ensure vertical scrolling works */
           background: var(--app-bg-base);
           color: var(--app-text-primary);
+          -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
         }
 
         /* ======================
@@ -507,6 +509,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
         .logo {
           width: 100%;
           height: auto;
+          max-width: 420px;
           filter: drop-shadow(0 4px 20px rgba(139, 92, 246, 0.3));
           animation: logoFloat 3s ease-in-out infinite;
         }
@@ -960,11 +963,14 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
           .home-screen {
             min-height: 100vh;
             min-height: 100dvh; /* Dynamic viewport height for mobile browsers */
+            justify-content: flex-start; /* Allow natural scrolling instead of centering */
+            padding: 2rem 0; /* Add vertical padding for spacing */
           }
 
           .content-container {
-            padding: 1rem 1.5rem 6rem; /* Extra bottom padding for fixed footer */
+            padding: 0 1.5rem 2rem; /* Remove top/bottom, let parent handle it */
             gap: 1.5rem;
+            margin-bottom: 0; /* Remove margin to let footer spacing handle it */
           }
 
           .logo-container {
@@ -1049,12 +1055,22 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
 
         /* Small mobile: Up to 480px */
         @media (max-width: 480px) {
+          .home-screen {
+            padding: 1.5rem 0; /* Reduce vertical padding on smaller screens */
+          }
+
           .content-container {
-            padding: 0.75rem 1rem 6rem;
+            padding: 0 1rem 1.5rem; /* Tighter horizontal padding */
+            gap: 1.25rem; /* Reduce gap between sections */
           }
 
           .logo-container {
-            max-width: 240px;
+            max-width: 200px; /* Smaller logo for small screens */
+            margin-bottom: 1rem; /* Reduce bottom margin */
+          }
+
+          .hero-section {
+            margin-bottom: 0.5rem; /* Reduce spacing */
           }
 
           .hero-title {
@@ -1067,12 +1083,16 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
           }
 
           .action-card {
-            padding: 1.25rem;
+            padding: 1rem; /* More compact padding */
+          }
+
+          .card-icon-wrapper {
+            margin-bottom: 0.75rem; /* Reduce spacing */
           }
 
           .quick-action-btn {
-            padding: 0.75rem 1rem;
-            font-size: 0.875rem;
+            padding: 0.625rem 0.875rem; /* More compact */
+            font-size: 0.8125rem;
           }
 
           .footer-links {
@@ -1099,21 +1119,54 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
 
         /* Very small mobile: Up to 360px */
         @media (max-width: 360px) {
+          .home-screen {
+            padding: 1rem 0; /* Minimal vertical padding */
+          }
+
+          .content-container {
+            padding: 0 0.875rem 1rem; /* Very tight padding */
+            gap: 1rem; /* Minimal gap */
+          }
+
           .logo-container {
-            max-width: 200px;
+            max-width: 180px; /* Even smaller logo */
+            margin-bottom: 0.75rem;
           }
 
           .hero-title {
             font-size: 1.125rem;
+            margin-bottom: 0.5rem;
+          }
+
+          .hero-subtitle {
+            font-size: 0.75rem; /* Smaller subtitle */
           }
 
           .card-title {
             font-size: 1rem;
           }
 
+          .card-description {
+            font-size: 0.75rem; /* Smaller description */
+          }
+
+          .action-card {
+            padding: 0.875rem; /* Very compact cards */
+            min-height: 44px; /* Maintain minimum touch target height */
+          }
+
+          .quick-action-btn {
+            min-height: 44px; /* Preserve touch target size for quick action buttons */
+          }
+
           .banner-icon {
             width: 1.5rem;
             height: 1.5rem;
+          }
+
+          .footer {
+            margin-top: 1.5rem; /* Less top margin */
+            padding: 0.75rem; /* Compact footer */
           }
         }
       `}</style>
