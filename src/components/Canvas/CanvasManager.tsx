@@ -425,8 +425,8 @@ const CanvasManager = ({
     const rawPressure = getPointerPressure(e);
 
     // Track stylus usage for palm rejection
-    const evt = e.evt as PointerEvent;
-    if (evt.pointerType === 'pen') {
+    const evt = e.evt;
+    if ('pointerType' in evt && evt.pointerType === 'pen') {
       stylusActiveRef.current = true;
     }
 
@@ -479,8 +479,8 @@ const CanvasManager = ({
    * Track stylus lift for smart delay palm rejection
    */
   const handleStylusLift = useCallback((e: KonvaEventObject<PointerEvent | MouseEvent | TouchEvent>) => {
-    const evt = e.evt as PointerEvent;
-    if (evt.pointerType === 'pen') {
+    const evt = e.evt;
+    if ('pointerType' in evt && evt.pointerType === 'pen') {
       stylusActiveRef.current = false;
       lastStylusLiftTimeRef.current = Date.now();
     }
@@ -1292,9 +1292,9 @@ const CanvasManager = ({
             isVisible: true
         });
 
-        // Clear selection if not modified? (e.g. shift click logic could be added)
-        const evt = e.evt as PointerEvent | MouseEvent;
-        if (!evt.shiftKey) {
+        // Clear selection if not modified (shift-click to add to selection)
+        const evt = e.evt;
+        if (!('shiftKey' in evt) || !evt.shiftKey) {
              setSelectedIds([]);
         }
     } else {
@@ -1406,8 +1406,8 @@ const CanvasManager = ({
         if (!cur) return;
 
         // Shift-key axis locking: Lock to horizontal or vertical
-        const evt = e.evt as PointerEvent | MouseEvent;
-        if (evt.shiftKey && cur.points.length >= 2) {
+        const evt = e.evt;
+        if ('shiftKey' in evt && evt.shiftKey && cur.points.length >= 2) {
             const startX = cur.points[0];
             const startY = cur.points[1];
             const dx = Math.abs(point.x - startX);
