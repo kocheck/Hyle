@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { RiPlayFill, RiPauseFill } from '@remixicon/react'
 import CanvasManager from './components/Canvas/CanvasManager'
 import SyncManager from './components/SyncManager'
 import { ThemeManager } from './components/ThemeManager'
@@ -472,13 +473,9 @@ function App() {
                aria-label={isGamePaused ? 'Resume game' : 'Pause game'}
              >
                {isGamePaused ? (
-                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                 </svg>
+                 <RiPlayFill className="w-5 h-5" />
                ) : (
-                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                   <path d="M5 3a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2H5z" />
-                 </svg>
+                 <RiPauseFill className="w-5 h-5" />
                )}
              </button>
            </Tooltip>
