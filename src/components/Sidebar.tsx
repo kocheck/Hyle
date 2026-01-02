@@ -60,6 +60,7 @@ import CollapsibleSection from './CollapsibleSection';
 import MapSettingsSheet from './MapSettingsSheet';
 import Tooltip from './Tooltip';
 import QuickTokenSidebar from './QuickTokenSidebar';
+import { QuickTokenSidebarErrorBoundary } from './QuickTokenSidebarErrorBoundary';
 import { useIsMobile } from '../hooks/useMediaQuery';
 import { rollForMessage } from '../utils/systemMessages';
 import { useCommandPalette } from '../hooks/useCommandPalette';
@@ -365,11 +366,13 @@ const Sidebar = () => {
                         </div>
 
                         {/* Quick Token Access - Recent History + Party Tokens */}
-                        <QuickTokenSidebar
-                            recentTokens={recentTokens}
-                            playerTokens={deduplicatedPlayerTokens}
-                            onDragStart={handleDragStart}
-                        />
+                        <QuickTokenSidebarErrorBoundary>
+                            <QuickTokenSidebar
+                                recentTokens={recentTokens}
+                                playerTokens={deduplicatedPlayerTokens}
+                                onDragStart={handleDragStart}
+                            />
+                        </QuickTokenSidebarErrorBoundary>
                     </CollapsibleSection>
                 </>
             )}
