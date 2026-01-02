@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { getStorage } from '../services/storage';
 import { useGameStore } from '../store/gameStore';
 import { getRecentCampaigns, addRecentCampaignWithPlatform, removeRecentCampaign, type RecentCampaign } from '../utils/recentCampaigns';
@@ -10,12 +10,11 @@ import {
   RiFileTextLine,
   RiCloseLine,
   RiInformationLine,
+  RiSwordLine,
+  RiMapPinLine,
+  RiDiceLine,
 } from '@remixicon/react';
-import { BackgroundCanvas } from './HomeScreen/BackgroundCanvas';
 import { LogoLockup } from './LogoLockup';
-import { PlaygroundToken } from './HomeScreen/PlaygroundToken';
-import { PlaygroundDrawings } from './HomeScreen/PlaygroundDrawings';
-import { VignetteOverlay } from './HomeScreen/VignetteOverlay';
 import { AboutModal, type AboutModalTab } from './AboutModal';
 
 interface HomeScreenProps {
@@ -23,12 +22,10 @@ interface HomeScreenProps {
 }
 
 /**
- * HomeScreen - Landing page for the application
+ * HomeScreen - Redesigned landing page for the application
  *
- * Displays branding, primary actions (New/Load Campaign),
- * recent campaigns list, and platform-specific download banner.
- *
- * This component serves as the entry point before loading the editor.
+ * A lightweight, high-performance launcher with a modern fantasy aesthetic.
+ * Features quirky TTRPG-themed micro-interactions and CSS-only visuals.
  */
 export function HomeScreen({ onStartEditor }: HomeScreenProps) {
   const [recentCampaigns, setRecentCampaigns] = useState<RecentCampaign[]>([]);
@@ -36,12 +33,9 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
   const [isMac, setIsMac] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [aboutInitialTab, setAboutInitialTab] = useState<AboutModalTab>('about');
-  const [triggerEasterEgg] = useState(0); // Easter egg disabled for now
   const [hideMacBanner, setHideMacBanner] = useState(() =>
     localStorage.getItem('hideMacBanner') === 'true'
   );
-  const [tokenPositions, setTokenPositions] = useState<Record<string, { x: number; y: number; size: number }>>({});
-  const [windowDimensions, setWindowDimensions] = useState({ width: 0, height: 0 });
 
   // Random inclusive subtitle (stable for session)
   const [subtitle] = useState(() => {
@@ -68,7 +62,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
     const platform = storage.getPlatform();
     setIsElectron(platform === 'electron');
 
-    // Detect macOS for download banner (avoid deprecated navigator.platform)
+    // Detect macOS for download banner
     let isMacOS = false;
     if (typeof navigator !== 'undefined') {
       const uaData = (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData;
@@ -80,35 +74,16 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
         /mac/i.test(userAgent);
     }
     setIsMac(isMacOS);
-
-    // Initialize window dimensions
-    if (typeof window !== 'undefined') {
-      setWindowDimensions({ width: window.innerWidth, height: window.innerHeight });
-    }
-  }, []);
-
-  // Handle window resize
-  useEffect(() => {
-    const handleResize = () => {
-      setWindowDimensions({ width: window.innerWidth, height: window.innerHeight });
-    };
-
-    if (typeof window !== 'undefined') {
-      window.addEventListener('resize', handleResize);
-      return () => window.removeEventListener('resize', handleResize);
-    }
   }, []);
 
   // Keyboard shortcut: Press '?' to open About modal
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      // Check if '?' was pressed (shift + / on most keyboards)
       if ((e.key === '?' || (e.shiftKey && e.key === '/')) && !isAboutOpen) {
         e.preventDefault();
         setAboutInitialTab('shortcuts');
         setIsAboutOpen(true);
       }
-      // Also support Escape to close
       if (e.key === 'Escape' && isAboutOpen) {
         setIsAboutOpen(false);
       }
@@ -118,39 +93,20 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [isAboutOpen]);
 
-  /**
-   * Create a new campaign and enter the editor
-   */
   const handleNewCampaign = () => {
-    // The default campaign is already loaded in the store
-    // Just transition to editor view
     onStartEditor();
   };
 
-  /**
-   * Load an existing campaign from file
-   */
   const handleLoadCampaign = async () => {
     try {
       const storage = getStorage();
       const campaign = await storage.loadCampaign();
 
       if (campaign) {
-        // Load campaign into store
         loadCampaign(campaign);
-
-        // Add to recent campaigns
-        addRecentCampaignWithPlatform(
-          campaign.id,
-          campaign.name
-        );
-
-        // Update recent list
+        addRecentCampaignWithPlatform(campaign.id, campaign.name);
         setRecentCampaigns(getRecentCampaigns());
-
-        // Transition to editor
         onStartEditor();
-
         showToast(rollForMessage('CAMPAIGN_LOAD_SUCCESS'), 'success');
       }
     } catch (error) {
@@ -159,21 +115,6 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
     }
   };
 
-  /**
-   * Handle click on a recent campaign entry.
-   *
-   * Current limitation:
-   * - We cannot reliably reload a specific campaign from this list,
-   *   because campaigns are stored as user-selected files and we do
-   *   not currently persist file handles/paths.
-   * - To avoid a confusing UX where clicking a recent item just opens
-   *   a generic file picker, we treat this list as a reference only
-   *   and show guidance to the user instead of re-opening the dialog.
-   *
-   * Future enhancement:
-   * - Persist file handles (File System Access API) or file paths
-   *   (Electron) so we can directly load the selected recent campaign.
-   */
   const handleLoadRecent = async (_recent: RecentCampaign) => {
     showToast(
       'Recent campaigns are a reference list only right now. Use "Load Campaign" and select the matching .graphium file.',
@@ -181,466 +122,60 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
     );
   };
 
-  /**
-   * Remove a campaign from recent list
-   */
   const handleRemoveRecent = (campaignId: string) => {
     removeRecentCampaign(campaignId);
     setRecentCampaigns(getRecentCampaigns());
   };
 
-  /**
-   * Dismiss Mac download banner permanently
-   */
   const handleDismissMacBanner = () => {
     localStorage.setItem('hideMacBanner', 'true');
     setHideMacBanner(true);
   };
 
-  // Generate random playground tokens with flavor text (memoized with window dimensions dependency)
-  const playgroundTokens = useMemo(() => {
-    // Don't generate tokens until window dimensions are available
-    if (windowDimensions.width === 0 || windowDimensions.height === 0) {
-      return [];
-    }
-
-    const tokenSize = 60;
-
-    // Cliché names lists
-    const heroNames = [
-      "Sir Loin", "Ara-gone", "Generic Protagonist", "Main Character Energy", "Plot Armor",
-      "Sir Dies-a-Lot", "The Chosen One", "Edgy Loner", "Paladin Dan", "Smite Master",
-      "Hero McHeroFace", "Inventory Manager", "Quest Acceptor", "Moral Compass", "Lawful Goody",
-      "Sword Guy", "Shield Carrier", "Destiny's Child", "Prophecy Fulfiller", "Village Savior",
-      "Dragon Slayer (Self-Proclaimed)", "Shiny Armor", "Leader of Men", "Speech Giver", "Backstory Tragedy"
-    ];
-    const wizardNames = [
-      "Merlin's Beard", "Fireball McGee", "Gandalf the Grey-ish", "Squishy", "Glass Cannon",
-      "Spell Slot Machine", "Cantrip Spammer", "Bookworm", "Walking Library", "Beard Enthusiast",
-      "Mana Addict", "Scroll Hoarder", "Robes & Slippers", "Staff Infection", "Magic Missile Man",
-      "Arcane Dave", "Mystic Mike", "Potion Seller", "Wisdom Dump Stat", "Intelligence Overload",
-      "Fireworks Technician", "Shadow Wizard", "Orb Ponderer", "Hex Master", "Rune Reader"
-    ];
-    const rangerNames = [
-      "Leg-o-less", "Bush Camper", "Sneaky Pete", "Hoodie", "Dart Master",
-      "Nature Boy", "Tree Hugger", "Bear Grylls", "Bow Stringer", "Dual Wielder",
-      "Pet Collector", "Tracker Jacker", "Forest Gump", "Path Finder", "Leaf Lover",
-      "Arrow Smith", "Quiver Full", "Stealth Archer (Skyrim Build)", "Wolf Friend", "Eagle Eye",
-      "Scout Master", "Wilderness Guide", "Dark Corner Sitter", "Rogue Lite", "Crit Fisher"
-    ];
-    const goblinNames = [
-      "Boblin", "Snargle", "Toe-Biter", "Clogg", "Ratbag", "Stabby",
-      "XP Piñata", "Loot Bag", "Minion #42", "Cannon Fodder", "Ankle Biter",
-      "Shiny Finder", "Trash goblin", "Bucket Head", "Stick Wielder", "Green Guy",
-      "Muck Dweller", "Cave Creeper", "Noise Maker", "Trap Springer", "Arrow Catcher",
-      "Meat Shield", "Gold Pincher", "Scrap Collector", "Boss's Favorite", "Expendable"
-    ];
-    const dragonNames = [
-      "Trogdor", "Smaug's Cousin", "Spicy Lizard", "Hoarder", "Party Wiper",
-      "TPK Machine", "Breath Mint Needed", "Scale Scale", "Gold Sitter", "Fire Breather",
-      "Ancient One", "Wyrm Deal", "Big Lizard", "Flying Toaster", "Dungeon Boss",
-      "End Game Content", "Stat Block of Doom", "Winged Terror", "Sulfur Breath", "Cave Landlord",
-      "Treasure Guard", "Princess Keeper", "Mountain Top", "Sky Shadow", "Heat Source"
-    ];
-
-    const getRandomName = (list: string[]) => list[Math.floor(Math.random() * list.length)];
-
-    const rawTokens = [
-      {
-        id: 'demo-hero',
-        color: '#3b82f6',
-        label: getRandomName(heroNames),
-        flavorText: 'Definitely has protagonist energy.',
-        size: tokenSize,
-        imageSrc: './tokens/hero.png',
-      },
-      {
-        id: 'demo-wizard',
-        color: '#8b5cf6',
-        label: getRandomName(wizardNames),
-        flavorText: 'Contemplating the nature of reality... or maybe just lunch.',
-        size: tokenSize,
-        imageSrc: './tokens/wizard.png',
-      },
-      {
-        id: 'demo-ranger',
-        color: '#10b981',
-        label: getRandomName(rangerNames),
-        flavorText: 'Survival check: 18. They know exactly where the nearest tavern is.',
-        size: tokenSize,
-        imageSrc: './tokens/ranger.png',
-      },
-      {
-        id: 'demo-goblin',
-        color: '#f59e0b',
-        label: getRandomName(goblinNames),
-        flavorText: 'Rolled a 3 on Stealth. You can smell them from here.',
-        size: tokenSize,
-        imageSrc: './tokens/goblin.png',
-      },
-      {
-        id: 'demo-dragon',
-        color: '#ef4444',
-        label: getRandomName(dragonNames),
-        flavorText: "This ancient wyrm hasn't had breakfast yet. You look crunchy.",
-        size: tokenSize * 4,
-        imageSrc: './tokens/dragon.png',
-      },
-    ];
-
-    // Distribute tokens using "dart throwing" for collision-free random placement
-    // restricted to the top 60% of the screen
-    const width = windowDimensions.width;
-    const height = windowDimensions.height;
-
-    type TokenWithPos = typeof rawTokens[0] & { x: number; y: number };
-    const placedTokens: TokenWithPos[] = [];
-
-    const padding = 60; // Keep away from edges
-    const playAreaHeight = height * 0.55;
-
-    rawTokens.forEach(token => {
-      let bestPosition = { x: width / 2, y: playAreaHeight / 2 };
-      let maxDistance = -1;
-
-      // Try 50 times to find a good spot specifically for this token
-      for (let i = 0; i < 50; i++) {
-        const x = padding + Math.random() * (width - padding * 2);
-        const y = padding + Math.random() * (playAreaHeight - padding);
-
-        // EXCLUSION ZONE: Keep clear of the Logo/Title area
-        // Assuming logo is roughly centered horizontally and in the upper-middle of the play area
-        const logoZoneWidth = 600;
-        const logoZoneHeight = 250;
-        const logoZoneY = height * 0.15; // Start a bit down from top
-
-        const inLogoZone =
-          x > (width / 2 - logoZoneWidth / 2) &&
-          x < (width / 2 + logoZoneWidth / 2) &&
-          y > logoZoneY &&
-          y < (logoZoneY + logoZoneHeight);
-
-        if (inLogoZone) {
-          continue; // Skip this spot, it's behind the text
-        }
-
-        // Calculate distance to nearest existing token
-        let minDistanceToOthers = Infinity;
-        if (placedTokens.length === 0) {
-           minDistanceToOthers = Infinity; // First token is always fine
-        } else {
-          for (const other of placedTokens) {
-            const dx = x - other.x;
-            const dy = y - other.y;
-            const dist = Math.sqrt(dx*dx + dy*dy);
-            if (dist < minDistanceToOthers) {
-              minDistanceToOthers = dist;
-            }
-          }
-        }
-
-        // If this spot is better (further from others), keep it
-        // Or if it's the first attempt, keep it
-        if (minDistanceToOthers > maxDistance) {
-          maxDistance = minDistanceToOthers;
-          bestPosition = { x, y };
-        }
-
-        // If we found a spot that is "good enough" (e.g. > 150px away), take it immediately
-        if (minDistanceToOthers > 150) {
-          break;
-        }
-      }
-
-      placedTokens.push({
-        ...token,
-        x: bestPosition.x,
-        y: bestPosition.y
-      });
-    });
-
-    // Initialize token positions for collision detection
-    const positions: Record<string, { x: number; y: number; size: number }> = {};
-    placedTokens.forEach(token => {
-      positions[token.id] = { x: token.x, y: token.y, size: token.size };
-    });
-    setTokenPositions(positions);
-
-    return placedTokens;
-  }, [windowDimensions.width, windowDimensions.height]);
-
-  /**
-   * Handle token position change (for collision detection)
-   */
-  const handleTokenPositionChange = (id: string, x: number, y: number) => {
-    setTokenPositions(prev => ({
-      ...prev,
-      [id]: { ...prev[id], x, y },
-    }));
-  };
-
-  // AI Movement Effect: Randomly nudge tokens to encourage interaction
-  useEffect(() => {
-    // Wait for everything to settle
-    const timeout = setTimeout(() => {
-      const interval = setInterval(() => {
-        // 1. Pick a random token
-        const ids = Object.keys(tokenPositions);
-        if (ids.length === 0) return;
-
-        const randomId = ids[Math.floor(Math.random() * ids.length)];
-        const currentPos = tokenPositions[randomId];
-
-        if (!currentPos) return;
-
-        // 2. Calculate nudge
-        // Move towards center if too close to edge, otherwise random
-        const width = windowDimensions.width;
-        const height = windowDimensions.height;
-        const playAreaHeight = height * 0.55;
-
-        // Random move +/- 40px
-        const dx = (Math.random() - 0.5) * 80;
-        const dy = (Math.random() - 0.5) * 80;
-
-        let newX = currentPos.x + dx;
-        let newY = currentPos.y + dy;
-
-        // 3. Boundary checks
-        const padding = 60;
-
-        // Clamp to screen
-        newX = Math.max(padding, Math.min(newX, width - padding));
-        newY = Math.max(padding, Math.min(newY, playAreaHeight - padding));
-
-        // Check Logo Zone
-        const logoZoneWidth = 600;
-        const logoZoneHeight = 250;
-        const logoZoneY = height * 0.15;
-
-        const inLogoZone =
-          newX > (width / 2 - logoZoneWidth / 2) &&
-          newX < (width / 2 + logoZoneWidth / 2) &&
-          newY > logoZoneY &&
-          newY < (logoZoneY + logoZoneHeight);
-
-        if (inLogoZone) {
-          return; // Abort move if it hits logo
-        }
-
-        // Apply move
-        setTokenPositions(prev => ({
-          ...prev,
-          [randomId]: { ...prev[randomId], x: newX, y: newY }
-        }));
-
-      }, 3500); // Move one token every 3.5s
-
-      return () => clearInterval(interval);
-    }, 2000); // Startup delay
-
-    return () => clearTimeout(timeout);
-  }, [tokenPositions, windowDimensions]);
-
-  // Convert tokenPositions to array for passing to tokens
-  const allTokensArray = Object.entries(tokenPositions).map(([id, pos]) => ({
-    id,
-    ...pos,
-  }));
-
   return (
-    <div className="home-screen w-full h-screen flex flex-col items-center justify-center" style={{
-      position: 'relative',
-      overflow: 'hidden',
-      background: 'var(--app-bg-base)',
-      color: 'var(--app-text-primary)',
-    }}>
-      {/* Vignette overlay - creates fade to infinity effect */}
-      {/* Placed BEFORE tokens so they float on top */}
-      <VignetteOverlay />
+    <div className="home-screen">
+      {/* CSS-only background with animated geometric shapes */}
+      <div className="bg-container">
+        <div className="bg-gradient"></div>
+        <div className="floating-shape shape-1"></div>
+        <div className="floating-shape shape-2"></div>
+        <div className="floating-shape shape-3"></div>
+        <div className="floating-shape shape-4"></div>
+        <div className="grid-overlay"></div>
+      </div>
 
-      <BackgroundCanvas width={windowDimensions.width} height={windowDimensions.height}>
-        {/* Decorative tactical drawings - CONNECTED to token positions */}
-        <PlaygroundDrawings tokens={playgroundTokens} />
-
-        {/* Playground tokens - draggable demo elements with collision and trail effects */}
-        {playgroundTokens.map((token, index) => (
-          <PlaygroundToken
-            key={token.id}
-            id={token.id}
-            x={tokenPositions[token.id]?.x ?? token.x}
-            y={tokenPositions[token.id]?.y ?? token.y}
-            color={token.color}
-            label={token.label}
-            size={token.size}
-            imageSrc={token.imageSrc}
-            flavorText={token.flavorText}
-            easterEggTrigger={triggerEasterEgg}
-            showHint={index === 0} // Show hint on first token (Hero)
-            onPositionChange={handleTokenPositionChange}
-            allTokens={allTokensArray}
+      {/* Main Content */}
+      <div className="content-container">
+        {/* Hero Section */}
+        <div className="hero-section">
+          <LogoLockup
+            width={420}
+            className="logo"
           />
-        ))}
-      </BackgroundCanvas>
-
-
-
-      <style>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        .home-screen {
-          animation: fadeIn 0.6s ease-out;
-        }
-
-        .home-action-button {
-          --border-color: var(--app-border-default);
-        }
-        .home-action-button:hover {
-          --border-color: var(--app-accent-solid);
-        }
-        .home-recent-item {
-          --item-bg: var(--app-bg-surface);
-          --item-border: var(--app-border-subtle);
-        }
-        .home-recent-item:hover {
-          --item-bg: var(--app-bg-hover);
-          --item-border: var(--app-border-default);
-        }
-        .home-remove-btn {
-          --remove-bg: transparent;
-        }
-        .home-remove-btn:hover {
-          --remove-bg: var(--app-bg-active);
-        }
-        .logo-button {
-          background: transparent;
-          border: none;
-          cursor: pointer;
-          padding: 1rem;
-          border-radius: 12px;
-          transition: all 0.3s ease;
-          display: inline-block;
-        }
-        .logo-button:hover {
-          transform: scale(1.05);
-          background: rgba(59, 130, 246, 0.1);
-        }
-        .dismiss-banner-btn {
-          position: absolute;
-          top: 0.5rem;
-          right: 0.5rem;
-          background: transparent;
-          border: none;
-          font-size: 1.25rem;
-          cursor: pointer;
-          color: var(--app-accent-text);
-          width: 1.5rem;
-          height: 1.5rem;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 4px;
-          opacity: 0.6;
-          transition: all 0.2s;
-        }
-        .dismiss-banner-btn:hover {
-          opacity: 1;
-          background: rgba(0, 0, 0, 0.1);
-        }
-        .learn-basics-btn {
-          background: var(--app-bg-hover);
-          border-width: 1px;
-          border-style: solid;
-          border-color: var(--app-border-subtle);
-          color: var(--app-text-secondary);
-          transition: all 0.2s;
-        }
-        .learn-basics-btn:hover {
-          border-color: var(--app-accent-solid);
-          color: var(--app-accent-text);
-        }
-        .footer-link {
-          color: var(--app-text-muted);
-          text-decoration: none;
-          transition: color 0.2s;
-        }
-        .footer-link:hover {
-          color: var(--app-accent-text);
-        }
-        .footer-button {
-          background: none;
-          border: none;
-          padding: 0;
-          color: var(--app-text-muted);
-          cursor: pointer;
-          font-size: inherit;
-          font-family: inherit;
-          transition: color 0.2s;
-        }
-        .footer-button:hover {
-          color: var(--app-accent-text);
-        }
-      `}</style>
-
-      {/* Main Content Container - Above background and vignette */}
-      <div className="max-w-2xl w-full px-8 flex flex-col justify-end pb-12" style={{
-        position: 'relative',
-        zIndex: 10,
-        height: '100%',
-        pointerEvents: 'none', // Allow clicks to pass through empty space to the canvas
-      }}>
-        {/* Branding */}
-        <div className="text-center mb-16">
-          <div className="flex flex-col items-center">
-            <LogoLockup
-              width={400}
-              className="mb-6"
-              style={{
-                filter: 'drop-shadow(0 0 30px var(--app-bg-base)) drop-shadow(0 0 30px var(--app-bg-base))'
-              }}
-            />
-            <p className="text-xl font-medium" style={{
-              color: 'var(--app-text-primary)', // HIGHER contrast (was secondary)
-            }}>
-              Virtual Tabletop for {subtitle}
-            </p>
-          </div>
+          <h1 className="hero-title">
+            Virtual Tabletop for <span className="highlight">{subtitle}</span>
+          </h1>
+          <p className="hero-subtitle">
+            Roll initiative on your next adventure
+          </p>
         </div>
 
-        {/* Mac App Download Banner (Web only, Mac only) */}
+        {/* Mac App Download Banner */}
         {!isElectron && isMac && !hideMacBanner && (
-          <div className="mb-8 p-4 rounded-lg" style={{
-            background: 'var(--app-accent-bg)',
-            border: '1px solid var(--app-accent-solid)',
-            position: 'relative',
-            pointerEvents: 'auto',
-          }}>
-            {/* Dismiss button */}
+          <div className="mac-banner">
             <button
               onClick={handleDismissMacBanner}
-              className="dismiss-banner-btn"
+              className="dismiss-btn"
               title="Don't show again"
               aria-label="Dismiss Mac download banner permanently"
             >
-              ×
+              <RiCloseLine className="w-4 h-4" />
             </button>
-
-            <div className="flex items-center gap-3">
-              <RiDownloadCloudLine className="w-6 h-6 flex-shrink-0" style={{ color: 'var(--app-accent-text)' }} />
-              <div className="flex-1" style={{ paddingRight: '1rem' }}>
-                <h3 className="font-semibold mb-1" style={{ color: 'var(--app-accent-text-contrast)' }}>
-                  Download the Mac App
-                </h3>
-                <p className="text-sm" style={{ color: 'var(--app-accent-text)' }}>
+            <div className="banner-content">
+              <RiDownloadCloudLine className="banner-icon" />
+              <div className="banner-text">
+                <h3 className="banner-title">Download the Mac App</h3>
+                <p className="banner-description">
                   Get greater portability, offline support, and privacy with the native Mac application.
                 </p>
               </div>
@@ -648,11 +183,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
                 href="https://github.com/kocheck/Graphium/releases"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn btn-primary px-4 py-2 rounded font-medium whitespace-nowrap"
-                style={{
-                  background: 'var(--app-accent-solid)',
-                  color: 'var(--app-accent-solid-text)',
-                }}
+                className="banner-button"
               >
                 Download
               </a>
@@ -660,94 +191,79 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
           </div>
         )}
 
-        {/* Primary Actions */}
-        <div className="mb-8" style={{ pointerEvents: 'auto' }}>
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <button
-              onClick={handleNewCampaign}
-              className="home-action-button p-4 rounded-lg text-left transition-all hover:scale-105"
-              style={{
-                background: 'var(--app-bg-surface)',
-                borderWidth: '2px',
-                borderStyle: 'solid',
-                borderColor: 'var(--border-color)',
-              }}
-              aria-label="Create a new campaign and start the editor"
-              data-testid="new-campaign-button"
-            >
-              <div className="flex items-center gap-3 mb-2">
-                <RiAddLine className="w-6 h-6" style={{ color: 'var(--app-accent-solid)' }} />
-                <h2 className="text-xl font-bold">New Campaign</h2>
-              </div>
-              <p className="text-sm" style={{ color: 'var(--app-text-secondary)' }}>
-                Start a fresh adventure with a blank canvas
-              </p>
-            </button>
+        {/* Primary Action Cards with quirky icons */}
+        <div className="action-cards">
+          <button
+            onClick={handleNewCampaign}
+            className="action-card card-new"
+            aria-label="Create a new campaign and start the editor"
+            data-testid="new-campaign-button"
+          >
+            <div className="card-icon-wrapper">
+              <RiAddLine className="card-icon" />
+              <RiSwordLine className="card-decoration" />
+            </div>
+            <h2 className="card-title">New Campaign</h2>
+            <p className="card-description">
+              Start a fresh adventure with a blank canvas
+            </p>
+            <div className="card-hover-effect"></div>
+          </button>
 
-            <button
-              onClick={handleLoadCampaign}
-              className="home-action-button p-4 rounded-lg text-left transition-all hover:scale-105"
-              style={{
-                background: 'var(--app-bg-surface)',
-                borderWidth: '2px',
-                borderStyle: 'solid',
-                borderColor: 'var(--border-color)',
-              }}
-              aria-label="Load an existing campaign from a .graphium file"
-            >
-              <div className="flex items-center gap-3 mb-2">
-                <RiFolderOpenLine className="w-6 h-6" style={{ color: 'var(--app-accent-solid)' }} />
-                <h2 className="text-xl font-bold">Load Campaign</h2>
-              </div>
-              <p className="text-sm" style={{ color: 'var(--app-text-secondary)' }}>
-                Continue an existing campaign from a .graphium file
-              </p>
-            </button>
-          </div>
+          <button
+            onClick={handleLoadCampaign}
+            className="action-card card-load"
+            aria-label="Load an existing campaign from a .graphium file"
+          >
+            <div className="card-icon-wrapper">
+              <RiFolderOpenLine className="card-icon" />
+              <RiMapPinLine className="card-decoration" />
+            </div>
+            <h2 className="card-title">Load Campaign</h2>
+            <p className="card-description">
+              Continue an existing campaign from a .graphium file
+            </p>
+            <div className="card-hover-effect"></div>
+          </button>
+        </div>
 
-          {/* Take a Tour button */}
+        {/* Quick Actions */}
+        <div className="quick-actions">
           <button
             onClick={() => {
               setAboutInitialTab('tutorial');
               setIsAboutOpen(true);
             }}
-            className="learn-basics-btn w-full p-4 rounded-lg text-center transition-all hover:scale-102"
+            className="quick-action-btn"
             aria-label="Learn about Graphium features"
           >
-            <div className="flex items-center justify-center gap-2">
-              <RiInformationLine className="w-5 h-5" />
-              <span className="font-medium">✨ New to Graphium? Learn the basics</span>
-            </div>
+            <RiInformationLine className="w-5 h-5" />
+            <span>✨ New to Graphium? Learn the basics</span>
           </button>
         </div>
 
-      {recentCampaigns.length > 0 && (
-          <div style={{ pointerEvents: 'auto' }}>
-            <h3 className="text-lg font-semibold mb-3" style={{ color: 'var(--app-text-secondary)' }}>
-              Recent Campaigns
-            </h3>
-            <div className="space-y-2">
+        {/* Recent Campaigns */}
+        {recentCampaigns.length > 0 && (
+          <div className="recent-campaigns">
+            <div className="recent-header">
+              <RiDiceLine className="recent-icon" />
+              <h3 className="recent-title">Recent Campaigns</h3>
+            </div>
+            <div className="recent-list">
               {recentCampaigns.map((recent) => (
                 <div
                   key={recent.id}
-                  className="home-recent-item w-full p-4 rounded flex items-center justify-between group transition-all"
-                  style={{
-                    background: 'var(--item-bg)',
-                    borderWidth: '1px',
-                    borderStyle: 'solid',
-                    borderColor: 'var(--item-border)',
-                  }}
+                  className="recent-item"
                 >
                   <button
                     onClick={() => handleLoadRecent(recent)}
-                    className="flex items-center gap-3 flex-1 text-left"
-                    style={{ background: 'transparent', border: 'none', padding: 0 }}
-                    aria-label={`Recent campaign: ${recent.name}. Click for more information about loading this campaign.`}
+                    className="recent-button"
+                    aria-label={`Recent campaign: ${recent.name}`}
                   >
-                    <RiFileTextLine className="w-5 h-5" style={{ color: 'var(--app-text-secondary)' }} />
-                    <div className="flex-1">
-                      <div className="font-medium">{recent.name}</div>
-                      <div className="text-sm" style={{ color: 'var(--app-text-muted)' }}>
+                    <RiFileTextLine className="recent-item-icon" />
+                    <div className="recent-info">
+                      <div className="recent-name">{recent.name}</div>
+                      <div className="recent-date">
                         {new Date(recent.lastOpened).toLocaleDateString(undefined, {
                           year: 'numeric',
                           month: 'short',
@@ -760,14 +276,11 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
                   </button>
                   <button
                     onClick={() => handleRemoveRecent(recent.id)}
-                    className="home-remove-btn p-2 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                    style={{
-                      background: 'var(--remove-bg)',
-                    }}
+                    className="recent-remove"
                     title="Remove from recent"
                     aria-label={`Remove ${recent.name} from recent campaigns`}
                   >
-                    <RiCloseLine className="w-4 h-4" style={{ color: 'var(--app-text-muted)' }} />
+                    <RiCloseLine className="w-4 h-4" />
                   </button>
                 </div>
               ))}
@@ -776,68 +289,60 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
         )}
       </div>
 
-      {/* Footer with links */}
-      <div className="absolute bottom-4 left-0 right-0" style={{
-        position: 'relative',
-        zIndex: 10,
-        pointerEvents: 'none',
-      }}>
-        <div className="flex flex-col items-center gap-3">
-          {/* Links */}
-          <div className="flex items-center gap-4 text-sm" style={{ pointerEvents: 'auto' }}>
-            <a
-              href="https://github.com/kocheck/Graphium"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="footer-link"
-            >
-              GitHub
-            </a>
-            <span style={{ color: 'var(--app-border-default)' }}>·</span>
-            <button
-              onClick={() => {
-                setAboutInitialTab('about');
-                setIsAboutOpen(true);
-              }}
-              className="footer-button"
-            >
-              About
-            </button>
-            <span style={{ color: 'var(--app-border-default)' }}>·</span>
-            <a
-              href="https://github.com/kocheck/Graphium/issues"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="footer-link"
-            >
-              Report Bug
-            </a>
-            <span style={{ color: 'var(--app-border-default)' }}>·</span>
-            <button
-              onClick={() => {
-                setAboutInitialTab('shortcuts');
-                setIsAboutOpen(true);
-              }}
-              className="footer-button"
-              title="Press ? to open"
-            >
-              Help (?)
-            </button>
-            <span style={{ color: 'var(--app-border-default)' }}>·</span>
-            <a
-              href="/design-system"
-              className="footer-link"
-              title="Internal component library (Dev)"
-            >
-              Design System
-            </a>
-          </div>
-          {/* Version */}
-          <p className="text-sm" style={{ color: 'var(--app-text-muted)' }}>
-            Version {__APP_VERSION__} · {isElectron ? 'Desktop' : 'Web'} Edition
-          </p>
+      {/* Footer */}
+      <footer className="footer">
+        <div className="footer-links">
+          <a
+            href="https://github.com/kocheck/Graphium"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="footer-link"
+          >
+            GitHub
+          </a>
+          <span className="footer-separator">·</span>
+          <button
+            onClick={() => {
+              setAboutInitialTab('about');
+              setIsAboutOpen(true);
+            }}
+            className="footer-link"
+          >
+            About
+          </button>
+          <span className="footer-separator">·</span>
+          <a
+            href="https://github.com/kocheck/Graphium/issues"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="footer-link"
+          >
+            Report Bug
+          </a>
+          <span className="footer-separator">·</span>
+          <button
+            onClick={() => {
+              setAboutInitialTab('shortcuts');
+              setIsAboutOpen(true);
+            }}
+            className="footer-link"
+            title="Press ? to open"
+          >
+            Help (?)
+          </button>
+          <span className="footer-separator">·</span>
+          <a
+            href="/design-system"
+            className="footer-link"
+            title="Internal component library (Dev)"
+          >
+            Design System
+          </a>
         </div>
-      </div>
+        <p className="footer-version">
+          Version {__APP_VERSION__} · {isElectron ? 'Desktop' : 'Web'} Edition
+        </p>
+      </footer>
 
       {/* About Modal */}
       <AboutModal
@@ -845,6 +350,660 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
         onClose={() => setIsAboutOpen(false)}
         initialTab={aboutInitialTab}
       />
+
+      <style>{`
+        /* ======================
+           Base Layout
+           ====================== */
+        .home-screen {
+          position: relative;
+          width: 100%;
+          min-height: 100vh;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          overflow-x: hidden;
+          background: var(--app-bg-base);
+          color: var(--app-text-primary);
+        }
+
+        /* ======================
+           Animated Background
+           ====================== */
+        .bg-container {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          z-index: 0;
+          overflow: hidden;
+          pointer-events: none;
+        }
+
+        .bg-gradient {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: radial-gradient(
+            ellipse at 50% 20%,
+            rgba(139, 92, 246, 0.12) 0%,
+            transparent 50%
+          ),
+          radial-gradient(
+            ellipse at 80% 70%,
+            rgba(59, 130, 246, 0.08) 0%,
+            transparent 50%
+          ),
+          radial-gradient(
+            ellipse at 20% 80%,
+            rgba(236, 72, 153, 0.08) 0%,
+            transparent 50%
+          );
+          animation: gradientShift 20s ease-in-out infinite;
+        }
+
+        @keyframes gradientShift {
+          0%, 100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.8;
+            transform: scale(1.1);
+          }
+        }
+
+        /* Floating geometric shapes */
+        .floating-shape {
+          position: absolute;
+          border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+          opacity: 0.4;
+          mix-blend-mode: multiply;
+          animation: float 20s ease-in-out infinite;
+        }
+
+        /* Dark mode blend fix */
+        @media (prefers-color-scheme: dark) {
+          .floating-shape {
+            mix-blend-mode: screen;
+            opacity: 0.15;
+          }
+        }
+
+        .shape-1 {
+          top: 10%;
+          left: 10%;
+          width: 300px;
+          height: 300px;
+          background: linear-gradient(135deg, rgba(139, 92, 246, 0.3), rgba(59, 130, 246, 0.3));
+          animation-delay: 0s;
+          animation-duration: 25s;
+        }
+
+        .shape-2 {
+          top: 60%;
+          right: 15%;
+          width: 200px;
+          height: 200px;
+          background: linear-gradient(135deg, rgba(236, 72, 153, 0.3), rgba(239, 68, 68, 0.3));
+          animation-delay: 5s;
+          animation-duration: 30s;
+        }
+
+        .shape-3 {
+          bottom: 10%;
+          left: 20%;
+          width: 250px;
+          height: 250px;
+          background: linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(59, 130, 246, 0.3));
+          animation-delay: 10s;
+          animation-duration: 35s;
+        }
+
+        .shape-4 {
+          top: 30%;
+          right: 30%;
+          width: 180px;
+          height: 180px;
+          background: linear-gradient(135deg, rgba(245, 158, 11, 0.3), rgba(236, 72, 153, 0.3));
+          animation-delay: 15s;
+          animation-duration: 28s;
+        }
+
+        @keyframes float {
+          0%, 100% {
+            transform: translate(0, 0) rotate(0deg);
+          }
+          33% {
+            transform: translate(30px, -30px) rotate(120deg);
+          }
+          66% {
+            transform: translate(-20px, 20px) rotate(240deg);
+          }
+        }
+
+        /* Subtle grid overlay */
+        .grid-overlay {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background-image:
+            linear-gradient(rgba(139, 92, 246, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(139, 92, 246, 0.03) 1px, transparent 1px);
+          background-size: 50px 50px;
+          opacity: 0.5;
+        }
+
+        /* ======================
+           Content Container
+           ====================== */
+        .content-container {
+          position: relative;
+          z-index: 10;
+          width: 100%;
+          max-width: 800px;
+          padding: 2rem;
+          display: flex;
+          flex-direction: column;
+          gap: 2rem;
+          animation: fadeInUp 0.8s ease-out;
+        }
+
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        /* ======================
+           Hero Section
+           ====================== */
+        .hero-section {
+          text-align: center;
+          margin-bottom: 1rem;
+        }
+
+        .logo {
+          margin: 0 auto 1.5rem;
+          filter: drop-shadow(0 4px 20px rgba(139, 92, 246, 0.3));
+          animation: logoFloat 3s ease-in-out infinite;
+        }
+
+        @keyframes logoFloat {
+          0%, 100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-10px);
+          }
+        }
+
+        .hero-title {
+          font-size: 1.75rem;
+          font-weight: 600;
+          margin-bottom: 0.75rem;
+          color: var(--app-text-primary);
+          line-height: 1.3;
+        }
+
+        .hero-title .highlight {
+          color: var(--app-accent-solid);
+          font-weight: 700;
+          position: relative;
+          display: inline-block;
+        }
+
+        .hero-title .highlight::after {
+          content: '';
+          position: absolute;
+          bottom: -2px;
+          left: 0;
+          width: 100%;
+          height: 3px;
+          background: linear-gradient(90deg, var(--app-accent-solid), transparent);
+          opacity: 0.5;
+        }
+
+        .hero-subtitle {
+          font-size: 1.125rem;
+          color: var(--app-text-secondary);
+          font-style: italic;
+        }
+
+        /* ======================
+           Mac Banner
+           ====================== */
+        .mac-banner {
+          background: var(--app-accent-bg);
+          border: 1px solid var(--app-accent-solid);
+          border-radius: 12px;
+          padding: 1rem;
+          position: relative;
+          animation: slideIn 0.5s ease-out 0.3s both;
+        }
+
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateX(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+
+        .dismiss-btn {
+          position: absolute;
+          top: 0.75rem;
+          right: 0.75rem;
+          background: transparent;
+          border: none;
+          color: var(--app-accent-text);
+          cursor: pointer;
+          padding: 0.25rem;
+          border-radius: 4px;
+          opacity: 0.6;
+          transition: all 0.2s;
+        }
+
+        .dismiss-btn:hover {
+          opacity: 1;
+          background: rgba(0, 0, 0, 0.1);
+        }
+
+        .banner-content {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+
+        .banner-icon {
+          width: 2rem;
+          height: 2rem;
+          flex-shrink: 0;
+          color: var(--app-accent-text);
+        }
+
+        .banner-text {
+          flex: 1;
+          padding-right: 1rem;
+        }
+
+        .banner-title {
+          font-size: 1rem;
+          font-weight: 600;
+          color: var(--app-accent-text-contrast);
+          margin-bottom: 0.25rem;
+        }
+
+        .banner-description {
+          font-size: 0.875rem;
+          color: var(--app-accent-text);
+        }
+
+        .banner-button {
+          background: var(--app-accent-solid);
+          color: var(--app-accent-solid-text);
+          padding: 0.5rem 1.5rem;
+          border-radius: 8px;
+          font-weight: 500;
+          text-decoration: none;
+          white-space: nowrap;
+          transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .banner-button:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        /* ======================
+           Action Cards
+           ====================== */
+        .action-cards {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 1rem;
+        }
+
+        .action-card {
+          position: relative;
+          background: var(--app-bg-surface);
+          border: 2px solid var(--app-border-default);
+          border-radius: 16px;
+          padding: 2rem;
+          text-align: left;
+          cursor: pointer;
+          overflow: hidden;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .action-card:hover {
+          border-color: var(--app-accent-solid);
+          transform: translateY(-4px) scale(1.02);
+          box-shadow: 0 12px 30px rgba(139, 92, 246, 0.2);
+        }
+
+        .action-card:active {
+          transform: translateY(-2px) scale(1.01);
+        }
+
+        /* Dice roll effect on click */
+        .action-card:active .card-icon {
+          animation: diceRoll 0.5s ease;
+        }
+
+        @keyframes diceRoll {
+          0%, 100% {
+            transform: rotate(0deg);
+          }
+          25% {
+            transform: rotate(90deg) scale(1.1);
+          }
+          50% {
+            transform: rotate(180deg) scale(0.9);
+          }
+          75% {
+            transform: rotate(270deg) scale(1.1);
+          }
+        }
+
+        .card-icon-wrapper {
+          position: relative;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          margin-bottom: 1rem;
+        }
+
+        .card-icon {
+          width: 2rem;
+          height: 2rem;
+          color: var(--app-accent-solid);
+          transition: transform 0.3s;
+        }
+
+        .card-decoration {
+          width: 1.25rem;
+          height: 1.25rem;
+          color: var(--app-text-muted);
+          opacity: 0.4;
+          transition: all 0.3s;
+        }
+
+        .action-card:hover .card-decoration {
+          opacity: 1;
+          transform: translateX(4px);
+          color: var(--app-accent-solid);
+        }
+
+        .card-title {
+          font-size: 1.25rem;
+          font-weight: 700;
+          color: var(--app-text-primary);
+          margin-bottom: 0.5rem;
+        }
+
+        .card-description {
+          font-size: 0.875rem;
+          color: var(--app-text-secondary);
+          line-height: 1.5;
+        }
+
+        /* Hover shimmer effect */
+        .card-hover-effect {
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(
+            90deg,
+            transparent,
+            rgba(139, 92, 246, 0.1),
+            transparent
+          );
+          transition: left 0.5s;
+        }
+
+        .action-card:hover .card-hover-effect {
+          left: 100%;
+        }
+
+        /* ======================
+           Quick Actions
+           ====================== */
+        .quick-actions {
+          display: flex;
+          justify-content: center;
+        }
+
+        .quick-action-btn {
+          background: var(--app-bg-hover);
+          border: 1px solid var(--app-border-subtle);
+          color: var(--app-text-secondary);
+          padding: 0.875rem 1.5rem;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-size: 0.9375rem;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .quick-action-btn:hover {
+          border-color: var(--app-accent-solid);
+          color: var(--app-accent-text);
+          transform: translateY(-2px);
+        }
+
+        /* ======================
+           Recent Campaigns
+           ====================== */
+        .recent-campaigns {
+          background: var(--app-bg-surface);
+          border: 1px solid var(--app-border-subtle);
+          border-radius: 16px;
+          padding: 1.5rem;
+        }
+
+        .recent-header {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          margin-bottom: 1rem;
+        }
+
+        .recent-icon {
+          width: 1.5rem;
+          height: 1.5rem;
+          color: var(--app-accent-solid);
+        }
+
+        .recent-title {
+          font-size: 1.125rem;
+          font-weight: 600;
+          color: var(--app-text-primary);
+        }
+
+        .recent-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .recent-item {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          background: var(--app-bg-base);
+          border: 1px solid var(--app-border-subtle);
+          border-radius: 10px;
+          padding: 0.875rem;
+          transition: all 0.2s;
+        }
+
+        .recent-item:hover {
+          background: var(--app-bg-hover);
+          border-color: var(--app-border-default);
+          transform: translateX(4px);
+        }
+
+        .recent-button {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          flex: 1;
+          background: transparent;
+          border: none;
+          padding: 0;
+          text-align: left;
+          cursor: pointer;
+          color: inherit;
+        }
+
+        .recent-item-icon {
+          width: 1.25rem;
+          height: 1.25rem;
+          color: var(--app-text-secondary);
+          flex-shrink: 0;
+        }
+
+        .recent-info {
+          flex: 1;
+        }
+
+        .recent-name {
+          font-size: 0.9375rem;
+          font-weight: 500;
+          color: var(--app-text-primary);
+          margin-bottom: 0.125rem;
+        }
+
+        .recent-date {
+          font-size: 0.8125rem;
+          color: var(--app-text-muted);
+        }
+
+        .recent-remove {
+          background: transparent;
+          border: none;
+          color: var(--app-text-muted);
+          cursor: pointer;
+          padding: 0.5rem;
+          border-radius: 6px;
+          opacity: 0;
+          transition: all 0.2s;
+        }
+
+        .recent-item:hover .recent-remove {
+          opacity: 1;
+        }
+
+        .recent-remove:hover {
+          background: var(--app-bg-active);
+          color: var(--app-text-primary);
+        }
+
+        /* ======================
+           Footer
+           ====================== */
+        .footer {
+          position: fixed;
+          bottom: 1rem;
+          left: 0;
+          right: 0;
+          z-index: 20;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
+        .footer-links {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          font-size: 0.875rem;
+        }
+
+        .footer-link {
+          color: var(--app-text-muted);
+          text-decoration: none;
+          background: none;
+          border: none;
+          padding: 0;
+          cursor: pointer;
+          font-family: inherit;
+          font-size: inherit;
+          transition: color 0.2s;
+        }
+
+        .footer-link:hover {
+          color: var(--app-accent-text);
+        }
+
+        .footer-separator {
+          color: var(--app-border-default);
+        }
+
+        .footer-version {
+          font-size: 0.8125rem;
+          color: var(--app-text-muted);
+        }
+
+        /* ======================
+           Responsive
+           ====================== */
+        @media (max-width: 768px) {
+          .content-container {
+            padding: 1.5rem;
+          }
+
+          .action-cards {
+            grid-template-columns: 1fr;
+          }
+
+          .hero-title {
+            font-size: 1.5rem;
+          }
+
+          .hero-subtitle {
+            font-size: 1rem;
+          }
+
+          .banner-content {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+
+          .banner-button {
+            width: 100%;
+            text-align: center;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .footer-links {
+            flex-wrap: wrap;
+            justify-content: center;
+            font-size: 0.8125rem;
+          }
+        }
+      `}</style>
     </div>
   );
 }
