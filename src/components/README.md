@@ -778,7 +778,7 @@ const [subtitle] = useState(() => {
 - ✅ No complex state management or memoization needed
 
 **Visual effects (CSS-only):**
-1. **Floating Geometric Shapes** - 4 animated blobs with organic motion
+1. **Floating Geometric Shapes** - 3 radial gradient overlays (purple, blue, pink) with gradientShift animation
 2. **Radial Gradients** - Subtle color washes (purple, blue, pink)
 3. **Grid Overlay** - Subtle 50px grid pattern
 4. **Dice Roll Animation** - Cards spin 360° on click
