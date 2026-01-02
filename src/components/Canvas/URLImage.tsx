@@ -49,7 +49,7 @@ const URLImage = forwardRef<Konva.Image, URLImageProps>(({ src, x, y, width, hei
 
     // Cleanup: clear cache on unmount or before re-caching
     return () => {
-      if (imageRef.current) {
+      if (imageRef.current && typeof imageRef.current.clearCache === 'function') {
         imageRef.current.clearCache();
       }
     };

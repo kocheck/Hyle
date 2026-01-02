@@ -45,7 +45,9 @@ export function PlaygroundToken({
   onPositionChange,
   allTokens = [],
 }: PlaygroundTokenProps) {
-  const [position, setPosition] = useState({ x: initialX, y: initialY });
+  // Use local state to track position. This isolates the drag operation from
+  // background updates (AI movement) which would otherwise reset the drag.
+  const [currentPos, setCurrentPos] = useState({ x: initialX, y: initialY });
   const [isDragging, setIsDragging] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [hintPulse, setHintPulse] = useState(0.4);
@@ -94,7 +96,7 @@ export function PlaygroundToken({
           new Konva.Tween({
             node: group,
             duration: 0.2,
-            y: position.y,
+            y: currentPos.y,
             easing: Konva.Easings.BounceEaseOut,
           }).play();
         },
@@ -102,30 +104,16 @@ export function PlaygroundToken({
 
       jumpTween.play();
     }
-  }, [easterEggTrigger, position.y]);
+  }, [easterEggTrigger, currentPos.y]);
 
-  // Sync with prop updates (animation from parent)
+  // Sync with prop updates (animation from parent) ONLY when not dragging
   useEffect(() => {
-    if (!isDragging && (initialX !== position.x || initialY !== position.y)) {
-      // If the prop changed and we're not dragging, animate to the new position
-      if (groupRef.current) {
-        const tween = new Konva.Tween({
-          node: groupRef.current,
-          duration: 0.6, // Smooth transition
-          x: initialX,
-          y: initialY,
-          easing: Konva.Easings.EaseInOut,
-          onFinish: () => {
-            setPosition({ x: initialX, y: initialY });
-          },
-        });
-        tween.play();
-      } else {
-        // Fallback if ref not ready
-        setPosition({ x: initialX, y: initialY });
-      }
+    if (!isDragging) {
+      setCurrentPos({ x: initialX, y: initialY });
     }
-  }, [initialX, initialY]);
+  }, [initialX, initialY, isDragging]);
+
+
 
   // Clear trail when not dragging
   useEffect(() => {
@@ -136,7 +124,7 @@ export function PlaygroundToken({
 
   const handleDragStart = () => {
     setIsDragging(true);
-    lastPositionRef.current = position;
+    lastPositionRef.current = currentPos;
   };
 
   const handleDragMove = (e: any) => {
@@ -189,10 +177,8 @@ export function PlaygroundToken({
     const finalX = e.target.x();
     const finalY = e.target.y();
 
-    setPosition({
-      x: finalX,
-      y: finalY,
-    });
+    // Update local state to the new dropped position
+    setCurrentPos({ x: finalX, y: finalY });
 
     // Notify parent of position change for collision tracking
     if (onPositionChange) {
@@ -224,8 +210,8 @@ export function PlaygroundToken({
       <Group
         ref={groupRef}
         id={id}
-        x={position.x}
-        y={position.y}
+        x={currentPos.x}
+        y={currentPos.y}
         draggable
         onDragStart={handleDragStart}
         onDragMove={handleDragMove}

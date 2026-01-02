@@ -61,11 +61,7 @@ const DrawDoor = ({ x, y, color }: {x: number, y: number, color: string}) => {
   );
 };
 
-const DrawCrown = ({ x, y, size, color }: {x: number, y: number, size: number, color: string}) => {
-  return <Line points={[
-      x-40, y-size/2-20, x-40, y-size/2-60, x-20, y-size/2-40, x, y-size/2-70, x+20, y-size/2-40, x+40, y-size/2-60, x+40, y-size/2-20, x-40, y-size/2-20
-  ]} stroke={color} strokeWidth={strokeWidth} lineCap="round" lineJoin="round" opacity={1} listening={false} />;
-};
+
 
 const DrawSkull = ({ x, y, size, color }: {x: number, y: number, size: number, color: string}) => {
   return (
@@ -190,11 +186,12 @@ export const PlaygroundDrawings = memo(function PlaygroundDrawings({ tokens = []
   const ranger = tokens.find(t => t.id === 'demo-ranger');
   const goblin = tokens.find(t => t.id === 'demo-goblin');
   const wizard = tokens.find(t => t.id === 'demo-wizard');
-  const dragon = tokens.find(t => t.id === 'demo-dragon');
+  // const dragon = tokens.find(t => t.id === 'demo-dragon'); // Dragon removed
   const hero = tokens.find(t => t.id === 'demo-hero');
 
   // If we don't have enough tokens (e.g. initial load), don't draw
-  if (!ranger || !goblin || !wizard || !dragon || !hero) return null;
+  // REMOVED dragon from check so other drawings still appear!
+  if (!ranger || !goblin || !wizard || !hero) return null;
 
   // Randomize which props appear and assign colors for this session
   // We use useMemo with empty dependency to only roll once per mount
@@ -211,12 +208,13 @@ export const PlaygroundDrawings = memo(function PlaygroundDrawings({ tokens = []
         return options[0].id;
     };
 
+    // Reduced frequency by increasing 'none' weight
     return {
-        ranger: { prop: pick([{id: 'tree', weight: 40}, {id: 'tracks', weight: 30}, {id: 'potion', weight: 20}, {id: 'none', weight: 10}]), color: getRandomColor() },
-        goblin: { prop: pick([{id: 'rock', weight: 30}, {id: 'zzz', weight: 20}, {id: 'skull', weight: 20}, {id: 'trap', weight: 20}, {id: 'none', weight: 10}]), color: getRandomColor() },
-        hero:   { prop: pick([{id: 'door', weight: 30}, {id: 'chest', weight: 20}, {id: 'sword', weight: 20}, {id: 'scroll', weight: 20}, {id: 'none', weight: 10}]), color: getRandomColor() },
-        wizard: { prop: pick([{id: 'sparkles', weight: 30}, {id: 'question', weight: 20}, {id: 'fire', weight: 30}, {id: 'potion', weight: 20}]), color: getRandomColor() },
-        dragon: { prop: pick([{id: 'crown', weight: 40}, {id: 'fire', weight: 30}, {id: 'chest', weight: 20}, {id: 'zzz', weight: 10}]), color: getRandomColor() },
+        ranger: { prop: pick([{id: 'tree', weight: 20}, {id: 'tracks', weight: 20}, {id: 'potion', weight: 10}, {id: 'none', weight: 50}]), color: getRandomColor() },
+        goblin: { prop: pick([{id: 'rock', weight: 20}, {id: 'zzz', weight: 10}, {id: 'skull', weight: 10}, {id: 'none', weight: 60}]), color: getRandomColor() },
+        hero:   { prop: pick([{id: 'door', weight: 20}, {id: 'chest', weight: 10}, {id: 'sword', weight: 10}, {id: 'none', weight: 60}]), color: getRandomColor() },
+        wizard: { prop: pick([{id: 'sparkles', weight: 20}, {id: 'question', weight: 10}, {id: 'fire', weight: 10}, {id: 'none', weight: 60}]), color: getRandomColor() },
+        // Dragon props removed
     };
   }, []); // Run once on mount
 
@@ -243,11 +241,6 @@ export const PlaygroundDrawings = memo(function PlaygroundDrawings({ tokens = []
       {activePropsAndColors.wizard.prop === 'skull' && <DrawSkull x={wizard.x} y={wizard.y} size={wizard.size} color={activePropsAndColors.wizard.color} />}
       {activePropsAndColors.wizard.prop === 'fire' && <DrawFire x={wizard.x + 30} y={wizard.y - 30} color={activePropsAndColors.wizard.color} />}
       {activePropsAndColors.wizard.prop === 'potion' && <DrawPotion x={wizard.x - 20} y={wizard.y + 20} color={activePropsAndColors.wizard.color} />}
-
-      {activePropsAndColors.dragon.prop === 'crown' && <DrawCrown x={dragon.x} y={dragon.y} size={dragon.size} color={activePropsAndColors.dragon.color} />}
-      {activePropsAndColors.dragon.prop === 'zzz' && <DrawZzz x={dragon.x} y={dragon.y} size={dragon.size} color={activePropsAndColors.dragon.color} />}
-      {activePropsAndColors.dragon.prop === 'chest' && <DrawChest x={dragon.x + 80} y={dragon.y + 20} color={activePropsAndColors.dragon.color} />}
-      {activePropsAndColors.dragon.prop === 'fire' && <DrawFire x={dragon.x - 50} y={dragon.y + 50} color={activePropsAndColors.dragon.color} />}
     </>
   );
 });

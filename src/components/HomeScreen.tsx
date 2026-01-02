@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { getStorage } from '../services/storage';
 import { useGameStore, Drawing, Door } from '../store/gameStore';
 import { getRecentCampaigns, addRecentCampaignWithPlatform, removeRecentCampaign, type RecentCampaign } from '../utils/recentCampaigns';
@@ -43,6 +43,13 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
     localStorage.getItem('hideMacBanner') === 'true'
   );
   const [tokenPositions, setTokenPositions] = useState<Record<string, { x: number; y: number; size: number }>>({});
+  const tokenPositionsRef = useRef(tokenPositions); // Ref to track latest positions for animation loop
+
+  // Sync ref with state
+  useEffect(() => {
+    tokenPositionsRef.current = tokenPositions;
+  }, [tokenPositions]);
+
   const [windowDimensions, setWindowDimensions] = useState({ width: 0, height: 0 });
   const [dungeonDrawings, setDungeonDrawings] = useState<Drawing[]>([]);
   const [dungeonDoors, setDungeonDoors] = useState<Door[]>([]);
@@ -282,14 +289,6 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
         size: tokenSize,
         imageSrc: './tokens/goblin.png',
       },
-      {
-        id: 'demo-dragon',
-        color: '#ef4444',
-        label: getRandomName(dragonNames),
-        flavorText: "This ancient wyrm hasn't had breakfast yet. You look crunchy.",
-        size: tokenSize * 4,
-        imageSrc: './tokens/dragon.png',
-      },
     ];
 
     // Distribute tokens using "dart throwing" for collision-free random placement
@@ -312,11 +311,12 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
         const x = padding + Math.random() * (width - padding * 2);
         const y = padding + Math.random() * (playAreaHeight - padding);
 
-        // EXCLUSION ZONE: Keep clear of the Logo/Title area
-        // Assuming logo is roughly centered horizontally and in the upper-middle of the play area
-        const logoZoneWidth = 600;
-        const logoZoneHeight = 250;
-        const logoZoneY = height * 0.15; // Start a bit down from top
+        // EXCLUSION ZONE: Keep clear of the central content area
+        // The content is max-w-2xl (approx 672px) and centered.
+        // We'll use a slightly wider zone (750px) to give it breathing room.
+        const logoZoneWidth = 750;
+        const logoZoneHeight = height; // Cover full height to protect the vertical column
+        const logoZoneY = 0; // Start continuously from top
 
         const inLogoZone =
           x > (width / 2 - logoZoneWidth / 2) &&
@@ -364,24 +364,38 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
     });
 
     // Initialize token positions for collision detection
-    const positions: Record<string, { x: number; y: number; size: number }> = {};
-    placedTokens.forEach(token => {
-      positions[token.id] = { x: token.x, y: token.y, size: token.size };
-    });
-    setTokenPositions(positions);
+    // NOTE: We moved setTokenPositions out of here to avoid side effects in render
+    // logic is now in the useEffect below
 
     return placedTokens;
   }, [windowDimensions.width, windowDimensions.height]);
 
+  // Sync initial token positions to state
+  useEffect(() => {
+    if (playgroundTokens.length > 0) {
+       const positions: Record<string, { x: number; y: number; size: number }> = {};
+       playgroundTokens.forEach(token => {
+         positions[token.id] = { x: token.x, y: token.y, size: token.size };
+       });
+       setTokenPositions(prev => {
+         // Only update if actually different to prevent infinite loops
+         const isDifferent = Object.keys(positions).some(key =>
+           !prev[key] || prev[key].x !== positions[key].x || prev[key].y !== positions[key].y
+         );
+         return isDifferent ? positions : prev;
+       });
+    }
+  }, [playgroundTokens]);
+
   /**
    * Convert playground tokens to ResolvedTokenData format for FogOfWarLayer
    * These tokens act as light/vision sources in the dungeon
-   * 
+   *
    * Vision radius: 15ft (3 grid cells at 5ft/cell)
    * - FogOfWarLayer expects visionRadius in feet
    * - Conversion to pixels: (visionRadius / 5) * gridSize
    * - Example: 15ft / 5 = 3 cells, 3 * 50px = 150px vision circle
-   * 
+   *
    * Scale calculation: token.size / 60
    * - Assumes base token size of 60px (1 grid cell + padding)
    * - Normalizes various token sizes to a consistent scale
@@ -430,44 +444,93 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
     }));
   };
 
-  // AI Movement Effect: Randomly nudge tokens to encourage interaction
+  // AI Movement Effect: Smoothly animate tokens using requestAnimationFrame
+  // This ensures state updates every frame, keeping Fog of War in sync
   useEffect(() => {
-    // Wait for everything to settle
-    const timeout = setTimeout(() => {
-      const interval = setInterval(() => {
+    let animationFrameId: number;
+    let timeoutId: NodeJS.Timeout;
+
+    // Store current animation state to handle interruptions
+    const animationState = {
+      startTime: 0,
+      duration: 1000, // 1 second movement for smoothness
+      startX: 0,
+      startY: 0,
+      targetX: 0,
+      targetY: 0,
+      tokenId: '' as string | null,
+      isAnimating: false
+    };
+
+    const easeInOutQuad = (t: number) => t < .5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+
+    const loop = () => {
+      const now = performance.now();
+
+      if (animationState.isAnimating && animationState.tokenId) {
+        const elapsed = now - animationState.startTime;
+        const progress = Math.min(elapsed / animationState.duration, 1);
+        const eased = easeInOutQuad(progress);
+
+        const currentX = animationState.startX + (animationState.targetX - animationState.startX) * eased;
+        const currentY = animationState.startY + (animationState.targetY - animationState.startY) * eased;
+
+        // Update state
+        setTokenPositions(prev => ({
+          ...prev,
+          [animationState.tokenId!]: {
+            ...prev[animationState.tokenId!],
+            x: currentX,
+            y: currentY
+          }
+        }));
+
+        if (progress < 1) {
+          animationFrameId = requestAnimationFrame(loop);
+          return;
+        } else {
+          animationState.isAnimating = false;
+          animationState.tokenId = null;
+        }
+      }
+
+      // Start new animation if idle
+      timeoutId = setTimeout(() => {
         // 1. Pick a random token
-        const ids = Object.keys(tokenPositions);
-        if (ids.length === 0) return;
+        const ids = Object.keys(tokenPositionsRef.current);
+        if (ids.length === 0) {
+          animationFrameId = requestAnimationFrame(loop);
+          return;
+        }
 
         const randomId = ids[Math.floor(Math.random() * ids.length)];
-        const currentPos = tokenPositions[randomId];
+        const currentPos = tokenPositionsRef.current[randomId];
 
-        if (!currentPos) return;
+        if (!currentPos) {
+           animationFrameId = requestAnimationFrame(loop);
+           return;
+        }
 
         // 2. Calculate nudge
-        // Move towards center if too close to edge, otherwise random
         const width = windowDimensions.width;
         const height = windowDimensions.height;
         const playAreaHeight = height * 0.55;
 
-        // Random move +/- 40px
-        const dx = (Math.random() - 0.5) * 80;
-        const dy = (Math.random() - 0.5) * 80;
+        // Random move +/- 80px (larger moves look better with smooth animation)
+        const dx = (Math.random() - 0.5) * 160;
+        const dy = (Math.random() - 0.5) * 160;
 
         let newX = currentPos.x + dx;
         let newY = currentPos.y + dy;
 
         // 3. Boundary checks
         const padding = 60;
-
-        // Clamp to screen
         newX = Math.max(padding, Math.min(newX, width - padding));
         newY = Math.max(padding, Math.min(newY, playAreaHeight - padding));
 
-        // Check Logo Zone
-        const logoZoneWidth = 600;
-        const logoZoneHeight = 250;
-        const logoZoneY = height * 0.15;
+        const logoZoneWidth = 750;
+        const logoZoneHeight = height;
+        const logoZoneY = 0;
 
         const inLogoZone =
           newX > (width / 2 - logoZoneWidth / 2) &&
@@ -476,36 +539,49 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
           newY < (logoZoneY + logoZoneHeight);
 
         if (inLogoZone) {
-          return; // Abort move if it hits logo
+          // Retry next loop
+          animationFrameId = requestAnimationFrame(loop);
+           return;
         }
 
-        // 4. Wall collision check (if dungeon is generated)
+          // 4. Wall collision check
         if (dungeonDrawings.length > 0) {
           const tokenSize = currentPos.size;
-          // Token positioning: newX/newY represent top-left corner
-          // Token center = top-left + (size / 2)
-          // Token size in pixels = tokenSize (already includes scale)
           const tokenCenterX = newX + tokenSize / 2;
           const tokenCenterY = newY + tokenSize / 2;
 
           if (checkWallCollision(tokenCenterX, tokenCenterY, tokenSize, dungeonDrawings, dungeonDoors)) {
-            return; // Abort move if it collides with walls
+            animationFrameId = requestAnimationFrame(loop);
+            return;
           }
         }
 
-        // Apply move
-        setTokenPositions(prev => ({
-          ...prev,
-          [randomId]: { ...prev[randomId], x: newX, y: newY }
-        }));
+        // Start animation
+        animationState.isAnimating = true;
+        animationState.startTime = performance.now();
+        animationState.startX = currentPos.x;
+        animationState.startY = currentPos.y;
+        animationState.targetX = newX;
+        animationState.targetY = newY;
+        animationState.tokenId = randomId;
 
-      }, 3500); // Move one token every 3.5s
+        animationFrameId = requestAnimationFrame(loop);
 
-      return () => clearInterval(interval);
-    }, 2000); // Startup delay
+      }, 1000); // Wait 1s between moves
+    };
 
-    return () => clearTimeout(timeout);
-  }, [tokenPositions, windowDimensions, dungeonDrawings, dungeonDoors]);
+    // Start the loop
+    animationFrameId = requestAnimationFrame(loop);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      clearTimeout(timeoutId);
+    };
+  }, [windowDimensions, dungeonDrawings, dungeonDoors]); // Removed tokenPositions from deps to avoid infinite re-run loop (we read from state in callback or use ref if needed, but here simple timeout breaks loop)
+  // Actually, tokenPositions in deps will re-trigger effect on every update, KILLING the animation!
+  // We need to use a ref for tokenPositions or functional update.
+  // The 'loop' function catches 'tokenPositions' from closure.
+  // We must refactor to use refs for latest state or functional updates exclusively.
 
   // Convert tokenPositions to array for passing to tokens
   const allTokensArray = Object.entries(tokenPositions).map(([id, pos]) => ({
@@ -524,8 +600,8 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
       {/* Placed BEFORE tokens so they float on top */}
       <VignetteOverlay />
 
-      <DungeonBackgroundCanvas 
-        width={windowDimensions.width} 
+      <DungeonBackgroundCanvas
+        width={windowDimensions.width}
         height={windowDimensions.height}
         tokens={resolvedTokens}
         onDungeonGenerated={handleDungeonGenerated}
@@ -669,8 +745,10 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
         height: '100%',
         pointerEvents: 'none', // Allow clicks to pass through empty space to the canvas
       }}>
-        {/* Branding */}
-        <div className="text-center mb-16 backdrop-blur-md bg-black/30 rounded-xl p-8">
+        {/* Main Glass Wrapper */}
+        <div className="backdrop-blur-md bg-black/30 rounded-xl p-8" style={{ pointerEvents: 'auto' }}>
+          {/* Branding */}
+          <div className="text-center mb-16">
           <div className="flex flex-col items-center">
             <LogoLockup
               width={400}
@@ -845,6 +923,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {/* Footer with links */}

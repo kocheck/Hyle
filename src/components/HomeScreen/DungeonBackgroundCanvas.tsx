@@ -2,18 +2,22 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 
 // 2. Third-party UI libraries
-import { Stage, Layer, Rect, Line } from 'react-konva';
+import { Stage, Layer, Rect, Line, Shape, Text } from 'react-konva';
 
 // 3. Utilities (relative paths)
 import { DungeonGenerator } from '../../utils/DungeonGenerator';
 import { isNearDoor } from '../../utils/collisionDetection';
 
 // 4. Stores
-import { Drawing, Door } from '../../store/gameStore';
+import { useGameStore } from '../../store/gameStore';
+import type { Drawing, Door } from '../../store/gameStore';
 
 // 5. Components
 import PaperNoiseOverlay from '../Canvas/PaperNoiseOverlay';
 import FogOfWarLayer from '../Canvas/FogOfWarLayer';
+import GridOverlay from '../Canvas/GridOverlay';
+// Import DoorLayer for usage
+import DoorLayer from '../Canvas/DoorLayer';
 
 // 6. Types
 import type { ResolvedTokenData } from '../../hooks/useTokenData';
@@ -61,19 +65,31 @@ export function DungeonBackgroundCanvas({
     .getPropertyValue('--app-bg-base')
     .trim() || '#1a1a1a';
 
-  // Update dimensions on resize
+
+
+  // Sync state with props when they change (e.g. initial window size detection)
+  useEffect(() => {
+    if (width > 0 && height > 0) {
+      setDimensions({ width, height });
+    }
+  }, [width, height]);
+
+  // Update dimensions on resize (fallback)
   useEffect(() => {
     const updateDimensions = () => {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
-        setDimensions({ width: rect.width, height: rect.height });
+        // Only update if actually changed and valid
+        if (rect.width > 0 && rect.height > 0 && (rect.width !== dimensions.width || rect.height !== dimensions.height)) {
+          setDimensions({ width: rect.width, height: rect.height });
+        }
       }
     };
 
     updateDimensions();
     window.addEventListener('resize', updateDimensions);
     return () => window.removeEventListener('resize', updateDimensions);
-  }, []);
+  }, [dimensions.width, dimensions.height]);
 
   // Generate dungeon on mount
   useEffect(() => {
@@ -134,12 +150,12 @@ export function DungeonBackgroundCanvas({
         clearTimeout(generationTimeoutRef.current);
       }
 
-      // Timeout fallback - if generation doesn't complete in 500ms, use fallback
+      // Timeout fallback - if generation doesn't complete in 1000ms, use fallback
       generationTimeoutRef.current = setTimeout(() => {
         console.warn('[DungeonBackgroundCanvas] Generation timeout, using fallback');
         setGenerationFailed(true);
         generationTimeoutRef.current = null;
-      }, 500);
+      }, 1000);
 
       generateDungeon();
     }
@@ -270,7 +286,18 @@ export function DungeonBackgroundCanvas({
               fill={backgroundColor}
             />
 
-            {/* Paper texture overlay */}
+            {/* Grid Overlay - Consistent with Main App */}
+
+
+            {/* Grid Overlay - Consistent with Main App */}
+            <GridOverlay
+              visibleBounds={visibleBounds}
+              gridSize={gridSize}
+              type="DOTS"
+              stroke="#666666" // Visible grey
+              opacity={0.5}
+            />
+
             <PaperNoiseOverlay
               x={0}
               y={0}
@@ -278,10 +305,10 @@ export function DungeonBackgroundCanvas({
               height={dimensions.height}
               scaleX={1}
               scaleY={1}
-              opacity={0.15}
+              opacity={0.3}
             />
 
-            {/* Dungeon Walls - will be covered by fog and revealed by vision */}
+            {/* Dungeon Walls - Rendered as Lines for smooth curves and consistent style */}
             {activeDrawings.map((drawing) => {
               if (drawing.tool === 'wall') {
                 return (
@@ -290,42 +317,51 @@ export function DungeonBackgroundCanvas({
                     points={drawing.points}
                     stroke={drawing.color}
                     strokeWidth={drawing.size}
+                    tension={0.5}
                     lineCap="round"
-                    lineJoin="round"
+                    dash={[10, 5]} // Standard wall dash pattern
+                    listening={false}
                   />
                 );
               }
               return null;
             })}
 
-            {/* Doors - will be covered by fog and revealed by vision */}
-            {activeDoors.map((door) => (
-              <Rect
-                key={door.id}
-                x={door.x - door.size / 2}
-                y={door.y - door.size / 2}
-                width={door.size}
-                height={door.thickness || 12}
-                fill="#8B4513" // Brown door color
-                rotation={door.orientation === 'vertical' ? 90 : 0}
-              />
-            ))}
+            {/* Dungeon Doors - Reusing main app component for consistent look */}
+            <DoorLayer
+              doors={activeDoors}
+              isWorldView={true} // Non-interactive in background
+            />
 
-            {/* Fog of War - covers everything above and erases based on token vision */}
+          </Layer>
+
+          {/* Layer 2: Fog of War - Top Layer */}
+          <Layer listening={false}>
             <FogOfWarLayer
               tokens={tokens}
-              drawings={activeDrawings}
+              walls={activeDrawings}
               doors={activeDoors}
               gridSize={gridSize}
               visibleBounds={visibleBounds}
-              map={null} // No map image for landing page
+              map={null}
             />
           </Layer>
 
-          {/* Token Layer - tokens always visible on top of fog */}
-          {children && <Layer>{children}</Layer>}
+           {/* Token Layer - tokens always visible on top of fog */}
+           {children && <Layer>{children}</Layer>}
+
+            <Layer>
+            <Text
+                text={`DEBUG: Drawings: ${activeDrawings.length}, Doors: ${activeDoors.length}\nFirst Drawing Tool: ${activeDrawings[0]?.tool}\nFirst Drawing Points: ${activeDrawings[0]?.points?.slice(0, 4).join(', ')}`}
+                x={20}
+                y={20}
+                fontSize={20}
+                fill="red"
+            />
+            </Layer>
         </Stage>
       )}
+
     </div>
   );
 }

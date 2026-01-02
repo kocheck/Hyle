@@ -7,7 +7,7 @@ import { Point, WallSegment } from '../../types/geometry';
 
 interface FogOfWarLayerProps {
   tokens: ResolvedTokenData[];
-  drawings: Drawing[];
+  walls: Drawing[]; // Renamed from drawings for clarity
   doors: Door[];
   gridSize: number;
   visibleBounds: {
@@ -45,12 +45,12 @@ import { BLUR_FILTERS } from './CanvasManager';
  * - Frame rate: 22fps → 60fps (173% improvement)
  * - CPU usage: ~80% → ~15% (static scenes)
  */
-const FogOfWarLayer = ({ tokens, drawings, doors, gridSize, visibleBounds, map }: FogOfWarLayerProps) => {
+const FogOfWarLayer = ({ tokens, walls, doors, gridSize, visibleBounds, map }: FogOfWarLayerProps) => {
   console.log('[FogOfWarLayer] COMPONENT RENDERING - Start');
   console.log('[FogOfWarLayer] Props:', {
     tokensCount: tokens.length,
     doorsCount: doors.length,
-    drawingsCount: drawings.length,
+    wallsCount: walls?.length || 0,
     hasMap: !!map
   });
 
@@ -133,61 +133,97 @@ const FogOfWarLayer = ({ tokens, drawings, doors, gridSize, visibleBounds, map }
   );
 
   // Extract walls from drawings AND closed doors (memoized to prevent unnecessary recalculations)
-  const walls: WallSegment[] = useMemo(() => {
-    const wallSegments: WallSegment[] = [];
+  const allWallSegments: WallSegment[] = useMemo(() => {
+    const segments: WallSegment[] = [];
 
-    console.log('[FogOfWarLayer] WALLS MEMO RECALCULATING');
+    // 1. Process Walls
+    if (walls) {
+      walls.forEach((drawing) => {
+        if (drawing.tool === 'wall' && drawing.points && drawing.points.length >= 4) {
+          const pts = drawing.points;
+          for (let i = 0; i < pts.length - 2; i += 2) {
+            segments.push({
+              start: { x: pts[i], y: pts[i + 1] },
+              end: { x: pts[i + 2], y: pts[i + 3] },
+            });
+          }
+        }
+      });
+    }
 
-    // Add static walls from drawings
-    drawings
-      .filter((d) => d.tool === 'wall')
-      .forEach((wall) => {
-        // Convert points array [x1, y1, x2, y2, x3, y3, ...] to segments
-        const points = wall.points;
-        for (let i = 0; i < points.length - 2; i += 2) {
-          wallSegments.push({
-            start: { x: points[i], y: points[i + 1] },
-            end: { x: points[i + 2], y: points[i + 3] },
+    // OPTIMIZATION: Merge collinear segments to reduce raycasting workload
+    // This is critical for performance as dungeons are made of hundreds of small grid-aligned segments
+    const simplifiedSegments: WallSegment[] = [];
+
+    // Sort segments to make merging easier (sort by x, then y)
+    // copying to avoid mutating the original if we ever need it (though here it's local)
+    const sortedSegments = [...segments].sort((a, b) => {
+      if (Math.abs(a.start.x - b.start.x) > 0.1) return a.start.x - b.start.x;
+      return a.start.y - b.start.y;
+    });
+
+    for (const segment of sortedSegments) {
+      // Try to merge with the last added segment
+      if (simplifiedSegments.length > 0) {
+        const last = simplifiedSegments[simplifiedSegments.length - 1];
+
+        // Check if endpoints match (segment.start == last.end)
+        const connected = Math.abs(segment.start.x - last.end.x) < 0.1 && Math.abs(segment.start.y - last.end.y) < 0.1;
+
+        if (connected) {
+           // Check if collinear (slopes match)
+           // Vertical lines?
+           const lastVertical = Math.abs(last.start.x - last.end.x) < 0.1;
+           const currVertical = Math.abs(segment.start.x - segment.end.x) < 0.1;
+
+           if (lastVertical && currVertical) {
+             // Merge vertical
+             last.end = segment.end;
+             continue;
+           }
+
+           // Horizontal lines?
+           const lastHorizontal = Math.abs(last.start.y - last.end.y) < 0.1;
+           const currHorizontal = Math.abs(segment.start.y - segment.end.y) < 0.1;
+
+           if (lastHorizontal && currHorizontal) {
+             // Merge horizontal
+             last.end = segment.end;
+             continue;
+           }
+        }
+      }
+      simplifiedSegments.push(segment);
+    }
+
+    // Use the simplified list for rays
+    const finalSegments = simplifiedSegments;
+
+    // Debug critical failure
+    if (finalSegments.length === 0 && walls && walls.length > 0) {
+        console.warn('[FogOfWarLayer] No segments generated from walls');
+    }
+
+    // 2. Process Doors
+    doors.forEach((door) => {
+      if (!door.isOpen) {
+        const half = door.size / 2;
+        if (door.orientation === 'horizontal') {
+          finalSegments.push({
+            start: { x: door.x - half, y: door.y },
+            end: { x: door.x + half, y: door.y },
+          });
+        } else {
+          finalSegments.push({
+            start: { x: door.x, y: door.y - half },
+            end: { x: door.x, y: door.y + half },
           });
         }
-      });
+      }
+    });
 
-    const wallSegmentsFromDrawings = wallSegments.length;
-    console.log('[FogOfWarLayer] Wall segments from drawings:', wallSegmentsFromDrawings);
-
-    // Add CLOSED doors as blocking walls
-    // Open doors allow vision through, closed doors block it
-    const closedDoors = doors.filter(door => !door.isOpen);
-    console.log('[FogOfWarLayer] Total doors:', doors.length, 'Closed doors:', closedDoors.length);
-    doors.forEach(d => console.log(`  Door ${d.id}: isOpen=${d.isOpen}, x=${d.x}, y=${d.y}`));
-
-    closedDoors.forEach(door => {
-        const halfSize = door.size / 2;
-        if (door.orientation === 'horizontal') {
-          // Horizontal door: blocks east-west vision
-          const segment = {
-            start: { x: door.x - halfSize, y: door.y },
-            end: { x: door.x + halfSize, y: door.y },
-          };
-          wallSegments.push(segment);
-          console.log(`  Adding CLOSED horizontal door wall segment:`, segment);
-        } else {
-          // Vertical door: blocks north-south vision
-          const segment = {
-            start: { x: door.x, y: door.y - halfSize },
-            end: { x: door.x, y: door.y + halfSize },
-          };
-          wallSegments.push(segment);
-          console.log(`  Adding CLOSED vertical door wall segment:`, segment);
-        }
-      });
-
-    const doorSegments = wallSegments.length - wallSegmentsFromDrawings;
-    console.log('[FogOfWarLayer] Wall segments from doors:', doorSegments);
-    console.log('[FogOfWarLayer] Total wall segments:', wallSegments.length);
-
-    return wallSegments;
-  }, [drawings, doorsKey]);  // CRITICAL: Use doorsKey instead of doors for proper change detection
+    return finalSegments;
+  }, [walls, doorsKey]);
 
   // Serialize PC token properties for change detection
   // This allows useMemo to detect changes in token positions/vision even when array reference is stable
@@ -216,7 +252,7 @@ const FogOfWarLayer = ({ tokens, drawings, doors, gridSize, visibleBounds, map }
         tokenCenterX,
         tokenCenterY,
         visionRadiusPx,
-        walls
+        allWallSegments
       );
 
       cache.set(token.id, polygon);
@@ -227,7 +263,7 @@ const FogOfWarLayer = ({ tokens, drawings, doors, gridSize, visibleBounds, map }
   }, [
     // Only recalculate when these dependencies change:
     pcTokensKey, // Serialized token properties (id, position, vision, scale)
-    walls,
+    allWallSegments,
     gridSize
     // Note: pcTokens is intentionally omitted - pcTokensKey already captures all relevant
     // properties (id, x, y, visionRadius, scale). Using pcTokensKey instead of pcTokens
@@ -359,8 +395,12 @@ const FogOfWarLayer = ({ tokens, drawings, doors, gridSize, visibleBounds, map }
               ctx.closePath();
               // Semi-transparent black = partially erases fog = dimmed map shows through
               // Higher alpha = more fog erased = lighter/more visible
-              // 0.8 = erases 80% of fog, leaves 20% = nicely dimmed effect
-              ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+              // 0.5 = erases 50% of fog, leaves 50% = darker dimmed effect (less distracting)
+              ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+
+              // OPTIMIZATION: Removed shadowBlur for performance.
+              // Kept hard edges for explored areas as they are static history.
+
               ctx.fill();
             }}
             globalCompositeOperation="destination-out"
@@ -393,23 +433,30 @@ const FogOfWarLayer = ({ tokens, drawings, doors, gridSize, visibleBounds, map }
                   // 1.0 Alpha (Opaque) = Fully Erased = Fully Visible Sharp Map
                   // 0.0 Alpha (Transparent) = Not Erased = Fog Remains
 
+                  // BUFFER FIX: Reduce gradient radius slightly so it fades to transparent
+                  // BEFORE it hits the polygon edge (visionRadiusPx).
+                  // Increased buffer to 80px for extreme torch-like fade
+                  const gradientRadius = Math.max(0, visionRadiusPx - 80);
+
                   const gradient = ctx.createRadialGradient(
                     tokenCenterX,
                     tokenCenterY,
                     0,
                     tokenCenterX,
                     tokenCenterY,
-                    visionRadiusPx
+                    gradientRadius
                   );
 
                   // Center: Fully Visible (Erase Fog)
                   gradient.addColorStop(0, 'rgba(0, 0, 0, 1)');
-                  gradient.addColorStop(0.6, 'rgba(0, 0, 0, 1)'); // Keep sharp center
+                  gradient.addColorStop(0.05, 'rgba(0, 0, 0, 1)'); // Almost no sharp center
 
                   // Edge: Fog Starts to Return (Alpha goes to 0, so we stop erasing)
                   gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
                   ctx.fillStyle = gradient;
+                  // OPTIMIZATION: Removed shadowBlur for performance.
+                  // The gradient buffer (visionRadius - 80px) provides the softness.
                   ctx.fill();
                 }}
                 globalCompositeOperation="destination-out"
