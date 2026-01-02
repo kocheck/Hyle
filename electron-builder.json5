@@ -3,6 +3,9 @@
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
   "appId": "com.graphium.app",
   "asar": true,
+  "asarUnpack": [
+    "dist/screenshots/**/*"
+  ],
   "productName": "Graphium",
   "directories": {
     "output": "release/${version}"
