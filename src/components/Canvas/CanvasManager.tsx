@@ -479,9 +479,8 @@ const CanvasManager = ({
     // be lenient with palm rejection (assume finger drawing).
     // This allows thumb/finger drawing on mobile to work even if the touch contact is large.
     if (tool !== 'select' && !stylusActiveRef.current && evt.pointerType === 'touch') {
-        const settings = touchSettings;
-        // Still respect desktopOnlyMode, but bypass touchSize/custom rejection
-        if (settings.desktopOnlyMode) return true;
+        // Desktop-only mode is already handled above with an early return.
+        // Here we explicitly allow finger touches when drawing without an active stylus.
         return false;
     }
 
@@ -1243,7 +1242,7 @@ const CanvasManager = ({
     // Palm rejection - reject unwanted touch input
     if (shouldRejectPointerEvent(e)) return;
 
-    // Enforce preventDefault for drawing tools to prevent scolling/navigation
+    // Enforce preventDefault for drawing tools to prevent scrolling/navigation
     // This is critical for mobile touch drawing
     if (tool !== 'select' && e.evt.cancelable) {
         e.evt.preventDefault();
