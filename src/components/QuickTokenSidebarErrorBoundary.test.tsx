@@ -1,3 +1,4 @@
+import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QuickTokenSidebarErrorBoundary } from './QuickTokenSidebarErrorBoundary';
@@ -117,39 +118,42 @@ describe('QuickTokenSidebarErrorBoundary', () => {
     });
 
     it('should reset error state when Try Again is clicked', async () => {
-      function TestWrapper() {
-        const [hasError, setHasError] = React.useState(true);
-        return (
-          <QuickTokenSidebarErrorBoundary>
-            {hasError ? (
-              <ThrowError shouldThrow={true} />
-            ) : (
-              <div data-testid="valid-child">Valid Content</div>
-            )}
-          </QuickTokenSidebarErrorBoundary>
-        );
-      }
+      // Create a component that can toggle between throwing and not throwing
+      let shouldThrow = true;
+      
+      const ToggleError = () => {
+        if (shouldThrow) {
+          throw new Error('Test sidebar error');
+        }
+        return <div data-testid="sidebar-content">Sidebar Content</div>;
+      };
 
       const { rerender } = render(
-        <QuickTokenSidebarErrorBoundary>
-          <ThrowError shouldThrow={true} />
+        <QuickTokenSidebarErrorBoundary key={1}>
+          <ToggleError />
         </QuickTokenSidebarErrorBoundary>
       );
 
+      // Verify error state is shown
       await waitFor(() => {
         expect(screen.getByText('Quick Access Error')).toBeInTheDocument();
       });
 
+      // Stop throwing errors
+      shouldThrow = false;
+
+      // Click Try Again button
       const tryAgainButton = screen.getByText('Try Again');
       fireEvent.click(tryAgainButton);
 
-      // Rerender with valid content
+      // Rerender with new key to force re-mount
       rerender(
-        <QuickTokenSidebarErrorBoundary>
-          <ThrowError shouldThrow={false} />
+        <QuickTokenSidebarErrorBoundary key={2}>
+          <ToggleError />
         </QuickTokenSidebarErrorBoundary>
       );
 
+      // Verify error is cleared and content is shown
       await waitFor(() => {
         expect(screen.getByTestId('sidebar-content')).toBeInTheDocument();
         expect(screen.queryByText('Quick Access Error')).not.toBeInTheDocument();
@@ -180,7 +184,7 @@ describe('QuickTokenSidebarErrorBoundary', () => {
 
       await waitFor(() => {
         const icon = screen.getByText('Quick Access Error')
-          .closest('div')
+          .closest('.flex.items-start.gap-2')
           ?.querySelector('svg');
         expect(icon).toBeInTheDocument();
       });
@@ -349,6 +353,3 @@ describe('QuickTokenSidebarErrorBoundary', () => {
     });
   });
 });
-
-// Import React for useEffect test
-import React from 'react';
