@@ -99,6 +99,10 @@ interface TouchSettingsState extends TouchSettings {
    * Accepts any PointerEvent (mouse, pen, or touch), but is primarily used
    * to filter out accidental palm or touch input based on the current
    * palmRejectionMode and related settings.
+   *
+   * NOTE: The 'smartDelay' mode is NOT handled by this function. It requires
+   * timing state that must be managed by the caller (e.g., CanvasManager).
+   * This function will return false for smartDelay mode.
    */
   shouldRejectTouch: (event: PointerEvent, stylusActive: boolean) => boolean;
 }
@@ -203,12 +207,9 @@ export const useTouchSettingsStore = create<TouchSettingsState>()(
           }
         }
 
-        // Smart delay mode: time-based palm rejection is implemented in CanvasManager.
-        // We do not reject here to avoid duplicating timing logic; this branch makes the
-        // smartDelay mode handling explicit in the store.
-        if (settings.palmRejectionMode === 'smartDelay') {
-          return false;
-        }
+        // Smart delay mode: NOT handled here - requires timing state managed by caller.
+        // Caller (e.g., CanvasManager) must implement time-based rejection logic.
+        // This function returns false to allow the event through to caller's timing check.
 
         return false;
       },

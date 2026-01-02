@@ -404,7 +404,26 @@ const CanvasManager = ({
   const lastPanCenter = useRef<{ x: number, y: number } | null>(null);
 
   // Use pinch distance threshold from settings (user-configurable)
-  const PINCH_DISTANCE_THRESHOLD = touchSettings.pinchDistanceThreshold;
+  // Clamp to reasonable range (5-50 pixels) to prevent gesture detection issues
+  const PINCH_DISTANCE_THRESHOLD = Math.min(
+    Math.max(touchSettings.pinchDistanceThreshold, 5),
+    50
+  );
+
+  /**
+   * Track stylus usage for palm rejection
+   * 
+   * Updates internal refs when a pen/stylus input is detected.
+   * Should be called on pointer down events.
+   *
+   * @param e - Konva event object
+   */
+  const trackStylusUsage = useCallback((e: KonvaEventObject<PointerEvent | MouseEvent | TouchEvent>): void => {
+    const evt = e.evt;
+    if ('pointerType' in evt && evt.pointerType === 'pen') {
+      stylusActiveRef.current = true;
+    }
+  }, []);
 
   /**
    * Enhanced pointer pressure extractor with settings support
@@ -423,12 +442,6 @@ const CanvasManager = ({
 
     // Get raw pressure
     const rawPressure = getPointerPressure(e);
-
-    // Track stylus usage for palm rejection
-    const evt = e.evt;
-    if ('pointerType' in evt && evt.pointerType === 'pen') {
-      stylusActiveRef.current = true;
-    }
 
     // Apply pressure curve multiplier
     const { min, max } = touchSettings.getPressureRange();
@@ -936,6 +949,9 @@ const CanvasManager = ({
   // Token Pointer Handlers (Threshold-based Press-and-Hold)
   // Migrated to Pointer Events API for unified mouse/touch/pen support
   const handleTokenPointerDown = useCallback((e: KonvaEventObject<PointerEvent | MouseEvent | TouchEvent>, tokenId: string) => {
+    // Track stylus usage for palm rejection (must happen before rejection check)
+    trackStylusUsage(e);
+
     // Palm rejection - reject unwanted touch input
     if (shouldRejectPointerEvent(e)) return;
 
@@ -1189,6 +1205,9 @@ const CanvasManager = ({
 
   // Drawing Handlers (Pointer Events - unified mouse/touch/pen support)
   const handlePointerDown = (e: KonvaEventObject<PointerEvent | MouseEvent | TouchEvent>) => {
+    // Track stylus usage for palm rejection (must happen before rejection check)
+    trackStylusUsage(e);
+
     // Palm rejection - reject unwanted touch input
     if (shouldRejectPointerEvent(e)) return;
 
@@ -1994,9 +2013,8 @@ const CanvasManager = ({
             ))}
 
             {drawings.map((line) => {
-                // Use pressure-sensitive rendering if pressure data is available
-                const LineComponent = line.pressures && line.pressures.length > 0 ? PressureSensitiveLine : Line;
-                const baseProps = {
+                // Common props shared by both component types
+                const commonProps = {
                     key: line.id,
                     id: line.id,
                     name: 'drawing' as const,
@@ -2008,84 +2026,98 @@ const CanvasManager = ({
                     scaleY: line.scale || 1,
                     stroke: line.color,
                     strokeWidth: line.size,
-                    pressures: line.pressures, // Only used by PressureSensitiveLine
-                    pressureRange: line.pressures ? touchSettings.getPressureRange() : undefined, // Only used by PressureSensitiveLine
-                    tension: !line.pressures ? 0.5 : undefined, // Only Line component uses tension
                     lineCap: 'round' as const,
                     opacity: line.tool === 'wall' && isWorldView ? 0 : 1,
+                    globalCompositeOperation: line.tool === 'eraser' ? 'destination-out' as const : 'source-over' as const,
+                    draggable: tool === 'select' && line.tool !== 'wall',
                 };
-                
-                // Add dash property only for Line component (not supported by Shape in PressureSensitiveLine)
-                const lineProps = line.pressures 
-                    ? baseProps 
-                    : { ...baseProps, dash: line.tool === 'wall' ? [10, 5] : undefined };
 
-                return (
-                    <LineComponent
-                        {...lineProps}
-                        globalCompositeOperation={line.tool === 'eraser' ? 'destination-out' : 'source-over'}
-                        draggable={tool === 'select' && line.tool !== 'wall'}
-                        onClick={(e: KonvaEventObject<MouseEvent>) => {
-                            if (tool === 'select' && line.tool !== 'wall') {
-                                e.evt.stopPropagation();
-                                if (e.evt.shiftKey) {
-                                    if (selectedIds.includes(line.id)) {
-                                        setSelectedIds(selectedIds.filter(id => id !== line.id));
-                                    } else {
-                                        setSelectedIds([...selectedIds, line.id]);
-                                    }
+                // Event handlers (shared by both component types)
+                const eventHandlers = {
+                    onClick: (e: KonvaEventObject<MouseEvent>) => {
+                        if (tool === 'select' && line.tool !== 'wall') {
+                            e.evt.stopPropagation();
+                            if (e.evt.shiftKey) {
+                                if (selectedIds.includes(line.id)) {
+                                    setSelectedIds(selectedIds.filter(id => id !== line.id));
                                 } else {
-                                    setSelectedIds([line.id]);
+                                    setSelectedIds([...selectedIds, line.id]);
                                 }
-                            }
-                        }}
-                        onDragStart={() => {
-                            if (selectedIds.includes(line.id)) {
-                                setItemsForDuplication(selectedIds);
                             } else {
-                                setItemsForDuplication([line.id]);
+                                setSelectedIds([line.id]);
                             }
-                        }}
-                        onDragEnd={(e: KonvaEventObject<MouseEvent>) => {
-                            const node = e.target;
-                            const x = node.x();
-                            const y = node.y();
+                        }
+                    },
+                    onDragStart: () => {
+                        if (selectedIds.includes(line.id)) {
+                            setItemsForDuplication(selectedIds);
+                        } else {
+                            setItemsForDuplication([line.id]);
+                        }
+                    },
+                    onDragEnd: (e: KonvaEventObject<MouseEvent>) => {
+                        const node = e.target;
+                        const x = node.x();
+                        const y = node.y();
 
-                            // Duplication Logic (Option/Alt + Drag)
-                            // BLOCKED in World View (players cannot duplicate drawings)
-                            // Use isAltPressed state for consistency instead of e.evt.altKey
-                            if (isAltPressed && !isWorldView) {
-                                const idsToDuplicate = selectedIds.includes(line.id) ? selectedIds : [line.id];
-                                idsToDuplicate.forEach(id => {
-                                    // Only duplicate drawings here; tokens are handled in their own handler.
-                                    const drawing = drawings.find(d => d.id === id);
-                                    if (drawing) {
-                                        // Calculate drag offset and apply to all points
-                                        // Points array format: [x1, y1, x2, y2, ...] (alternating x,y coordinates)
-                                        const points = drawing.points;
-                                        const dx = x - (drawing.x || 0);
-                                        const dy = y - (drawing.y || 0);
-                                        // Offset all points by (dx, dy)
-                                        const newPoints = points.map((val, idx) =>
-                                            idx % 2 === 0 ? val + dx : val + dy // Even indices are X, odd are Y
-                                        );
-                                        addDrawing({ ...drawing, id: crypto.randomUUID(), points: newPoints, x: 0, y: 0 });
-                                    }
-                                });
-                            }
+                        // Duplication Logic (Option/Alt + Drag)
+                        // BLOCKED in World View (players cannot duplicate drawings)
+                        // Use isAltPressed state for consistency instead of e.evt.altKey
+                        if (isAltPressed && !isWorldView) {
+                            const idsToDuplicate = selectedIds.includes(line.id) ? selectedIds : [line.id];
+                            idsToDuplicate.forEach(id => {
+                                // Only duplicate drawings here; tokens are handled in their own handler.
+                                const drawing = drawings.find(d => d.id === id);
+                                if (drawing) {
+                                    // Calculate drag offset and apply to all points
+                                    // Points array format: [x1, y1, x2, y2, ...] (alternating x,y coordinates)
+                                    const points = drawing.points;
+                                    const dx = x - (drawing.x || 0);
+                                    const dy = y - (drawing.y || 0);
+                                    // Offset all points by (dx, dy)
+                                    const newPoints = points.map((val, idx) =>
+                                        idx % 2 === 0 ? val + dx : val + dy // Even indices are X, odd are Y
+                                    );
+                                    addDrawing({ ...drawing, id: crypto.randomUUID(), points: newPoints, x: 0, y: 0 });
+                                }
+                            });
+                        }
 
-                            // Update Position (Transform)
-                            // Drawings utilize `points` but usually we just move the node (x,y).
-                            // However, for persistence we should probably update the `points` OR store x,y offset.
-                            // But `Line` points are absolute.
-                            // If we move the Node, Konva applies a transform (x,y).
-                            // We should use `updateDrawingTransform`.
-                            updateDrawingTransform(line.id, x, y, line.scale || 1);
+                        // Update Position (Transform)
+                        // Drawings utilize `points` but usually we just move the node (x,y).
+                        // However, for persistence we should probably update the `points` OR store x,y offset.
+                        // But `Line` points are absolute.
+                        // If we move the Node, Konva applies a transform (x,y).
+                        // We should use `updateDrawingTransform`.
+                        updateDrawingTransform(line.id, x, y, line.scale || 1);
 
-                            setItemsForDuplication([]);
-                        }}
-                    />
-                );
+                        setItemsForDuplication([]);
+                    }
+                };
+
+                // Use pressure-sensitive rendering if pressure data is available
+                const hasPressureData = line.pressures && line.pressures.length > 0;
+
+                // Render pressure-sensitive line or regular line with type-safe props
+                if (hasPressureData) {
+                    return (
+                        <PressureSensitiveLine
+                            {...commonProps}
+                            {...eventHandlers}
+                            pressures={line.pressures}
+                            pressureRange={touchSettings.getPressureRange()}
+                        />
+                    );
+                } else {
+                    return (
+                        <Line
+                            {...commonProps}
+                            {...eventHandlers}
+                            tension={0.5}
+                            dash={line.tool === 'wall' ? [10, 5] : undefined}
+                        />
+                    );
+                }
             })}
              {/* Temp Line */}
             {tempLine && (
