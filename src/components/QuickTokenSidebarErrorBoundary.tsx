@@ -40,7 +40,7 @@ export class QuickTokenSidebarErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div className="p-3 bg-red-900/10 border border-red-900/30 rounded text-sm">
-          <div className="flex items-start gap-2">
+          <div className="flex items-start gap-2" data-testid="error-icon-container">
             <RiErrorWarningLine className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
             <div className="flex-1">
               <p className="text-red-400 font-medium mb-1">Quick Access Error</p>

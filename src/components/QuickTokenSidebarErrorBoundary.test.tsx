@@ -118,40 +118,36 @@ describe('QuickTokenSidebarErrorBoundary', () => {
     });
 
     it('should reset error state when Try Again is clicked', async () => {
-      // Create a component that can toggle between throwing and not throwing
-      let shouldThrow = true;
-      
-      const ToggleError = () => {
-        if (shouldThrow) {
-          throw new Error('Test sidebar error');
-        }
-        return <div data-testid="sidebar-content">Sidebar Content</div>;
-      };
+      // Create a wrapper component with state to control error throwing
+      function TestWrapper() {
+        const [errorKey, setErrorKey] = React.useState(0);
+        
+        return (
+          <div>
+            <button onClick={() => setErrorKey(k => k + 1)} data-testid="reset-trigger">
+              Reset
+            </button>
+            <QuickTokenSidebarErrorBoundary key={errorKey}>
+              <ThrowError shouldThrow={errorKey === 0} />
+            </QuickTokenSidebarErrorBoundary>
+          </div>
+        );
+      }
 
-      const { rerender } = render(
-        <QuickTokenSidebarErrorBoundary key={1}>
-          <ToggleError />
-        </QuickTokenSidebarErrorBoundary>
-      );
+      render(<TestWrapper />);
 
-      // Verify error state is shown
+      // Verify error state is shown initially
       await waitFor(() => {
         expect(screen.getByText('Quick Access Error')).toBeInTheDocument();
       });
-
-      // Stop throwing errors
-      shouldThrow = false;
 
       // Click Try Again button
       const tryAgainButton = screen.getByText('Try Again');
       fireEvent.click(tryAgainButton);
 
-      // Rerender with new key to force re-mount
-      rerender(
-        <QuickTokenSidebarErrorBoundary key={2}>
-          <ToggleError />
-        </QuickTokenSidebarErrorBoundary>
-      );
+      // Trigger a reset which changes the key and stops throwing
+      const resetButton = screen.getByTestId('reset-trigger');
+      fireEvent.click(resetButton);
 
       // Verify error is cleared and content is shown
       await waitFor(() => {
@@ -183,9 +179,7 @@ describe('QuickTokenSidebarErrorBoundary', () => {
       );
 
       await waitFor(() => {
-        const icon = screen.getByText('Quick Access Error')
-          .closest('.flex.items-start.gap-2')
-          ?.querySelector('svg');
+        const icon = screen.getByTestId('error-icon-container').querySelector('svg');
         expect(icon).toBeInTheDocument();
       });
     });
