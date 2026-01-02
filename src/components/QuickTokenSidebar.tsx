@@ -65,9 +65,16 @@ const QuickTokenSidebar: React.FC<QuickTokenSidebarProps> = ({
 
         e.dataTransfer.setDragImage(div, 32, 32);
 
-        // Cleanup after a short delay
+        // Cleanup after a short delay; guard against DOM changes before this runs
         setTimeout(() => {
-            document.body.removeChild(div);
+            if (div.parentNode === document.body) {
+                try {
+                    document.body.removeChild(div);
+                } catch (error) {
+                    // Safe no-op: drag helper is already gone or cannot be removed
+                    console.debug('Drag helper cleanup failed:', error);
+                }
+            }
         }, 100);
     };
 

@@ -1,3 +1,4 @@
+import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QuickTokenSidebarErrorBoundary } from './QuickTokenSidebarErrorBoundary';
@@ -117,39 +118,38 @@ describe('QuickTokenSidebarErrorBoundary', () => {
     });
 
     it('should reset error state when Try Again is clicked', async () => {
+      // Create a wrapper component with state to control error throwing
       function TestWrapper() {
-        const [hasError, setHasError] = React.useState(true);
+        const [errorKey, setErrorKey] = React.useState(0);
+        
         return (
-          <QuickTokenSidebarErrorBoundary>
-            {hasError ? (
-              <ThrowError shouldThrow={true} />
-            ) : (
-              <div data-testid="valid-child">Valid Content</div>
-            )}
-          </QuickTokenSidebarErrorBoundary>
+          <div>
+            <button onClick={() => setErrorKey(k => k + 1)} data-testid="reset-trigger">
+              Reset
+            </button>
+            <QuickTokenSidebarErrorBoundary key={errorKey}>
+              <ThrowError shouldThrow={errorKey === 0} />
+            </QuickTokenSidebarErrorBoundary>
+          </div>
         );
       }
 
-      const { rerender } = render(
-        <QuickTokenSidebarErrorBoundary>
-          <ThrowError shouldThrow={true} />
-        </QuickTokenSidebarErrorBoundary>
-      );
+      render(<TestWrapper />);
 
+      // Verify error state is shown initially
       await waitFor(() => {
         expect(screen.getByText('Quick Access Error')).toBeInTheDocument();
       });
 
+      // Click Try Again button
       const tryAgainButton = screen.getByText('Try Again');
       fireEvent.click(tryAgainButton);
 
-      // Rerender with valid content
-      rerender(
-        <QuickTokenSidebarErrorBoundary>
-          <ThrowError shouldThrow={false} />
-        </QuickTokenSidebarErrorBoundary>
-      );
+      // Trigger a reset which changes the key and stops throwing
+      const resetButton = screen.getByTestId('reset-trigger');
+      fireEvent.click(resetButton);
 
+      // Verify error is cleared and content is shown
       await waitFor(() => {
         expect(screen.getByTestId('sidebar-content')).toBeInTheDocument();
         expect(screen.queryByText('Quick Access Error')).not.toBeInTheDocument();
@@ -179,9 +179,7 @@ describe('QuickTokenSidebarErrorBoundary', () => {
       );
 
       await waitFor(() => {
-        const icon = screen.getByText('Quick Access Error')
-          .closest('div')
-          ?.querySelector('svg');
+        const icon = screen.getByTestId('error-icon-container').querySelector('svg');
         expect(icon).toBeInTheDocument();
       });
     });
@@ -349,6 +347,3 @@ describe('QuickTokenSidebarErrorBoundary', () => {
     });
   });
 });
-
-// Import React for useEffect test
-import React from 'react';

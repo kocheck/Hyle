@@ -871,13 +871,8 @@ const CanvasManager = ({
                 return;
             } else if (data.type === 'GENERIC_TOKEN') {
                 // Create a generic placeholder token with an SVG data URL
-                const genericTokenSvg = `data:image/svg+xml;base64,${btoa(`
-                    <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-                        <rect width="128" height="128" fill="#6b7280" rx="16"/>
-                        <circle cx="64" cy="45" r="18" fill="#ffffff"/>
-                        <path d="M64 70 C 40 70 28 82 28 92 L 28 108 L 100 108 L 100 92 C 100 82 88 70 64 70 Z" fill="#ffffff"/>
-                    </svg>
-                `)}`;
+                const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128"><rect width="128" height="128" fill="#6b7280" rx="16"/><circle cx="64" cy="45" r="18" fill="#ffffff"/><path d="M64 70 C 40 70 28 82 28 92 L 28 108 L 100 108 L 100 92 C 100 82 88 70 64 70 Z" fill="#ffffff"/></svg>';
+                const genericTokenSvg = `data:image/svg+xml;base64,${btoa(svg)}`;
 
                 addToken({
                     id: crypto.randomUUID(),
