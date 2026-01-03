@@ -755,6 +755,10 @@ const CanvasManager = ({
           const touch2 = touches[1];
           lastPinchDistance.current = calculatePinchDistance(touch1, touch2);
           lastPinchCenter.current = calculatePinchCenter(touch1, touch2);
+      } else if (touches.length === 1 && tool !== 'select') {
+          // If using a drawing tool with a single finger, prevent default
+          // to stop scrolling/text selection
+          e.evt.preventDefault();
       }
       // Single-touch events are handled by handlePointerDown
   };
@@ -817,6 +821,10 @@ const CanvasManager = ({
                   lastPanCenter.current = center;
               }
           }
+      } else if (touches.length === 1 && tool !== 'select') {
+          // If using a drawing tool with a single finger, prevent default
+          // to stop scrolling/text selection while drawing
+          e.evt.preventDefault();
       }
       // Single-touch events are handled by handlePointerMove
   };
@@ -1923,6 +1931,12 @@ const CanvasManager = ({
     <div
         ref={containerRef}
         className="canvas-container w-full h-full overflow-hidden relative"
+        style={{
+            touchAction: 'none',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+            WebkitTouchCallout: 'none'
+        }}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
     >
@@ -1983,7 +1997,6 @@ const CanvasManager = ({
         }}
         style={{
           cursor: getCursorStyle(),
-          touchAction: 'none', // Prevent browser's default touch behaviors (scroll, zoom, text selection)
         }}
       >
         {/* Layer 1: Background & Map (Listening False to let internal events pass to Stage for selection) */}

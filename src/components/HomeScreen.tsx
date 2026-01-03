@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import Tooltip from './Tooltip';
 import { getStorage } from '../services/storage';
 import { useGameStore } from '../store/gameStore';
 import { getRecentCampaigns, addRecentCampaignWithPlatform, removeRecentCampaign, type RecentCampaign } from '../utils/recentCampaigns';
@@ -10,10 +11,8 @@ import {
   RiFileTextLine,
   RiCloseLine,
   RiInformationLine,
-  RiSwordLine,
-  RiMapPinLine,
-  RiDiceLine,
   RiLayoutGridLine,
+  RiDiceLine,
 } from '@remixicon/react';
 import { LogoLockup } from './LogoLockup';
 import { AboutModal, type AboutModalTab } from './AboutModal';
@@ -149,6 +148,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
         <div className="bg-gradient"></div>
 
         <div className="grid-overlay"></div>
+        <div className="noise-overlay"></div>
       </div>
 
       {/* Main Content */}
@@ -202,54 +202,42 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
 
         {/* Primary Action Cards with quirky icons */}
         <div className="action-cards">
-          <button
-            onClick={handleNewCampaign}
-            className="action-card"
-            aria-label="Create a new campaign and start the editor"
-            data-testid="new-campaign-button"
-          >
-            <div className="card-icon-wrapper">
+          <Tooltip content="Start a fresh adventure with a blank canvas" offset={20}>
+            <button
+              onClick={handleNewCampaign}
+              className="action-card"
+              aria-label="Create a new campaign"
+              data-testid="new-campaign-button"
+            >
               <RiAddLine className="card-icon" />
-              <RiSwordLine className="card-decoration" />
-            </div>
-            <h2 className="card-title">New Campaign</h2>
-            <p className="card-description">
-              Start a fresh adventure with a blank canvas
-            </p>
-            <div className="card-hover-effect"></div>
-          </button>
+              <h2 className="card-title">New Campaign</h2>
+              <div className="card-hover-effect"></div>
+            </button>
+          </Tooltip>
 
-          <button
-            onClick={handleLoadCampaign}
-            className="action-card"
-            aria-label="Load an existing campaign from a .graphium file"
-          >
-            <div className="card-icon-wrapper">
+          <Tooltip content="Continue an existing campaign from a .graphium file" offset={20}>
+            <button
+              onClick={handleLoadCampaign}
+              className="action-card"
+              aria-label="Load an existing campaign"
+            >
               <RiFolderOpenLine className="card-icon" />
-              <RiMapPinLine className="card-decoration" />
-            </div>
-            <h2 className="card-title">Load Campaign</h2>
-            <p className="card-description">
-              Continue an existing campaign from a .graphium file
-            </p>
-            <div className="card-hover-effect"></div>
-          </button>
+              <h2 className="card-title">Load Campaign</h2>
+              <div className="card-hover-effect"></div>
+            </button>
+          </Tooltip>
 
-          <button
-            onClick={handleGenerateDungeon}
-            className="action-card"
-            aria-label="Generate a procedural dungeon and start the editor"
-          >
-            <div className="card-icon-wrapper">
+          <Tooltip content="Create a procedural dungeon with rooms and corridors" offset={20}>
+            <button
+              onClick={handleGenerateDungeon}
+              className="action-card"
+              aria-label="Generate a procedural dungeon"
+            >
               <RiLayoutGridLine className="card-icon" />
-              <RiDiceLine className="card-decoration" />
-            </div>
-            <h2 className="card-title">Generate Dungeon</h2>
-            <p className="card-description">
-              Create a procedural dungeon with rooms and corridors
-            </p>
-            <div className="card-hover-effect"></div>
-          </button>
+              <h2 className="card-title">Generate Dungeon</h2>
+              <div className="card-hover-effect"></div>
+            </button>
+          </Tooltip>
         </div>
 
         {/* Quick Actions */}
@@ -409,6 +397,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
           z-index: 0;
           overflow: hidden;
           pointer-events: none;
+          /* Removed hardcoded #050505 to respect theme background */
         }
 
         .bg-gradient {
@@ -417,49 +406,46 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
           left: 0;
           width: 100%;
           height: 100%;
+          /* Monochrome + Blue Gradient using Theme Variables */
           background: radial-gradient(
-            ellipse at 50% 20%,
-            rgba(139, 92, 246, 0.12) 0%,
-            transparent 50%
+            circle at 50% 30%,
+            var(--blue-a3) 0%, /* Theme-aware blue alpha */
+            transparent 60%
           ),
           radial-gradient(
-            ellipse at 80% 70%,
-            rgba(59, 130, 246, 0.08) 0%,
-            transparent 50%
-          ),
-          radial-gradient(
-            ellipse at 20% 80%,
-            rgba(236, 72, 153, 0.08) 0%,
-            transparent 50%
+            circle at 80% 10%,
+            var(--slate-a3) 0%, /* Theme-aware slate alpha */
+            transparent 40%
           );
-          animation: gradientShift 20s ease-in-out infinite;
-        }
-
-        @keyframes gradientShift {
-          0%, 100% {
-            opacity: 1;
-            transform: scale(1);
-          }
-          50% {
-            opacity: 0.8;
-            transform: scale(1.1);
-          }
+          filter: blur(40px);
         }
 
 
 
-        /* Subtle grid overlay */
+        /* Subtle dot grid overlay */
         .grid-overlay {
           position: absolute;
           top: 0;
           left: 0;
           width: 100%;
           height: 100%;
-          background-image:
-            linear-gradient(rgba(139, 92, 246, 0.03) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(139, 92, 246, 0.03) 1px, transparent 1px);
-          background-size: 50px 50px;
-          opacity: 0.5;
+          /* Increased opacity for visibility, using theme variable */
+          background-image: radial-gradient(circle, var(--slate-a4) 1px, transparent 1px);
+          background-size: 24px 24px;
+          opacity: 1; /* Opacity handled by alpha var */
+        }
+
+        /* Paper noise texture overlay */
+        .noise-overlay {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          opacity: 0.08; /* Slightly visible texture */
+          pointer-events: none;
+          /* Removed blend-mode overlay which hides texture on dark backgrounds */
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
         }
 
         /* ======================
@@ -505,6 +491,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
           max-width: 420px;
           margin-left: auto;
           margin-right: auto;
+          padding: 0 1.5rem; /* Ensure breathing room on small screens */
         }
 
         .logo {
@@ -512,16 +499,6 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
           height: auto;
           max-width: 420px;
           filter: drop-shadow(0 4px 20px rgba(139, 92, 246, 0.3));
-          animation: logoFloat 3s ease-in-out infinite;
-        }
-
-        @keyframes logoFloat {
-          0%, 100% {
-            transform: translateY(0px);
-          }
-          50% {
-            transform: translateY(-10px);
-          }
         }
 
         .hero-title {
@@ -648,94 +625,59 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
            Action Cards
            ====================== */
         .action-cards {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 1rem;
+          display: flex;
+          flex-direction: row;
+          justify-content: center;
+          gap: 1.5rem;
+          margin-top: 1rem;
         }
 
         .action-card {
           position: relative;
           background: var(--app-bg-surface);
-          border: 2px solid var(--app-border-default);
-          border-radius: 16px;
-          padding: 2rem;
-          text-align: left;
+          border: 1px solid var(--app-border-default);
+          border-radius: 12px;
+          padding: 1rem 2rem;
+          min-width: 180px;
+
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.75rem;
+
           cursor: pointer;
-          overflow: hidden;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          color: var(--app-text-primary) !important; /* Override button default color */
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          color: var(--app-text-primary) !important;
+          overflow: hidden; /* Ensure shimmer handles overflow correctly */
         }
 
         .action-card:hover {
           border-color: var(--app-accent-solid);
-          transform: translateY(-4px) scale(1.02);
-          box-shadow: 0 12px 30px rgba(139, 92, 246, 0.2);
+          background: var(--app-bg-subtle);
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
         }
 
         .action-card:active {
-          transform: translateY(-2px) scale(1.01);
-        }
-
-        /* Dice roll effect on click */
-        .action-card:active .card-icon {
-          animation: diceRoll 0.5s ease;
-        }
-
-        @keyframes diceRoll {
-          0%, 100% {
-            transform: rotate(0deg);
-          }
-          25% {
-            transform: rotate(90deg) scale(1.1);
-          }
-          50% {
-            transform: rotate(180deg) scale(0.9);
-          }
-          75% {
-            transform: rotate(270deg) scale(1.1);
-          }
-        }
-
-        .card-icon-wrapper {
-          position: relative;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          margin-bottom: 1rem;
+          transform: translateY(0);
         }
 
         .card-icon {
           width: 2rem;
           height: 2rem;
-          color: var(--app-accent-solid);
-          transition: transform 0.3s;
+          color: var(--app-text-secondary); /* Grey by default */
+          transition: color 0.2s;
         }
 
-        .card-decoration {
-          width: 1.25rem;
-          height: 1.25rem;
-          color: var(--app-text-muted);
-          opacity: 0.4;
-          transition: all 0.3s;
-        }
-
-        .action-card:hover .card-decoration {
-          opacity: 1;
-          transform: translateX(4px);
-          color: var(--app-accent-solid);
+        .action-card:hover .card-icon {
+          color: var(--app-accent-solid); /* Blue on hover */
         }
 
         .card-title {
-          font-size: 1.25rem;
-          font-weight: 700;
-          color: var(--app-text-primary) !important;
-          margin-bottom: 0.5rem;
-        }
-
-        .card-description {
-          font-size: 0.875rem;
-          color: var(--app-text-primary) !important;
-          line-height: 1.5;
+          font-size: 1rem;
+          font-weight: 600;
+          color: var(--app-text-primary);
+          z-index: 1; /* Ensure title is above shimmer */
         }
 
         /* Hover shimmer effect */
@@ -748,10 +690,11 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
           background: linear-gradient(
             90deg,
             transparent,
-            rgba(139, 92, 246, 0.1),
+            var(--slate-a3),
             transparent
           );
           transition: left 0.5s;
+          pointer-events: none;
         }
 
         .action-card:hover .card-hover-effect {
