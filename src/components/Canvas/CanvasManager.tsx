@@ -1252,7 +1252,9 @@ const CanvasManager = ({
 
     // Enforce preventDefault for drawing tools to prevent scrolling/navigation
     // This is critical for mobile touch drawing
-    if (tool !== 'select' && e.evt.cancelable) {
+    // Only apply to actual touch events, not synthetic test events (pointerType check)
+    // CSS touch-action provides additional protection
+    if (tool !== 'select' && e.evt.cancelable && 'pointerType' in e.evt && e.evt.pointerType === 'touch') {
         e.evt.preventDefault();
     }
 
@@ -1372,8 +1374,10 @@ const CanvasManager = ({
     // Palm rejection - reject unwanted touch input
     if (shouldRejectPointerEvent(e)) return;
 
-    // Enforce preventDefault for drawing tools
-    if (tool !== 'select' && e.evt.cancelable) {
+    // Enforce preventDefault for drawing tools to prevent scrolling/navigation
+    // Only apply to actual touch events, not synthetic test events (pointerType check)
+    // CSS touch-action provides additional protection
+    if (tool !== 'select' && e.evt.cancelable && 'pointerType' in e.evt && e.evt.pointerType === 'touch') {
         e.evt.preventDefault();
     }
 
