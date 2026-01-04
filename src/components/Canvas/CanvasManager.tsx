@@ -2095,12 +2095,14 @@ const CanvasManager = ({
               const movementSpeed = 30;
 
               return (
-                <MovementRangeOverlay
-                  tokenPosition={tokenPos}
-                  movementSpeed={movementSpeed}
-                  gridSize={gridSize}
-                  gridType={gridType}
-                />
+                <CanvasOverlayErrorBoundary overlayName="MovementRangeOverlay">
+                  <MovementRangeOverlay
+                    tokenPosition={tokenPos}
+                    movementSpeed={movementSpeed}
+                    gridSize={gridSize}
+                    gridType={gridType}
+                  />
+                </CanvasOverlayErrorBoundary>
               );
             })()}
         </Layer>
