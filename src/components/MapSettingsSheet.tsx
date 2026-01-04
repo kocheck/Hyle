@@ -309,8 +309,17 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({
               <button
                 onClick={() => setIsCalibrating(true)}
                 className="btn btn-default w-full font-medium py-2 px-3 rounded text-sm flex items-center justify-center gap-2 transition"
+                disabled={gridType === 'HEXAGONAL' || gridType === 'ISOMETRIC'}
+                title={
+                  gridType === 'HEXAGONAL' || gridType === 'ISOMETRIC'
+                    ? 'Calibration only works with square grids'
+                    : 'Draw a box around one grid cell to calibrate map scale'
+                }
               >
                 <span>📐</span> Calibrate via Draw
+                {(gridType === 'HEXAGONAL' || gridType === 'ISOMETRIC') && (
+                  <span className="text-xs opacity-50">(Square grids only)</span>
+                )}
               </button>
             )}
           </div>
