@@ -24,6 +24,7 @@ import Minimap from './Minimap';
 import MinimapErrorBoundary from './MinimapErrorBoundary';
 import CanvasOverlayErrorBoundary from './CanvasOverlayErrorBoundary';
 import MeasurementOverlay from './MeasurementOverlay';
+import MovementRangeOverlay from './MovementRangeOverlay';
 import { resolveTokenData } from '../../hooks/useTokenData';
 
 import URLImage from './URLImage';
@@ -371,6 +372,9 @@ const CanvasManager = ({
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
 
+  // Movement Range State
+  const [isMKeyPressed, setIsMKeyPressed] = useState(false);
+
   // Theme-aware text color for contrast
   const textColor = useThemeColor('--app-text-primary');
 
@@ -660,6 +664,12 @@ const CanvasManager = ({
           e.preventDefault();
           handleKeyboardZoom(false);
       }
+
+      // M key - show movement range overlay
+      if ((e.key === 'm' || e.key === 'M') && !e.repeat) {
+          e.preventDefault();
+          setIsMKeyPressed(true);
+      }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -672,11 +682,17 @@ const CanvasManager = ({
         if (!isEditableElement(e.target) && e.code === 'Space') {
             setIsSpacePressed(false);
         }
+
+        // M key release
+        if (!isEditableElement(e.target) && (e.key === 'm' || e.key === 'M')) {
+            setIsMKeyPressed(false);
+        }
     };
 
     const handleBlur = () => {
         setIsSpacePressed(false);
         setIsAltPressed(false);
+        setIsMKeyPressed(false);
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -2038,6 +2054,29 @@ const CanvasManager = ({
             </CanvasOverlayErrorBoundary>
 
             <GridOverlay visibleBounds={visibleBounds} gridSize={gridSize} type={gridType} stroke={gridColor} hoveredCell={hoveredCell} />
+
+            {/* Movement Range Overlay - Shows reachable cells for selected token (Hold M key) */}
+            {isMKeyPressed && !isWorldView && selectedIds.length === 1 && (() => {
+              const selectedToken = resolvedTokens.find(t => t.id === selectedIds[0]);
+              if (!selectedToken) return null;
+
+              // Use drag position if token is being dragged
+              const dragPos = dragPositionsRef.current.get(selectedToken.id);
+              const tokenPos = dragPos || { x: selectedToken.x, y: selectedToken.y };
+
+              // Default movement speed: 30ft (standard for D&D Medium creatures)
+              // TODO: Make this configurable per token
+              const movementSpeed = 30;
+
+              return (
+                <MovementRangeOverlay
+                  tokenPosition={tokenPos}
+                  movementSpeed={movementSpeed}
+                  gridSize={gridSize}
+                  gridType={gridType}
+                />
+              );
+            })()}
         </Layer>
 
         {/* Fog of War Layer (World View only) - Renders Overlay */}
