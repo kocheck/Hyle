@@ -867,7 +867,7 @@ const CanvasManager = ({
     // Initial snap for drop (assuming standard 1x1 if unknown, or center on mouse)
     // We don't know image size yet, so we snap top-left to grid line nearby.
     // Use WORLD coordinates for snapping.
-    const { x, y } = snapToGrid(worldX, worldY, gridSize);
+    const { x, y } = snapToGrid(worldX, worldY, gridSize, gridType);
 
     // Check for JSON (Library Item or Generic Token)
     const jsonData = e.dataTransfer.getData('application/json');
@@ -1166,7 +1166,7 @@ const CanvasManager = ({
       if (dragPos) {
         const width = gridSize * token.scale;
         const height = gridSize * token.scale;
-        const snapped = snapToGrid(dragPos.x, dragPos.y, gridSize, width, height);
+        const snapped = snapToGrid(dragPos.x, dragPos.y, gridSize, gridType, width, height);
 
         // Handle multi-token drag end
         if (tokenIds.length > 1) {
@@ -1179,7 +1179,7 @@ const CanvasManager = ({
               const dragPosForToken = dragPositionsRef.current.get(id) ?? { x: t.x, y: t.y };
               const newX = dragPosForToken.x + offsetX;
               const newY = dragPosForToken.y + offsetY;
-              const snappedPos = snapToGrid(newX, newY, gridSize, gridSize * t.scale, gridSize * t.scale);
+              const snappedPos = snapToGrid(newX, newY, gridSize, gridType, gridSize * t.scale, gridSize * t.scale);
               updateTokenPosition(id, snappedPos.x, snappedPos.y);
               committedPositions.set(id, { x: snappedPos.x, y: snappedPos.y });
             }
@@ -1392,7 +1392,7 @@ const CanvasManager = ({
       if (!pos) return;
 
       // Snap to grid for preview
-      const snapped = snapToGrid(pos.x, pos.y, gridSize);
+      const snapped = snapToGrid(pos.x, pos.y, gridSize, gridType);
 
       setDoorPreviewPos(snapped);
       return;
@@ -1600,7 +1600,7 @@ const CanvasManager = ({
         if (!pos) return;
 
         // Snap to grid
-        const snapped = snapToGrid(pos.x, pos.y, gridSize);
+        const snapped = snapToGrid(pos.x, pos.y, gridSize, gridType);
 
         // Create door at snapped position
         const newDoor = {

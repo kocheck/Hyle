@@ -80,8 +80,13 @@ export interface MapConfig {
 
 /**
  * GridType determines how the tactical grid is displayed
+ *
+ * Visual modes for each geometry:
+ * - LINES/DOTS/HIDDEN: Square grid (orthogonal)
+ * - HEXAGONAL: Hexagonal grid (flat-top orientation)
+ * - ISOMETRIC: Diamond/isometric grid (45° rotation)
  */
-export type GridType = 'LINES' | 'DOTS' | 'HIDDEN';
+export type GridType = 'LINES' | 'DOTS' | 'HIDDEN' | 'HEXAGONAL' | 'ISOMETRIC';
 
 /**
  * MapData represents the persistent state of a single map within a campaign
