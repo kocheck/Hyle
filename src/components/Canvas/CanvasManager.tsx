@@ -302,6 +302,7 @@ const CanvasManager = ({
   const updateTokenTransform = useGameStore(s => s.updateTokenTransform);
   const removeTokens = useGameStore(s => s.removeTokens);
   const removeDrawings = useGameStore(s => s.removeDrawings);
+  const setGridType = useGameStore(s => s.setGridType);
   const toggleDoor = useGameStore(s => s.toggleDoor);
   const setIsCalibrating = useGameStore(s => s.setIsCalibrating);
   const updateMapTransform = useGameStore(s => s.updateMapTransform);
@@ -669,6 +670,31 @@ const CanvasManager = ({
       if ((e.key === 'm' || e.key === 'M') && !e.repeat) {
           e.preventDefault();
           setIsMKeyPressed(true);
+      }
+
+      // Grid type shortcuts (DM only) - 1-5 keys
+      if (!isWorldView && !e.repeat) {
+          if (e.key === '1') {
+              e.preventDefault();
+              setGridType('LINES');
+              showToast('Grid: Square - Lines', 'success');
+          } else if (e.key === '2') {
+              e.preventDefault();
+              setGridType('DOTS');
+              showToast('Grid: Square - Dots', 'success');
+          } else if (e.key === '3') {
+              e.preventDefault();
+              setGridType('HEXAGONAL');
+              showToast('Grid: Hexagonal', 'success');
+          } else if (e.key === '4') {
+              e.preventDefault();
+              setGridType('ISOMETRIC');
+              showToast('Grid: Isometric', 'success');
+          } else if (e.key === '5') {
+              e.preventDefault();
+              setGridType('HIDDEN');
+              showToast('Grid: Hidden', 'success');
+          }
       }
     };
 
