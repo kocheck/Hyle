@@ -57,28 +57,29 @@ describe('SquareGridGeometry', () => {
       // 1x1 token (odd) should snap to cell center
       const pos = geometry.getSnapPoint(127, 83, gridSize, 50, 50);
       // Token center at (127+25, 83+25) = (152, 108)
-      // Nearest cell center at (150, 100)
-      // Top-left should be at (125, 75)
-      expect(pos).toEqual({ x: 125, y: 75 });
+      // Cell index: floor(152/50) = 3, floor(108/50) = 2
+      // Nearest cell center at (3.5*50, 2.5*50) = (175, 125)
+      // Top-left should be at (175-25, 125-25) = (150, 100)
+      expect(pos).toEqual({ x: 150, y: 100 });
     });
 
     it('snaps even-sized tokens to intersection', () => {
       // 2x2 token (even) should snap to intersection
       const pos = geometry.getSnapPoint(127, 83, gridSize, 100, 100);
       // Token center at (127+50, 83+50) = (177, 133)
-      // Nearest intersection at (150, 100) - but we're rounding to (200, 150)
-      // Actually, let me recalculate: (177, 133) rounds to (200, 150)
-      // Top-left should be at (150, 100)
-      expect(pos).toEqual({ x: 100, y: 50 });
+      // Nearest intersection: round(177/50)*50 = 4*50 = 200, round(133/50)*50 = 3*50 = 150
+      // Top-left should be at (200-50, 150-50) = (150, 100)
+      expect(pos).toEqual({ x: 150, y: 100 });
     });
 
     it('snaps 3x3 tokens to cell center', () => {
       // 3x3 token (odd) should snap to cell center
       const pos = geometry.getSnapPoint(180, 120, gridSize, 150, 150);
       // Token center at (180+75, 120+75) = (255, 195)
-      // Nearest cell center at (250, 200) for a 3x3 grid
-      // Top-left should be at (175, 125)
-      expect(pos).toEqual({ x: 175, y: 125 });
+      // Cell index: floor(255/50) = 5, floor(195/50) = 3
+      // Nearest cell center at (5.5*50, 3.5*50) = (275, 175)
+      // Top-left should be at (275-75, 175-75) = (200, 100)
+      expect(pos).toEqual({ x: 200, y: 100 });
     });
 
     it('handles legacy mode without dimensions', () => {
@@ -90,10 +91,11 @@ describe('SquareGridGeometry', () => {
     it('handles negative coordinates', () => {
       const pos = geometry.getSnapPoint(-25, -25, gridSize, 50, 50);
       // Token center at (-25+25, -25+25) = (0, 0)
-      // Cell center at (25, 25) for cell 0
-      // But (0,0) is at boundary, should snap to (-25, -25)
-      expect(pos.x).toBeLessThan(0);
-      expect(pos.y).toBeLessThan(0);
+      // Cell index: floor(0/50) = 0
+      // Cell center at (0.5*50, 0.5*50) = (25, 25)
+      // Top-left at (25-25, 25-25) = (0, 0)
+      expect(pos.x).toBe(0);
+      expect(pos.y).toBe(0);
     });
   });
 
@@ -167,7 +169,11 @@ describe('HexagonalGridGeometry', () => {
       testCells.forEach(cell => {
         const pixel = geometry.gridToPixel(cell, gridSize);
         const convertedCell = geometry.pixelToGrid(pixel.x, pixel.y, gridSize);
-        expect(convertedCell).toEqual(cell);
+        // Handle -0 vs +0 JavaScript quirk by normalizing zeros
+        const normalizedQ = convertedCell.q === 0 ? 0 : convertedCell.q;
+        const normalizedR = convertedCell.r === 0 ? 0 : convertedCell.r;
+        expect(normalizedQ).toBe(cell.q);
+        expect(normalizedR).toBe(cell.r);
       });
     });
   });
