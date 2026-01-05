@@ -124,7 +124,6 @@ const CanvasManager = ({
   const gridColor = useGameStore((state) => state.gridColor);
   const isCalibrating = useGameStore((s) => s.isCalibrating);
   const isDaylightMode = useGameStore((state) => state.isDaylightMode);
-  const exploredRegions = useGameStore((state) => state.exploredRegions);
   const activeVisionPolygons = useGameStore((state) => state.activeVisionPolygons);
 
   // DIAGNOSTIC REPORT - Copy/paste this entire block for debugging
@@ -266,8 +265,9 @@ const CanvasManager = ({
 
   // Ghost / Duplication State
   const [isAltPressed, setIsAltPressed] = useState(false);
+  const [isMKeyPressed, setIsMKeyPressed] = useState(false); // Logic: Hold M to measure
 
-  // Empty handlers for disabled Konva drag events (defined once to prevent re-renders)
+  // Tool state helpers for disabled Konva drag events (defined once to prevent re-renders)
   const emptyDragHandler = useCallback(() => {}, []);
 
   // Navigation State
@@ -276,8 +276,7 @@ const CanvasManager = ({
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
 
-  // Movement Range State
-  const [isMKeyPressed, setIsMKeyPressed] = useState(false);
+
 
   // Theme-aware text color for contrast
   const textColor = useThemeColor('--app-text-primary');
@@ -1131,33 +1130,7 @@ const CanvasManager = ({
             hoveredCell={null}
           />
 
-          {/* Movement Range Overlay - Shows reachable cells for selected token (Hold M key) */}
-          {isMKeyPressed &&
-            !isWorldView &&
-            selectedIds.length === 1 &&
-            (() => {
-              const selectedToken = resolvedTokens.find((t) => t.id === selectedIds[0]);
-              if (!selectedToken) return null;
 
-              // Use drag position if token is being dragged
-              const dragPos = dragPositionsRef.current.get(selectedToken.id);
-              const tokenPos = dragPos || { x: selectedToken.x, y: selectedToken.y };
-
-              // Default movement speed: 30ft (standard for D&D Medium creatures)
-              // TODO: Make this configurable per token
-              const movementSpeed = 30;
-
-              return (
-                <CanvasOverlayErrorBoundary overlayName="MovementRangeOverlay">
-                  <MovementRangeOverlay
-                    tokenPosition={tokenPos}
-                    movementSpeed={movementSpeed}
-                    gridSize={gridSize}
-                    gridType={gridType}
-                  />
-                </CanvasOverlayErrorBoundary>
-              );
-            })()}
         </Layer>
 
           {/* Fog of War Layer moved below Drawings Layer to correct occlusion */}
@@ -1180,10 +1153,8 @@ const CanvasManager = ({
                   dash={ghostLine.tool === 'wall' ? [10, 5] : undefined}
                   opacity={
                     ghostLine.tool === 'wall' &&
-                    isWorldView &&
-                    // Hide if thickness is 0
-                    worldViewWallThickness === 0
-                      ? 0
+                    isWorldView
+                      ? 1 // Always visible
                       : 0.5
                   }
                   listening={false}

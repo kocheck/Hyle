@@ -35,8 +35,6 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({ isOpen, onClose, mo
   const setGridColor = useGameStore((state) => state.setGridColor);
   const isDaylightMode = useGameStore((state) => state.isDaylightMode);
   const setDaylightMode = useGameStore((state) => state.setDaylightMode);
-  const worldViewWallThickness = useGameStore((state) => state.worldViewWallThickness);
-  const setWorldViewWallThickness = useGameStore((state) => state.setWorldViewWallThickness);
   const isCalibrating = useGameStore((state) => state.isCalibrating);
   const setIsCalibrating = useGameStore((state) => state.setIsCalibrating);
   const updateMapPosition = useGameStore((state) => state.updateMapPosition);
