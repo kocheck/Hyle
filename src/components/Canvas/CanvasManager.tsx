@@ -1,7 +1,7 @@
 import Konva from 'konva';
 import { Stage, Layer, Line, Rect, Transformer, Group, Text, Circle } from 'react-konva';
 import { KonvaEventObject } from 'konva/lib/Node';
-import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { useShallow } from 'zustand/shallow';
 import { snapToGrid } from '../../utils/grid';
 import { useGameStore, DEFAULT_GRID_COLOR, Drawing } from '../../store/gameStore';
