@@ -24,9 +24,10 @@ import { useTokenDrag } from './hooks/useTokenDrag';
 import { useCanvasInteraction } from './hooks/useCanvasInteraction';
 import MeasurementOverlay from './MeasurementOverlay';
 import MovementRangeOverlay from './MovementRangeOverlay';
-import { resolveTokenData } from '../../hooks/useTokenData';
+import { resolveTokenData, DEFAULT_MOVEMENT_SPEED } from '../../hooks/useTokenData';
 import URLImage from './URLImage';
 import PressureSensitiveLine from './PressureSensitiveLine';
+import { createGridGeometry } from '../../utils/gridGeometry';
 
 // Zoom constants
 const MIN_SCALE = 0.1;
@@ -572,7 +573,7 @@ const CanvasManager = ({
       }
 
       // Grid type shortcuts (DM only) - 1-5 keys
-      if (!isWorldView && !e.repeat) {
+      if (!isWorldView && !e.repeat && !isEditableElement(e.target)) {
         if (e.key === '1') {
           e.preventDefault();
           setGridType('LINES');
@@ -1351,25 +1352,35 @@ const CanvasManager = ({
 
               const size = gridSize * token.scale;
 
+              // Get the grid cell that the token will snap to
+              const geometry = createGridGeometry(gridType);
+              const snapCell = geometry.pixelToGrid(
+                snapPos.x + size / 2,
+                snapPos.y + size / 2,
+                gridSize,
+              );
+
+              // Get the vertices of the grid cell for the snap preview
+              const cellVertices = geometry.getCellVertices(snapCell, gridSize);
+              const cellPoints = cellVertices.flatMap((v) => [v.x, v.y]);
+
               return (
                 <Group key={`snap-preview-${tokenId}`}>
-                  {/* Outer ring */}
-                  <Circle
-                    x={snapPos.x + size / 2}
-                    y={snapPos.y + size / 2}
-                    radius={size / 2 + 4}
+                  {/* Outer ring - actual grid cell shape */}
+                  <Line
+                    points={cellPoints}
                     stroke="rgba(37, 99, 235, 0.6)" // Blue accent color
                     strokeWidth={2}
                     listening={false}
                     dash={[8, 4]}
+                    closed={true}
                   />
-                  {/* Inner fill */}
-                  <Circle
-                    x={snapPos.x + size / 2}
-                    y={snapPos.y + size / 2}
-                    radius={size / 2}
+                  {/* Inner fill - actual grid cell shape */}
+                  <Line
+                    points={cellPoints}
                     fill="rgba(37, 99, 235, 0.1)"
                     listening={false}
+                    closed={true}
                   />
                 </Group>
               );
@@ -1410,9 +1421,8 @@ const CanvasManager = ({
               const dragPos = dragPositionsRef.current.get(selectedToken.id);
               const tokenPos = dragPos || { x: selectedToken.x, y: selectedToken.y };
 
-              // Default movement speed: 30ft (standard for D&D Medium creatures)
-              // TODO: Make this configurable per token
-              const movementSpeed = 30;
+              // Movement speed is resolved from token data
+              const movementSpeed = selectedToken.movementSpeed ?? DEFAULT_MOVEMENT_SPEED;
 
               return (
                 <CanvasOverlayErrorBoundary overlayName="MovementRangeOverlay">
@@ -1579,7 +1589,7 @@ const CanvasManager = ({
                     verticalAlign="middle"
                     width={gridSize * safeScale * 2}
                     x={displayX - (gridSize * safeScale) / 2}
-                    y={finalDisplayY + gridSize * safeScale + 8}
+                    y={displayY + gridSize * safeScale + 8}
                     listening={false}
                   />
                 )}

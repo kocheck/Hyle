@@ -18,6 +18,7 @@ export interface ResolvedTokenData {
   type: 'PC' | 'NPC' | undefined;
   visionRadius: number | undefined;
   name: string;
+  movementSpeed: number | undefined;
   libraryItemId?: string;
   // Metadata for tracking if values are inherited vs overridden (useful for UI)
   _isInherited: {
@@ -25,6 +26,7 @@ export interface ResolvedTokenData {
     type: boolean;
     visionRadius: boolean;
     name: boolean;
+    movementSpeed: boolean;
   };
 }
 
@@ -54,6 +56,13 @@ export function useTokenData(token: Token): ResolvedTokenData {
 }
 
 /**
+ * Default values for token properties
+ */
+export const DEFAULT_SCALE = 1;
+export const DEFAULT_NAME = 'Token';
+export const DEFAULT_MOVEMENT_SPEED = 30; // Standard D&D 5e movement speed
+
+/**
  * Utility function (non-hook version) for resolving token data
  * Use this when you can't use hooks (e.g., in store actions or utilities)
  *
@@ -69,9 +78,6 @@ export function resolveTokenData(
     ? tokenLibrary.find((item) => item.id === token.libraryItemId)
     : undefined;
 
-  const DEFAULT_SCALE = 1;
-  const DEFAULT_NAME = 'Token';
-
   const resolvedScale = token.scale ?? libraryItem?.defaultScale ?? DEFAULT_SCALE;
 
   // Determine Type: Instance > Library Default > Library Category (PC)
@@ -81,6 +87,8 @@ export function resolveTokenData(
   }
   const resolvedVisionRadius = token.visionRadius ?? libraryItem?.defaultVisionRadius;
   const resolvedName = token.name ?? libraryItem?.name ?? DEFAULT_NAME;
+  const resolvedMovementSpeed =
+    token.movementSpeed ?? libraryItem?.defaultMovementSpeed ?? DEFAULT_MOVEMENT_SPEED;
 
   return {
     id: token.id,
@@ -91,6 +99,7 @@ export function resolveTokenData(
     type: resolvedType,
     visionRadius: resolvedVisionRadius,
     name: resolvedName,
+    movementSpeed: resolvedMovementSpeed,
     libraryItemId: token.libraryItemId,
     _isInherited: {
       scale: token.scale === undefined && libraryItem?.defaultScale !== undefined,
@@ -98,6 +107,8 @@ export function resolveTokenData(
       visionRadius:
         token.visionRadius === undefined && libraryItem?.defaultVisionRadius !== undefined,
       name: token.name === undefined && libraryItem?.name !== undefined,
+      movementSpeed:
+        token.movementSpeed === undefined && libraryItem?.defaultMovementSpeed !== undefined,
     },
   };
 }
