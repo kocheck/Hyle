@@ -56,6 +56,7 @@ interface UseCanvasInteractionProps {
   setCalibrationRect: (
     rect: { x: number; y: number; width: number; height: number } | null,
   ) => void;
+  addDrawing: (drawing: Drawing) => void;
 }
 
 export const useCanvasInteraction = ({
@@ -84,6 +85,7 @@ export const useCanvasInteraction = ({
   gridType,
   calibrationStart,
   setCalibrationRect,
+  addDrawing,
 }: UseCanvasInteractionProps) => {
   const touchSettings = useTouchSettingsStore();
 
@@ -278,9 +280,14 @@ export const useCanvasInteraction = ({
       const cur = currentLine.current;
       if (!cur) return;
 
-      // Using setTempLine indirectly via logic...
       // Logic handled in CanvasManager mostly via refs?
       // This hook extracts the event handling.
+
+      // Append point to current line
+      cur.points.push(point.x, point.y);
+      if (cur.pressures) {
+        cur.pressures.push(getPointerPressure(e));
+      }
 
       // Since we passed drawingAnimationFrameRef, we should use it.
       if (drawingAnimationFrameRef.current) {
@@ -315,7 +322,9 @@ export const useCanvasInteraction = ({
 
     if (isDrawing.current) {
       isDrawing.current = false;
-      // Add drawing to store... need addDrawing action passed in props?
+      if (currentLine.current) {
+        addDrawing(currentLine.current);
+      }
       setTempLine(null);
       currentLine.current = null;
     }

@@ -358,6 +358,7 @@ const CanvasManager = ({
     setCalibrationRect,
     setSelectedIds,
     setActiveMeasurement,
+    addDrawing,
   });
 
   // Destructure handlers from canvasInteraction

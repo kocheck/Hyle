@@ -222,7 +222,7 @@ export interface Stairs {
 /**
  * Maximum number of explored regions to store in memory.
  */
-const MAX_EXPLORED_REGIONS = 200;
+const MAX_EXPLORED_REGIONS = 2000;
 
 /**
  * Default grid color (Dark Gray) for light mode.
