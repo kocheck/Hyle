@@ -120,11 +120,12 @@ const CanvasManager = ({
   const doors = useGameStore((s) => s.doors);
   const stairs = useGameStore((s) => s.stairs);
   const gridSize = useGameStore((s) => s.gridSize);
-  const gridType = useGameStore((s) => s.gridType);
-  const gridColor = useGameStore((s) => s.gridColor);
+  const gridType = useGameStore((state) => state.gridType);
+  const gridColor = useGameStore((state) => state.gridColor);
   const isCalibrating = useGameStore((s) => s.isCalibrating);
-  const isDaylightMode = useGameStore((s) => s.isDaylightMode);
-  const activeVisionPolygons = useGameStore((s) => s.activeVisionPolygons);
+  const isDaylightMode = useGameStore((state) => state.isDaylightMode);
+  const exploredRegions = useGameStore((state) => state.exploredRegions);
+  const activeVisionPolygons = useGameStore((state) => state.activeVisionPolygons);
 
   // DIAGNOSTIC REPORT - Copy/paste this entire block for debugging
   console.log('═══════════════════════════════════════════════════════');
@@ -1159,27 +1160,7 @@ const CanvasManager = ({
             })()}
         </Layer>
 
-        {/* Fog of War Layer (World View only) - Renders Overlay */}
-        {(() => {
-          const shouldRenderFog = isWorldView && !isDaylightMode;
-          console.log('[CanvasManager] Fog condition:', {
-            isWorldView,
-            isDaylightMode,
-            shouldRenderFog,
-          });
-          return shouldRenderFog ? (
-            <Layer listening={false}>
-              <FogOfWarLayer
-                tokens={resolvedTokens}
-                drawings={drawings}
-                doors={doors}
-                gridSize={gridSize}
-                visibleBounds={visibleBounds}
-                map={map}
-              />
-            </Layer>
-          ) : null;
-        })()}
+          {/* Fog of War Layer moved below Drawings Layer to correct occlusion */}
 
         {/* Layer 2: Drawings (Separate layer so Eraser doesn't erase map) */}
         <Layer>
@@ -1197,7 +1178,14 @@ const CanvasManager = ({
                   tension={0.5}
                   lineCap="round"
                   dash={ghostLine.tool === 'wall' ? [10, 5] : undefined}
-                  opacity={ghostLine.tool === 'wall' && isWorldView ? 0 : 0.5}
+                  opacity={
+                    ghostLine.tool === 'wall' &&
+                    isWorldView &&
+                    // Hide if thickness is 0
+                    worldViewWallThickness === 0
+                      ? 0
+                      : 0.5
+                  }
                   listening={false}
                 />
               ))}
@@ -1214,10 +1202,15 @@ const CanvasManager = ({
               // Apply uniform scaling (line.scale is a single number applied to both axes)
               scaleX: line.scale || 1,
               scaleY: line.scale || 1,
-              stroke: line.color,
-              strokeWidth: line.size,
+              stroke:
+                line.tool === 'wall' && isWorldView ? '#000000' : line.color,
+              strokeWidth:
+                line.tool === 'wall' && isWorldView
+                  ? 6 // Fixed thickness for World View
+                  : line.size,
               lineCap: 'round' as const,
-              opacity: line.tool === 'wall' && isWorldView ? 0 : 1,
+              // Always visible in World View (unless fog covers it)
+              opacity: 1,
               globalCompositeOperation:
                 line.tool === 'eraser' ? ('destination-out' as const) : ('source-over' as const),
               draggable: tool === 'select' && line.tool !== 'wall',
@@ -1326,7 +1319,7 @@ const CanvasManager = ({
               tension={0.5}
               lineCap="round"
               dash={tempLine.tool === 'wall' ? [10, 5] : undefined}
-              opacity={tempLine.tool === 'wall' && isWorldView ? 0 : 1}
+              opacity={1}
               globalCompositeOperation={
                 tempLine.tool === 'eraser' ? 'destination-out' : 'source-over'
               }
@@ -1336,6 +1329,24 @@ const CanvasManager = ({
           {/* Stairs (Architectural elements, rendered with drawings) */}
           <StairsLayer stairs={stairs} isWorldView={isWorldView} />
         </Layer>
+
+        {/* Fog of War Layer (World View only) - Renders Overlay */}
+        {/* Rendered AFTER Drawings so walls are properly hidden by fog */}
+        {(() => {
+          const shouldRenderFog = isWorldView && !isDaylightMode;
+          return shouldRenderFog ? (
+            <Layer listening={false}>
+              <FogOfWarLayer
+                tokens={resolvedTokens}
+                drawings={drawings}
+                doors={doors}
+                gridSize={gridSize}
+                visibleBounds={visibleBounds}
+                map={map}
+              />
+            </Layer>
+          ) : null;
+        })()}
 
         {/* Layer 3: Tokens, Doors & UI
           NOTE: tokenLayerRef is used for low-level performance optimizations during

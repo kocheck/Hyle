@@ -35,6 +35,8 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({ isOpen, onClose, mo
   const setGridColor = useGameStore((state) => state.setGridColor);
   const isDaylightMode = useGameStore((state) => state.isDaylightMode);
   const setDaylightMode = useGameStore((state) => state.setDaylightMode);
+  const worldViewWallThickness = useGameStore((state) => state.worldViewWallThickness);
+  const setWorldViewWallThickness = useGameStore((state) => state.setWorldViewWallThickness);
   const isCalibrating = useGameStore((state) => state.isCalibrating);
   const setIsCalibrating = useGameStore((state) => state.setIsCalibrating);
   const updateMapPosition = useGameStore((state) => state.updateMapPosition);
@@ -54,10 +56,10 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({ isOpen, onClose, mo
     height: number;
   } | null>(null);
 
-  // Local state for grid settings in CREATE mode
-  const [pendingGridType, setPendingGridType] = useState<GridType>('LINES');
-  const [pendingGridColor, setPendingGridColor] = useState('#222222');
-  const [pendingDaylightMode, setPendingDaylightMode] = useState(false);
+  // Local state for pending changes
+  const [pendingGridType, setPendingGridType] = useState<GridType>(gridType);
+  const [pendingGridColor, setPendingGridColor] = useState<string>(gridColor);
+  const [pendingDaylightMode, setPendingDaylightMode] = useState<boolean>(isDaylightMode);
 
   // Load current map data when in EDIT mode
   useEffect(() => {
@@ -81,7 +83,15 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({ isOpen, onClose, mo
       setPendingGridColor(gridColor);
       setPendingDaylightMode(isDaylightMode);
     }
-  }, [mode, mapId, campaign.maps, isOpen, gridType, gridColor, isDaylightMode]);
+  }, [
+    mode,
+    mapId,
+    campaign.maps,
+    isOpen,
+    gridType,
+    gridColor,
+    isDaylightMode,
+  ]);
 
   // Cleanup processing on unmount
   useEffect(() => {
@@ -174,6 +184,7 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({ isOpen, onClose, mo
       // Apply pending grid settings
       setGridType(pendingGridType);
       setDaylightMode(pendingDaylightMode);
+      setGridColor(pendingGridColor);
 
       // Apply pending map data if it exists
       if (pendingMapData) {

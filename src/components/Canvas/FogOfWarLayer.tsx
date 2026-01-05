@@ -365,7 +365,6 @@ const FogOfWarLayer = ({
             listening={false}
           />
         )}
-
         {/* Layer 2: Explored Areas (Partial Erase for Dimmed Effect) */}
         {exploredRegions.map((region, index) => (
           <Shape

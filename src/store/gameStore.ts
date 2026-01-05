@@ -282,6 +282,7 @@ export interface GameState {
   gridColor: string;
   map: MapConfig | null;
   exploredRegions: ExploredRegion[];
+  exploredRegions: ExploredRegion[];
   isDaylightMode: boolean;
 
   // --- UI/System State (Not persisted in MapData) ---
@@ -413,6 +414,7 @@ export const useGameStore = create<GameState>((set, get) => {
     map: initialMap.map,
     exploredRegions: initialMap.exploredRegions,
     isDaylightMode: initialMap.isDaylightMode,
+    worldViewWallThickness: initialMap.worldViewWallThickness,
 
     // --- Initial State (System) ---
     isCalibrating: false,
@@ -475,6 +477,7 @@ export const useGameStore = create<GameState>((set, get) => {
         map: newMap.map,
         exploredRegions: newMap.exploredRegions,
         isDaylightMode: newMap.isDaylightMode,
+        worldViewWallThickness: newMap.worldViewWallThickness,
         // Reset calibration state
         isCalibrating: false,
       });
@@ -523,6 +526,7 @@ export const useGameStore = create<GameState>((set, get) => {
         gridColor: state.gridColor,
         exploredRegions: state.exploredRegions,
         isDaylightMode: state.isDaylightMode,
+        worldViewWallThickness: state.worldViewWallThickness,
       };
 
       set((state) => ({
@@ -561,6 +565,7 @@ export const useGameStore = create<GameState>((set, get) => {
         gridType: newMap.gridType,
         exploredRegions: newMap.exploredRegions,
         isDaylightMode: newMap.isDaylightMode,
+        worldViewWallThickness: newMap.worldViewWallThickness,
       }));
     },
 
@@ -604,6 +609,7 @@ export const useGameStore = create<GameState>((set, get) => {
             gridType: nextMap.gridType,
             exploredRegions: nextMap.exploredRegions,
             isDaylightMode: nextMap.isDaylightMode,
+            worldViewWallThickness: nextMap.worldViewWallThickness,
           };
         });
       }
@@ -650,6 +656,7 @@ export const useGameStore = create<GameState>((set, get) => {
         map: newMap.map,
         exploredRegions: newMap.exploredRegions || [],
         isDaylightMode: newMap.isDaylightMode,
+        worldViewWallThickness: newMap.worldViewWallThickness ?? 6,
       });
     },
 
