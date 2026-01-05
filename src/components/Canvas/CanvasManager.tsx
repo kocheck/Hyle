@@ -8,8 +8,6 @@ import { snapToGrid } from '../../utils/grid';
 import { createGridGeometry } from '../../utils/gridGeometry';
 import {
   Drawing,
-  Door,
-  Stairs,
   useGameStore,
   DEFAULT_GRID_COLOR
 } from '../../store/gameStore';
@@ -284,8 +282,15 @@ const CanvasManager = ({
   // This implements the Prototype/Instance pattern where tokens can inherit
   // properties (scale, type, visionRadius, name) from their library prototypes
   const resolvedTokens = useMemo(
-    () => tokens.map(token => resolveTokenData(token, tokenLibrary)),
-    [tokens, tokenLibrary]
+    () => {
+        const mapped = tokens.map(token => resolveTokenData(token, tokenLibrary));
+        // For Isometric grid, sort by Y (depth) so lower tokens render on top of higher ones
+        if (gridType === 'ISOMETRIC') {
+            return mapped.sort((a, b) => a.y - b.y);
+        }
+        return mapped;
+    },
+    [tokens, tokenLibrary, gridType]
   );
 
   // Preferences
@@ -2451,6 +2456,13 @@ const CanvasManager = ({
 
                 const visualProps = getVisualProps();
                 const safeScale = token.scale || 1;
+                const tokenHeight = gridSize * safeScale;
+
+                // Isometric "Standing" Offset
+                // In isometric view, tokens should "stand" on the tile rather than lie flat.
+                // We shift them up by half their height so their bottom edge aligns with the tile center.
+                const displayYOffset = gridType === 'ISOMETRIC' ? -(tokenHeight / 2) : 0;
+                const finalDisplayY = displayY + displayYOffset;
 
                 return (
                 <Group key={token.id}>
@@ -2467,9 +2479,9 @@ const CanvasManager = ({
                     id={token.id}
                     src={token.src}
                     x={displayX}
-                    y={displayY}
+                    y={finalDisplayY}
                     width={gridSize * safeScale}
-                    height={gridSize * safeScale}
+                    height={tokenHeight}
                     draggable={false}
                     // Visual props (scaleX, scaleY, opacity, shadow) are transformation properties
                     // that multiply with base dimensions to create hover/drag feedback effects
@@ -2485,7 +2497,7 @@ const CanvasManager = ({
                 {isSelected && (
                   <Rect
                     x={displayX}
-                    y={displayY}
+                    y={finalDisplayY}
                     width={gridSize * safeScale}
                     height={gridSize * safeScale}
                     stroke="#2563eb"
@@ -2510,7 +2522,7 @@ const CanvasManager = ({
                     verticalAlign="middle"
                     width={(gridSize * safeScale) * 2}
                     x={displayX - (gridSize * safeScale) / 2}
-                    y={displayY + (gridSize * safeScale) + 8}
+                    y={finalDisplayY + (gridSize * safeScale) + 8}
                     listening={false}
                   />
                 )}
