@@ -1539,18 +1539,19 @@ const CanvasManager = ({
                     onDragEnd={emptyDragHandler}
                   />
                   {/* Selection border - enhanced with glow effect */}
-                  {isSelected && (
-                    <Rect
-                      x={displayX}
-                      y={finalDisplayY}
-                      width={gridSize * safeScale}
-                      height={gridSize * safeScale}
+                  {/* Hide when dragging to prevent double-circle visual clutter (selection + snap preview) */}
+                  {isSelected && !isDragging && (
+                    <Circle
+                      x={displayX + (gridSize * safeScale) / 2}
+                      y={finalDisplayY + (gridSize * safeScale) / 2}
+                      radius={(gridSize * safeScale) / 2 + 2}
                       stroke="#2563eb"
                       strokeWidth={3}
                       shadowColor="#2563eb"
                       shadowBlur={8}
                       shadowEnabled={true}
                       listening={false}
+                      dash={[8, 4]}
                     />
                   )}
                 </TokenErrorBoundary>
