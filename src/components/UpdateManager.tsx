@@ -243,7 +243,8 @@ const UpdateManager = ({ isOpen, onClose }: UpdateManagerProps) => {
           {!isElectron && (
             <div className="text-center py-4">
               <p style={{ color: 'var(--app-text-muted)' }}>
-                Auto-update is only available in the desktop application.
+                🌐 The Auto-Forge only functions within the Desktop Sanctum. <br />
+                Web browsers cannot channel these arcane energies.
               </p>
             </div>
           )}
@@ -251,7 +252,7 @@ const UpdateManager = ({ isOpen, onClose }: UpdateManagerProps) => {
           {isElectron && status === 'idle' && (
             <div className="text-center py-4">
               <p className="mb-4" style={{ color: 'var(--app-text-muted)' }}>
-                Check for the latest version of Graphium.
+                📜 Consult the Chronicle of Releases to see if new powers await.
               </p>
             </div>
           )}
@@ -259,7 +260,7 @@ const UpdateManager = ({ isOpen, onClose }: UpdateManagerProps) => {
           {status === 'checking' && (
             <div className="text-center py-4">
               <div className="animate-pulse mb-2" style={{ color: 'var(--app-text)' }}>
-                Checking for updates...
+                🔮 Divining the cosmic archives...
               </div>
             </div>
           )}
@@ -267,10 +268,10 @@ const UpdateManager = ({ isOpen, onClose }: UpdateManagerProps) => {
           {status === 'no-update' && (
             <div className="text-center py-4">
               <p className="mb-2" style={{ color: 'var(--app-text)' }}>
-                ✓ You're up to date!
+                ⚔️ Your forge burns with the latest flame!
               </p>
               <p className="text-sm" style={{ color: 'var(--app-text-muted)' }}>
-                You have the latest version of Graphium.
+                Graphium is inscribed with the most recent enchantments.
               </p>
             </div>
           )}
@@ -278,10 +279,10 @@ const UpdateManager = ({ isOpen, onClose }: UpdateManagerProps) => {
           {status === 'update-available' && updateInfo && (
             <div className="p-4 bg-[var(--app-bg-subtle)] rounded">
               <p className="mb-2 font-medium" style={{ color: 'var(--app-text)' }}>
-                Update Available: v{updateInfo.version}
+                ✨ New Power Forged: v{updateInfo.version}
               </p>
               <p className="text-sm mb-4" style={{ color: 'var(--app-text-muted)' }}>
-                A new version is ready to download.
+                The smiths have completed a new artifact. Ready to be summoned.
               </p>
             </div>
           )}
@@ -289,7 +290,7 @@ const UpdateManager = ({ isOpen, onClose }: UpdateManagerProps) => {
           {status === 'downloading' && downloadProgress && (
             <div className="p-4 bg-[var(--app-bg-subtle)] rounded">
               <p className="mb-3 font-medium" style={{ color: 'var(--app-text)' }}>
-                Downloading Update...
+                ⚡ Channeling the update through the aether...
               </p>
               <div className="mb-2 bg-[var(--app-bg)] rounded-full h-2 overflow-hidden">
                 <div
@@ -312,22 +313,22 @@ const UpdateManager = ({ isOpen, onClose }: UpdateManagerProps) => {
           {status === 'downloaded' && updateInfo && (
             <div className="p-4 bg-[var(--app-bg-subtle)] rounded">
               <p className="mb-2 font-medium" style={{ color: 'var(--app-text)' }}>
-                ✓ Update Downloaded
+                🎲 Natural 20! Artifact secured.
               </p>
               <p className="text-sm mb-2" style={{ color: 'var(--app-text-muted)' }}>
-                Version {updateInfo.version} is ready to install.
+                Version {updateInfo.version} awaits installation.
               </p>
               <p className="text-sm" style={{ color: 'var(--app-text-muted)' }}>
-                Click "Restart & Install" to apply the update.
+                The ritual requires a restart to bind the new powers.
               </p>
             </div>
           )}
 
           {status === 'error' && (
             <div className="p-4 bg-red-500/10 border border-red-500/20 rounded">
-              <p className="mb-2 font-medium text-red-500">Error</p>
+              <p className="mb-2 font-medium text-red-500">💀 Critical Failure</p>
               <p className="text-sm" style={{ color: 'var(--app-text-muted)' }}>
-                {errorMessage || 'An error occurred while checking for updates.'}
+                {errorMessage || 'The update ritual was interrupted by mysterious forces. The cosmic archives may be unreachable.'}
               </p>
             </div>
           )}
@@ -341,7 +342,7 @@ const UpdateManager = ({ isOpen, onClose }: UpdateManagerProps) => {
               disabled={status === 'checking'}
               className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded font-medium transition"
             >
-              Check for Updates
+              🔮 Consult the Archives
             </button>
           )}
 
@@ -350,7 +351,7 @@ const UpdateManager = ({ isOpen, onClose }: UpdateManagerProps) => {
               onClick={handleDownload}
               className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded font-medium transition"
             >
-              Download Update
+              ⚡ Summon the Artifact
             </button>
           )}
 
@@ -359,7 +360,7 @@ const UpdateManager = ({ isOpen, onClose }: UpdateManagerProps) => {
               onClick={handleInstall}
               className="flex-1 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded font-medium transition"
             >
-              Restart & Install
+              ⚔️ Install & Reforge
             </button>
           )}
 
