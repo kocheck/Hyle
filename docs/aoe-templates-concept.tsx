@@ -7,7 +7,7 @@
 
 interface AoETemplateProps {
   origin: Point;
-  type: 'circle' | 'cone' | 'line' | 'cube';
+  templateType: 'circle' | 'cone' | 'line' | 'cube';
   radius: number; // in feet
   direction?: number; // degrees (for cone/line)
   gridSize: number;
@@ -16,7 +16,7 @@ interface AoETemplateProps {
 
 export const AoETemplate: React.FC<AoETemplateProps> = ({
   origin,
-  type,
+  templateType,
   radius,
   direction = 0,
   gridSize,
@@ -36,7 +36,7 @@ export const AoETemplate: React.FC<AoETemplateProps> = ({
         const cell = { q, r };
         const cellCenter = geometry.gridToPixel(cell, gridSize);
 
-        if (type === 'circle') {
+        if (templateType === 'circle') {
           // Distance from origin to cell center
           const distance = Math.sqrt(
             Math.pow(cellCenter.x - origin.x, 2) + Math.pow(cellCenter.y - origin.y, 2),
@@ -46,7 +46,7 @@ export const AoETemplate: React.FC<AoETemplateProps> = ({
           if (distanceInFeet <= radius) {
             cells.push(cell);
           }
-        } else if (type === 'cone') {
+        } else if (templateType === 'cone') {
           // Check if cell is within cone angle and range
           const dx = cellCenter.x - origin.x;
           const dy = cellCenter.y - origin.y;
@@ -66,7 +66,7 @@ export const AoETemplate: React.FC<AoETemplateProps> = ({
     }
 
     return cells;
-  }, [origin, type, radius, direction, gridSize, gridType]);
+  }, [origin, templateType, radius, direction, gridSize, gridType]);
 
   return (
     <Group listening={false}>
