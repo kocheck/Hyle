@@ -20,7 +20,7 @@ export const AoETemplate: React.FC<AoETemplateProps> = ({
   radius,
   direction = 0,
   gridSize,
-  gridType
+  gridType,
 }) => {
   const geometry = createGridGeometry(gridType);
 
@@ -33,14 +33,13 @@ export const AoETemplate: React.FC<AoETemplateProps> = ({
     const range = Math.ceil(radiusInCells) + 2; // Extra padding
     for (let q = originCell.q - range; q <= originCell.q + range; q++) {
       for (let r = originCell.r - range; r <= originCell.r + range; r++) {
-        const cell = {q, r};
+        const cell = { q, r };
         const cellCenter = geometry.gridToPixel(cell, gridSize);
 
         if (type === 'circle') {
           // Distance from origin to cell center
           const distance = Math.sqrt(
-            Math.pow(cellCenter.x - origin.x, 2) +
-            Math.pow(cellCenter.y - origin.y, 2)
+            Math.pow(cellCenter.x - origin.x, 2) + Math.pow(cellCenter.y - origin.y, 2),
           );
           const distanceInFeet = (distance / gridSize) * 5;
 
@@ -71,7 +70,7 @@ export const AoETemplate: React.FC<AoETemplateProps> = ({
 
   return (
     <Group listening={false}>
-      {affectedCells.map(cell => {
+      {affectedCells.map((cell) => {
         const vertices = geometry.getCellVertices(cell, gridSize);
         return (
           <Line

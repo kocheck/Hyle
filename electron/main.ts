@@ -95,10 +95,7 @@ process.env.APP_ROOT = path.join(__dirname, '..');
 
 // 🚧 Use ['ENV_NAME'] avoid vite:define plugin - Vite@2.x
 export const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
-export const MAIN_DIST = path.join(
-  process.env.APP_ROOT,
-  'dist-electron'
-);
+export const MAIN_DIST = path.join(process.env.APP_ROOT, 'dist-electron');
 export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist');
 
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
@@ -178,9 +175,7 @@ function buildApplicationMenu() {
           },
         },
         { type: 'separator' },
-        process.platform === 'darwin'
-          ? ({ role: 'close' } as const)
-          : ({ role: 'quit' } as const),
+        process.platform === 'darwin' ? ({ role: 'close' } as const) : ({ role: 'quit' } as const),
       ],
     },
 
@@ -236,8 +231,7 @@ function buildApplicationMenu() {
           accelerator: 'CmdOrCtrl+Shift+M',
           click: () => {
             const win = BrowserWindow.getFocusedWindow();
-            if (win)
-              win.webContents.send('MENU_TOGGLE_RESOURCE_MONITOR');
+            if (win) win.webContents.send('MENU_TOGGLE_RESOURCE_MONITOR');
           },
         },
         { type: 'separator' },
@@ -318,10 +312,7 @@ function createMainWindow() {
 
   // Test active push message to Renderer-process (legacy from template)
   mainWindow.webContents.on('did-finish-load', () => {
-    mainWindow?.webContents.send(
-      'main-process-message',
-      new Date().toLocaleString()
-    );
+    mainWindow?.webContents.send('main-process-message', new Date().toLocaleString());
   });
 
   // Load renderer (dev server in development, static files in production)
@@ -436,7 +427,7 @@ if (!gotTheLock) {
       mainWindow.focus();
 
       // Extract file path from command line
-      const filePath = commandLine.find(arg => arg.endsWith('.graphium'));
+      const filePath = commandLine.find((arg) => arg.endsWith('.graphium'));
       if (filePath) {
         mainWindow.webContents.send('OPEN_FILE_FROM_OS', filePath);
       }
@@ -473,9 +464,7 @@ app.whenReady().then(() => {
    * See CanvasManager.URLImage component for usage (src/components/Canvas/CanvasManager.tsx:47-52).
    */
   protocol.handle('media', (request: Request) => {
-    return net.fetch(
-      'file://' + request.url.slice('media://'.length)
-    );
+    return net.fetch('file://' + request.url.slice('media://'.length));
   });
 
   // Initialize theme system (must be before window creation)
@@ -489,18 +478,18 @@ app.whenReady().then(() => {
   // Check for cold-start file open (macOS)
   const globalWithFile = global as unknown as { openedFile?: string };
   if (globalWithFile.openedFile && mainWindow) {
-      const fileToOpen = globalWithFile.openedFile;
-      mainWindow.webContents.on('did-finish-load', () => {
-          mainWindow?.webContents.send('OPEN_FILE_FROM_OS', fileToOpen);
-      });
+    const fileToOpen = globalWithFile.openedFile;
+    mainWindow.webContents.on('did-finish-load', () => {
+      mainWindow?.webContents.send('OPEN_FILE_FROM_OS', fileToOpen);
+    });
   }
 
   // Check for cold-start file open (Windows/Linux)
-  const argvFile = process.argv.find(arg => arg.endsWith('.graphium'));
+  const argvFile = process.argv.find((arg) => arg.endsWith('.graphium'));
   if (argvFile && mainWindow) {
-       mainWindow.webContents.on('did-finish-load', () => {
-          mainWindow?.webContents.send('OPEN_FILE_FROM_OS', argvFile);
-      });
+    mainWindow.webContents.on('did-finish-load', () => {
+      mainWindow?.webContents.send('OPEN_FILE_FROM_OS', argvFile);
+    });
   }
 
   /**
@@ -548,15 +537,12 @@ app.whenReady().then(() => {
    *
    * This creates a round-trip but ensures Architect View remains the source of truth.
    */
-  ipcMain.on(
-    'SYNC_FROM_WORLD_VIEW',
-    (_event: IpcMainEvent, action: unknown) => {
-      // Relay World View changes to Architect View (main window)
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('SYNC_WORLD_STATE', action);
-      }
+  ipcMain.on('SYNC_FROM_WORLD_VIEW', (_event: IpcMainEvent, action: unknown) => {
+    // Relay World View changes to Architect View (main window)
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('SYNC_WORLD_STATE', action);
     }
-  );
+  });
 
   /**
    * IPC handler: SYNC_WORLD_STATE
@@ -572,40 +558,30 @@ app.whenReady().then(() => {
    * - Main process relays to World Window
    * - World Window subscribes and updates local store
    */
-  ipcMain.on(
-    'SYNC_WORLD_STATE',
-    (_event: IpcMainEvent, state: unknown) => {
-      // Extract action type with proper type checking
-      const actionType = (
-        state &&
-        typeof state === 'object' &&
-        'type' in state &&
-        typeof state.type === 'string'
-      ) ? state.type : 'unknown';
-      if (process.env.NODE_ENV === 'development') {
-        console.log(
-          `[Main Process] SYNC_WORLD_STATE received (${actionType}), relaying to World View`
-        );
-      }
-      if (worldWindow && !worldWindow.isDestroyed()) {
-        worldWindow.webContents.send('SYNC_WORLD_STATE', state);
-      } else if (process.env.NODE_ENV === 'development') {
-        console.warn(
-          '[Main Process] Cannot send SYNC_WORLD_STATE - World View window not available'
-        );
-      }
+  ipcMain.on('SYNC_WORLD_STATE', (_event: IpcMainEvent, state: unknown) => {
+    // Extract action type with proper type checking
+    const actionType =
+      state && typeof state === 'object' && 'type' in state && typeof state.type === 'string'
+        ? state.type
+        : 'unknown';
+    if (process.env.NODE_ENV === 'development') {
+      console.log(
+        `[Main Process] SYNC_WORLD_STATE received (${actionType}), relaying to World View`,
+      );
     }
-  );
+    if (worldWindow && !worldWindow.isDestroyed()) {
+      worldWindow.webContents.send('SYNC_WORLD_STATE', state);
+    } else if (process.env.NODE_ENV === 'development') {
+      console.warn('[Main Process] Cannot send SYNC_WORLD_STATE - World View window not available');
+    }
+  });
 
   // Handler for renderer logs (so we can see World View logs in terminal)
   // Only used in development mode
   if (process.env.NODE_ENV === 'development') {
-    ipcMain.on(
-      'LOG_TO_TERMINAL',
-      (_event: IpcMainEvent, message: string) => {
-        console.log(message);
-      }
-    );
+    ipcMain.on('LOG_TO_TERMINAL', (_event: IpcMainEvent, message: string) => {
+      console.log(message);
+    });
   }
 
   /**
@@ -638,21 +614,14 @@ app.whenReady().then(() => {
    */
   ipcMain.handle(
     'SAVE_ASSET_TEMP',
-    async (
-      _event: IpcMainInvokeEvent,
-      buffer: ArrayBuffer,
-      name: string
-    ) => {
-      const tempDir = path.join(
-        app.getPath('userData'),
-        'temp_assets'
-      );
+    async (_event: IpcMainInvokeEvent, buffer: ArrayBuffer, name: string) => {
+      const tempDir = path.join(app.getPath('userData'), 'temp_assets');
       await fs.mkdir(tempDir, { recursive: true }); // Create if doesn't exist
       const fileName = `${Date.now()}-${name}`; // Timestamp prevents collisions
       const filePath = path.join(tempDir, fileName);
       await fs.writeFile(filePath, Buffer.from(buffer));
       return `file://${filePath}`; // Return file:// URL for renderer
-    }
+    },
   );
 
   // Track the currently open campaign file path for auto-save
@@ -666,10 +635,7 @@ app.whenReady().then(() => {
    * @param zip - JSZip instance to add files to
    * @returns Modified campaign object with relative asset paths
    */
-  async function serializeCampaignToZip(
-    campaign: unknown,
-    zip: JSZip
-  ): Promise<unknown> {
+  async function serializeCampaignToZip(campaign: unknown, zip: JSZip): Promise<unknown> {
     const assetsFolder = zip.folder('assets');
 
     // Deep clone to avoid mutating original state
@@ -691,9 +657,7 @@ app.whenReady().then(() => {
       }
 
       const basename = path.basename(absolutePath);
-      const content = await fs
-        .readFile(absolutePath)
-        .catch(() => null);
+      const content = await fs.readFile(absolutePath).catch(() => null);
       if (content) {
         assetsFolder?.file(basename, content);
         const relativePath = `assets/${basename}`;
@@ -740,34 +704,28 @@ app.whenReady().then(() => {
    *
    * @param campaign - Campaign data from useGameStore.campaign
    */
-  ipcMain.handle(
-    'SAVE_CAMPAIGN',
-    async (_event: IpcMainInvokeEvent, campaign: unknown) => {
-      const { filePath } = await dialog.showSaveDialog({
-        filters: [{ name: 'Graphium Campaign', extensions: ['graphium'] }],
-      });
-      if (!filePath) return false;
+  ipcMain.handle('SAVE_CAMPAIGN', async (_event: IpcMainInvokeEvent, campaign: unknown) => {
+    const { filePath } = await dialog.showSaveDialog({
+      filters: [{ name: 'Graphium Campaign', extensions: ['graphium'] }],
+    });
+    if (!filePath) return false;
 
-      // Update current path for auto-save
-      currentCampaignPath = filePath;
+    // Update current path for auto-save
+    currentCampaignPath = filePath;
 
-      const zip = new JSZip();
+    const zip = new JSZip();
 
-      // Use shared helper to process campaign assets
-      const campaignToSave = await serializeCampaignToZip(
-        campaign,
-        zip
-      );
+    // Use shared helper to process campaign assets
+    const campaignToSave = await serializeCampaignToZip(campaign, zip);
 
-      // Add manifest.json with modified state
-      zip.file('manifest.json', JSON.stringify(campaignToSave));
+    // Add manifest.json with modified state
+    zip.file('manifest.json', JSON.stringify(campaignToSave));
 
-      // Write ZIP to disk
-      const content = await zip.generateAsync({ type: 'nodebuffer' });
-      await fs.writeFile(filePath, content);
-      return true;
-    }
-  );
+    // Write ZIP to disk
+    const content = await zip.generateAsync({ type: 'nodebuffer' });
+    await fs.writeFile(filePath, content);
+    return true;
+  });
 
   /**
    * IPC handler: AUTO_SAVE
@@ -775,37 +733,31 @@ app.whenReady().then(() => {
    * Saves the campaign to the last known path without user interaction.
    * Uses atomic write (write to temp + rename) to prevent corruption.
    */
-  ipcMain.handle(
-    'AUTO_SAVE',
-    async (_event: IpcMainInvokeEvent, campaign: unknown) => {
-      if (!currentCampaignPath) return false; // No file open, cannot auto-save
+  ipcMain.handle('AUTO_SAVE', async (_event: IpcMainInvokeEvent, campaign: unknown) => {
+    if (!currentCampaignPath) return false; // No file open, cannot auto-save
 
-      try {
-        const zip = new JSZip();
+    try {
+      const zip = new JSZip();
 
-        // Use shared helper to process campaign assets
-        const campaignToSave = await serializeCampaignToZip(
-          campaign,
-          zip
-        );
+      // Use shared helper to process campaign assets
+      const campaignToSave = await serializeCampaignToZip(campaign, zip);
 
-        zip.file('manifest.json', JSON.stringify(campaignToSave));
-        const content = await zip.generateAsync({
-          type: 'nodebuffer',
-        });
+      zip.file('manifest.json', JSON.stringify(campaignToSave));
+      const content = await zip.generateAsync({
+        type: 'nodebuffer',
+      });
 
-        // Atomic write: write to .tmp file then rename
-        const tempPath = currentCampaignPath + '.tmp';
-        await fs.writeFile(tempPath, content);
-        await fs.rename(tempPath, currentCampaignPath);
+      // Atomic write: write to .tmp file then rename
+      const tempPath = currentCampaignPath + '.tmp';
+      await fs.writeFile(tempPath, content);
+      await fs.rename(tempPath, currentCampaignPath);
 
-        return true;
-      } catch (err) {
-        console.error('Auto-save failed:', err);
-        return false;
-      }
+      return true;
+    } catch (err) {
+      console.error('Auto-save failed:', err);
+      return false;
     }
-  );
+  });
 
   /**
    * IPC handler: LOAD_CAMPAIGN
@@ -826,17 +778,11 @@ app.whenReady().then(() => {
     const zip = await JSZip.loadAsync(zipContent);
 
     // Create unique session directory
-    const sessionDir = path.join(
-      app.getPath('userData'),
-      'sessions',
-      Date.now().toString()
-    );
+    const sessionDir = path.join(app.getPath('userData'), 'sessions', Date.now().toString());
     await fs.mkdir(sessionDir, { recursive: true });
 
     // Extract manifest
-    const manifestStr = await zip
-      .file('manifest.json')
-      ?.async('string');
+    const manifestStr = await zip.file('manifest.json')?.async('string');
     if (!manifestStr) throw new Error('Invalid Graphium file');
 
     type TokenWithSrc = {
@@ -884,8 +830,7 @@ app.whenReady().then(() => {
       [key: string]: unknown;
     };
 
-    const loadedData: CampaignManifest | LegacyGameState =
-      JSON.parse(manifestStr);
+    const loadedData: CampaignManifest | LegacyGameState = JSON.parse(manifestStr);
     let campaign: CampaignManifest;
 
     // --- MIGRATION: Check if Legacy File ---
@@ -926,9 +871,7 @@ app.whenReady().then(() => {
       const restoreAsset = async (src: string): Promise<string> => {
         if (src && src.startsWith('assets/')) {
           const fileName = path.basename(src);
-          const fileData = await assets
-            .file(fileName)
-            ?.async('nodebuffer');
+          const fileData = await assets.file(fileName)?.async('nodebuffer');
           if (fileData) {
             const destPath = path.join(assetsDir, fileName);
             await fs.writeFile(destPath, fileData);
@@ -986,12 +929,9 @@ app.whenReady().then(() => {
    *
    * @param mode - Theme mode to set ('light', 'dark', or 'system')
    */
-  ipcMain.handle(
-    'set-theme-mode',
-    (_event: IpcMainInvokeEvent, mode: ThemeMode) => {
-      setThemeMode(mode);
-    }
-  );
+  ipcMain.handle('set-theme-mode', (_event: IpcMainInvokeEvent, mode: ThemeMode) => {
+    setThemeMode(mode);
+  });
 
   /**
    * IPC handler: TOGGLE_PAUSE
@@ -1006,16 +946,10 @@ app.whenReady().then(() => {
 
     // Broadcast new pause state to all windows
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send(
-        'PAUSE_STATE_CHANGED',
-        isGamePaused
-      );
+      mainWindow.webContents.send('PAUSE_STATE_CHANGED', isGamePaused);
     }
     if (worldWindow && !worldWindow.isDestroyed()) {
-      worldWindow.webContents.send(
-        'PAUSE_STATE_CHANGED',
-        isGamePaused
-      );
+      worldWindow.webContents.send('PAUSE_STATE_CHANGED', isGamePaused);
     }
 
     return isGamePaused;
@@ -1084,13 +1018,9 @@ app.whenReady().then(() => {
           category: string;
           tags: string[];
         };
-      }
+      },
     ) => {
-      const libraryPath = path.join(
-        app.getPath('userData'),
-        'library',
-        'assets'
-      );
+      const libraryPath = path.join(app.getPath('userData'), 'library', 'assets');
       await fs.mkdir(libraryPath, { recursive: true });
 
       // Save full-size image
@@ -1104,11 +1034,7 @@ app.whenReady().then(() => {
       await fs.writeFile(thumbPath, Buffer.from(thumbnailBuffer));
 
       // Update index.json
-      const indexPath = path.join(
-        app.getPath('userData'),
-        'library',
-        'index.json'
-      );
+      const indexPath = path.join(app.getPath('userData'), 'library', 'index.json');
       let index: { items: unknown[] } = { items: [] };
 
       try {
@@ -1117,9 +1043,7 @@ app.whenReady().then(() => {
 
         // Validate index structure to prevent runtime errors on corruption
         if (!index.items || !Array.isArray(index.items)) {
-          console.warn(
-            '[MAIN] Invalid index.json structure, resetting to empty array'
-          );
+          console.warn('[MAIN] Invalid index.json structure, resetting to empty array');
           index.items = [];
         }
       } catch {
@@ -1137,7 +1061,7 @@ app.whenReady().then(() => {
       await fs.writeFile(indexPath, JSON.stringify(index, null, 2));
 
       return newItem;
-    }
+    },
   );
 
   /**
@@ -1149,11 +1073,7 @@ app.whenReady().then(() => {
    * @returns Array of TokenLibraryItem objects
    */
   ipcMain.handle('LOAD_LIBRARY_INDEX', async () => {
-    const indexPath = path.join(
-      app.getPath('userData'),
-      'library',
-      'index.json'
-    );
+    const indexPath = path.join(app.getPath('userData'), 'library', 'index.json');
 
     try {
       const data = await fs.readFile(indexPath, 'utf-8');
@@ -1181,62 +1101,42 @@ app.whenReady().then(() => {
    * @param assetId - UUID of the asset to delete
    * @returns true if successful
    */
-  ipcMain.handle(
-    'DELETE_LIBRARY_ASSET',
-    async (_event: IpcMainInvokeEvent, assetId: string) => {
-      const libraryPath = path.join(
-        app.getPath('userData'),
-        'library',
-        'assets'
-      );
+  ipcMain.handle('DELETE_LIBRARY_ASSET', async (_event: IpcMainInvokeEvent, assetId: string) => {
+    const libraryPath = path.join(app.getPath('userData'), 'library', 'assets');
 
-      try {
-        // Delete full-size image
-        await fs.unlink(path.join(libraryPath, `${assetId}.webp`));
+    try {
+      // Delete full-size image
+      await fs.unlink(path.join(libraryPath, `${assetId}.webp`));
 
-        // Delete thumbnail
-        await fs.unlink(
-          path.join(libraryPath, `thumb-${assetId}.webp`)
-        );
-      } catch (err) {
-        console.error(
-          '[MAIN] Failed to delete library asset files:',
-          err
-        );
-        // Continue to update index even if files don't exist
-      }
-
-      // Update index.json
-      const indexPath = path.join(
-        app.getPath('userData'),
-        'library',
-        'index.json'
-      );
-
-      try {
-        const data = await fs.readFile(indexPath, 'utf-8');
-        const index = JSON.parse(data);
-
-        // Validate index structure before modifying
-        if (!index.items || !Array.isArray(index.items)) {
-          console.warn(
-            '[MAIN] Invalid index.json structure during delete'
-          );
-          index.items = [];
-        }
-
-        index.items = index.items.filter(
-          (item: { id: string }) => item.id !== assetId
-        );
-        await fs.writeFile(indexPath, JSON.stringify(index, null, 2));
-      } catch (err) {
-        console.error('[MAIN] Failed to update library index:', err);
-        throw err;
-      }
-
-      return true;
+      // Delete thumbnail
+      await fs.unlink(path.join(libraryPath, `thumb-${assetId}.webp`));
+    } catch (err) {
+      console.error('[MAIN] Failed to delete library asset files:', err);
+      // Continue to update index even if files don't exist
     }
-  );
+
+    // Update index.json
+    const indexPath = path.join(app.getPath('userData'), 'library', 'index.json');
+
+    try {
+      const data = await fs.readFile(indexPath, 'utf-8');
+      const index = JSON.parse(data);
+
+      // Validate index structure before modifying
+      if (!index.items || !Array.isArray(index.items)) {
+        console.warn('[MAIN] Invalid index.json structure during delete');
+        index.items = [];
+      }
+
+      index.items = index.items.filter((item: { id: string }) => item.id !== assetId);
+      await fs.writeFile(indexPath, JSON.stringify(index, null, 2));
+    } catch (err) {
+      console.error('[MAIN] Failed to update library index:', err);
+      throw err;
+    }
+
+    return true;
+  });
 
   /**
    * IPC handler: UPDATE_LIBRARY_METADATA
@@ -1253,13 +1153,9 @@ app.whenReady().then(() => {
     async (
       _event: IpcMainInvokeEvent,
       assetId: string,
-      updates: { name?: string; category?: string; tags?: string[] }
+      updates: { name?: string; category?: string; tags?: string[] },
     ) => {
-      const indexPath = path.join(
-        app.getPath('userData'),
-        'library',
-        'index.json'
-      );
+      const indexPath = path.join(app.getPath('userData'), 'library', 'index.json');
 
       const data = await fs.readFile(indexPath, 'utf-8');
       const index = JSON.parse(data);
@@ -1268,9 +1164,7 @@ app.whenReady().then(() => {
         throw new Error('Library index is corrupted');
       }
 
-      const itemIndex = index.items.findIndex(
-        (item: { id: string }) => item.id === assetId
-      );
+      const itemIndex = index.items.findIndex((item: { id: string }) => item.id === assetId);
 
       if (itemIndex === -1) {
         throw new Error(`Asset ${assetId} not found in library`);
@@ -1285,7 +1179,7 @@ app.whenReady().then(() => {
       await fs.writeFile(indexPath, JSON.stringify(index, null, 2));
 
       return index.items[itemIndex];
-    }
+    },
   );
 
   /**
@@ -1310,17 +1204,14 @@ app.whenReady().then(() => {
    * @param url - URL to open (must be mailto: or https:)
    * @returns Success status
    */
-  ipcMain.handle(
-    'open-external',
-    async (_event: IpcMainInvokeEvent, url: string) => {
-      // Security: Only allow mailto: and https: URLs
-      if (url.startsWith('mailto:') || url.startsWith('https:')) {
-        await shell.openExternal(url);
-        return true;
-      }
-      return false;
+  ipcMain.handle('open-external', async (_event: IpcMainInvokeEvent, url: string) => {
+    // Security: Only allow mailto: and https: URLs
+    if (url.startsWith('mailto:') || url.startsWith('https:')) {
+      await shell.openExternal(url);
+      return true;
     }
-  );
+    return false;
+  });
 
   /**
    * IPC handler: save-error-report
@@ -1331,32 +1222,28 @@ app.whenReady().then(() => {
    * @param reportContent - The error report content to save
    * @returns Success status and optional file path
    */
-  ipcMain.handle(
-    'save-error-report',
-    async (_event: IpcMainInvokeEvent, reportContent: string) => {
-      try {
-        const { filePath, canceled } = await dialog.showSaveDialog({
-          title: 'Save Error Report',
-          defaultPath: `graphium-error-report-${Date.now()}.txt`,
-          filters: [
-            { name: 'Text Files', extensions: ['txt'] },
-            { name: 'All Files', extensions: ['*'] },
-          ],
-        });
+  ipcMain.handle('save-error-report', async (_event: IpcMainInvokeEvent, reportContent: string) => {
+    try {
+      const { filePath, canceled } = await dialog.showSaveDialog({
+        title: 'Save Error Report',
+        defaultPath: `graphium-error-report-${Date.now()}.txt`,
+        filters: [
+          { name: 'Text Files', extensions: ['txt'] },
+          { name: 'All Files', extensions: ['*'] },
+        ],
+      });
 
-        if (canceled || !filePath) {
-          return { success: false, reason: 'User canceled' };
-        }
-
-        await fs.writeFile(filePath, reportContent, 'utf-8');
-        return { success: true, filePath };
-      } catch (error) {
-        return {
-          success: false,
-          reason:
-            error instanceof Error ? error.message : 'Unknown error',
-        };
+      if (canceled || !filePath) {
+        return { success: false, reason: 'User canceled' };
       }
+
+      await fs.writeFile(filePath, reportContent, 'utf-8');
+      return { success: true, filePath };
+    } catch (error) {
+      return {
+        success: false,
+        reason: error instanceof Error ? error.message : 'Unknown error',
+      };
     }
-  );
+  });
 });

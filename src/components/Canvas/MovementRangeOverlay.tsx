@@ -28,7 +28,10 @@ const verticesToPoints = (vertices: Array<{ x: number; y: number }>): number[] =
  * Get neighboring cells based on grid type
  * Uses grid-specific neighbor patterns
  */
-function getNeighbors(cell: { q: number; r: number }, gridType: GridType): Array<{ q: number; r: number }> {
+function getNeighbors(
+  cell: { q: number; r: number },
+  gridType: GridType,
+): Array<{ q: number; r: number }> {
   switch (gridType) {
     case 'HEXAGONAL':
       // Hex has 6 neighbors (axial coordinates)

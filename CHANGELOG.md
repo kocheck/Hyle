@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 #### Hexagonal and Isometric Grid Support
+
 - **New Grid Types**: Added support for Hexagonal (flat-top) and Isometric grids alongside existing Square grids
   - Hexagonal grid uses axial coordinate system for efficient hex addressing
   - Isometric grid uses diamond-shaped cells with 45° rotation
@@ -99,12 +100,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Technical Details
 
 **New Files**:
+
 - `src/types/grid.ts` - Grid type definitions and interfaces
 - `src/utils/gridGeometry.ts` - Grid geometry implementations
 - `src/utils/gridGeometry.test.ts` - Comprehensive grid geometry tests
 - `src/components/Canvas/MovementRangeOverlay.tsx` - Movement range visualization
 
 **Modified Files**:
+
 - `src/store/gameStore.ts` - Extended GridType enum, added gridColor
 - `src/utils/grid.ts` - Updated snapToGrid with gridType support
 - `src/utils/measurement.ts` - Enhanced formatters with cell counts
@@ -116,6 +119,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `CHANGELOG.md` - Comprehensive documentation of all changes
 
 **Grid Size Semantics**:
+
 - Square: `gridSize` = cell width/height in pixels
 - Hexagonal: `gridSize` = circumradius (center to vertex)
 - Isometric: `gridSize` = half of diamond width
@@ -127,10 +131,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.5.3] - 2024-XX-XX
 
 ### Fixed
+
 - Logo not appearing in Mac production builds (#223)
 - E2E test failures caused by preventDefault() on synthetic events (#219)
 
 ### Changed
+
 - Mobile enhancements (#220)
 
 ---

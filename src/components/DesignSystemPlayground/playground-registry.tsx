@@ -15,7 +15,7 @@ import {
   RiMap2Line,
   RiSwordLine,
   RiGobletLine,
-  RiSearchLine
+  RiSearchLine,
 } from '@remixicon/react';
 
 /**
@@ -298,10 +298,12 @@ export const componentExamples: ComponentExample[] = [
       <button
         className="px-4 py-2 rounded font-medium transition-all bg-[var(--app-bg-surface)] hover:bg-[var(--app-bg-hover)] border border-[var(--app-border-default)] text-[var(--app-text-primary)]"
         onClick={() => {
-            useGameStore.getState().showConfirmDialog(
-                'Are you sure you want to proceed with this potentially destructive action?',
-                () => useGameStore.getState().showToast('Confirmed!', 'success'),
-                'Proceed'
+          useGameStore
+            .getState()
+            .showConfirmDialog(
+              'Are you sure you want to proceed with this potentially destructive action?',
+              () => useGameStore.getState().showToast('Confirmed!', 'success'),
+              'Proceed',
             );
         }}
       >
@@ -327,7 +329,9 @@ showConfirmDialog(
     component: (
       <button
         className="px-4 py-2 rounded font-medium transition-all bg-[var(--app-success-bg)] text-[var(--app-success-text)] border border-[var(--app-success-border)] hover:brightness-110"
-        onClick={() => useGameStore.getState().showToast('Operation completed successfully', 'success')}
+        onClick={() =>
+          useGameStore.getState().showToast('Operation completed successfully', 'success')
+        }
       >
         Show Success
       </button>
@@ -423,7 +427,11 @@ showConfirmDialog(
     name: 'Body Text',
     category: 'typography',
     description: 'Standard paragraph text',
-    component: <p className="text-base text-[var(--app-text-secondary)]">This is body text. The quick brown fox jumps over the lazy dog.</p>,
+    component: (
+      <p className="text-base text-[var(--app-text-secondary)]">
+        This is body text. The quick brown fox jumps over the lazy dog.
+      </p>
+    ),
     code: `<p className="text-base text-[var(--app-text-secondary)]">This is body text.</p>`,
     tags: ['typography', 'paragraph', 'body'],
   },
@@ -432,7 +440,11 @@ showConfirmDialog(
     name: 'Secondary Text',
     category: 'typography',
     description: 'Muted secondary text',
-    component: <p className="text-sm text-[var(--app-text-muted)]">This is secondary text with lower emphasis.</p>,
+    component: (
+      <p className="text-sm text-[var(--app-text-muted)]">
+        This is secondary text with lower emphasis.
+      </p>
+    ),
     code: `<p className="text-sm text-[var(--app-text-muted)]">This is secondary text.</p>`,
     tags: ['typography', 'secondary', 'muted'],
   },
@@ -508,7 +520,9 @@ showConfirmDialog(
     component: (
       <div className="p-4 rounded-lg bg-[var(--app-bg-surface)] border border-[var(--app-border-default)] shadow-sm">
         <h3 className="text-lg font-semibold text-[var(--app-text-primary)] mb-2">Card Title</h3>
-        <p className="text-sm text-[var(--app-text-secondary)]">This is a basic card with some content inside.</p>
+        <p className="text-sm text-[var(--app-text-secondary)]">
+          This is a basic card with some content inside.
+        </p>
       </div>
     ),
     code: `<div className="p-4 rounded-lg bg-[var(--app-bg-surface)] border border-[var(--app-border-default)] shadow-sm">

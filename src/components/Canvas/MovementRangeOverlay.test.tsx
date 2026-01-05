@@ -17,9 +17,7 @@ describe('MovementRangeOverlay', () => {
     });
 
     it('should return null for HIDDEN grid type', () => {
-      const { container } = render(
-        <MovementRangeOverlay {...defaultProps} gridType="HIDDEN" />
-      );
+      const { container } = render(<MovementRangeOverlay {...defaultProps} gridType="HIDDEN" />);
       expect(container.firstChild).toBeNull();
     });
 
@@ -29,7 +27,7 @@ describe('MovementRangeOverlay', () => {
           {...defaultProps}
           fillColor="rgba(255, 0, 0, 0.2)"
           strokeColor="rgba(255, 0, 0, 0.8)"
-        />
+        />,
       );
       expect(container).toBeTruthy();
     });
@@ -44,46 +42,34 @@ describe('MovementRangeOverlay', () => {
     });
 
     it('should handle zero movement speed', () => {
-      const { container } = render(
-        <MovementRangeOverlay {...defaultProps} movementSpeed={0} />
-      );
+      const { container } = render(<MovementRangeOverlay {...defaultProps} movementSpeed={0} />);
       expect(container).toBeTruthy();
     });
 
     it('should handle large movement speed', () => {
-      const { container } = render(
-        <MovementRangeOverlay {...defaultProps} movementSpeed={120} />
-      );
+      const { container } = render(<MovementRangeOverlay {...defaultProps} movementSpeed={120} />);
       expect(container).toBeTruthy();
     });
   });
 
   describe('grid type support', () => {
     it('should work with LINES grid', () => {
-      const { container } = render(
-        <MovementRangeOverlay {...defaultProps} gridType="LINES" />
-      );
+      const { container } = render(<MovementRangeOverlay {...defaultProps} gridType="LINES" />);
       expect(container).toBeTruthy();
     });
 
     it('should work with DOTS grid', () => {
-      const { container } = render(
-        <MovementRangeOverlay {...defaultProps} gridType="DOTS" />
-      );
+      const { container } = render(<MovementRangeOverlay {...defaultProps} gridType="DOTS" />);
       expect(container).toBeTruthy();
     });
 
     it('should work with HEXAGONAL grid', () => {
-      const { container } = render(
-        <MovementRangeOverlay {...defaultProps} gridType="HEXAGONAL" />
-      );
+      const { container } = render(<MovementRangeOverlay {...defaultProps} gridType="HEXAGONAL" />);
       expect(container).toBeTruthy();
     });
 
     it('should work with ISOMETRIC grid', () => {
-      const { container } = render(
-        <MovementRangeOverlay {...defaultProps} gridType="ISOMETRIC" />
-      );
+      const { container } = render(<MovementRangeOverlay {...defaultProps} gridType="ISOMETRIC" />);
       expect(container).toBeTruthy();
     });
   });
@@ -91,25 +77,18 @@ describe('MovementRangeOverlay', () => {
   describe('edge cases', () => {
     it('should handle negative token position', () => {
       const { container } = render(
-        <MovementRangeOverlay
-          {...defaultProps}
-          tokenPosition={{ x: -100, y: -100 }}
-        />
+        <MovementRangeOverlay {...defaultProps} tokenPosition={{ x: -100, y: -100 }} />,
       );
       expect(container).toBeTruthy();
     });
 
     it('should handle very small grid size', () => {
-      const { container } = render(
-        <MovementRangeOverlay {...defaultProps} gridSize={1} />
-      );
+      const { container } = render(<MovementRangeOverlay {...defaultProps} gridSize={1} />);
       expect(container).toBeTruthy();
     });
 
     it('should handle very large grid size', () => {
-      const { container } = render(
-        <MovementRangeOverlay {...defaultProps} gridSize={1000} />
-      );
+      const { container } = render(<MovementRangeOverlay {...defaultProps} gridSize={1000} />);
       expect(container).toBeTruthy();
     });
 
@@ -125,12 +104,7 @@ describe('MovementRangeOverlay', () => {
     it('should recalculate when token position changes', () => {
       const { rerender } = render(<MovementRangeOverlay {...defaultProps} />);
 
-      rerender(
-        <MovementRangeOverlay
-          {...defaultProps}
-          tokenPosition={{ x: 200, y: 200 }}
-        />
-      );
+      rerender(<MovementRangeOverlay {...defaultProps} tokenPosition={{ x: 200, y: 200 }} />);
 
       expect(true).toBe(true); // Should recalculate with new position
     });
@@ -147,25 +121,19 @@ describe('MovementRangeOverlay', () => {
   describe('neighbor calculation', () => {
     it('should calculate 4 neighbors for square grid', () => {
       // Square grids have 4 orthogonal neighbors
-      const { container } = render(
-        <MovementRangeOverlay {...defaultProps} gridType="LINES" />
-      );
+      const { container } = render(<MovementRangeOverlay {...defaultProps} gridType="LINES" />);
       expect(container).toBeTruthy();
     });
 
     it('should calculate 6 neighbors for hexagonal grid', () => {
       // Hex grids have 6 neighbors
-      const { container } = render(
-        <MovementRangeOverlay {...defaultProps} gridType="HEXAGONAL" />
-      );
+      const { container } = render(<MovementRangeOverlay {...defaultProps} gridType="HEXAGONAL" />);
       expect(container).toBeTruthy();
     });
 
     it('should calculate 4 neighbors for isometric grid', () => {
       // Iso grids have 4 diagonal neighbors
-      const { container } = render(
-        <MovementRangeOverlay {...defaultProps} gridType="ISOMETRIC" />
-      );
+      const { container } = render(<MovementRangeOverlay {...defaultProps} gridType="ISOMETRIC" />);
       expect(container).toBeTruthy();
     });
   });
@@ -174,9 +142,7 @@ describe('MovementRangeOverlay', () => {
     it('should handle large movement range efficiently', () => {
       const startTime = performance.now();
 
-      render(
-        <MovementRangeOverlay {...defaultProps} movementSpeed={300} />
-      );
+      render(<MovementRangeOverlay {...defaultProps} movementSpeed={300} />);
 
       const endTime = performance.now();
       const renderTime = endTime - startTime;

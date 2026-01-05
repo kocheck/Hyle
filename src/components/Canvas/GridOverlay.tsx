@@ -96,7 +96,7 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
   stroke = '#222',
   opacity = 0.5, // THEME ADJUSTMENT: Modify this value to change grid visibility (0.0 = invisible, 1.0 = fully opaque)
   type = 'LINES',
-  hoveredCell = null
+  hoveredCell = null,
 }) => {
   if (type === 'HIDDEN') return null;
 
@@ -127,7 +127,7 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
       const step = gridSize * powerOf2Multiplier;
       if (!hasWarnedAboutDensity) {
         console.warn(
-          `Grid too dense for DOTS mode (${totalDots} dots > ${MAX_DOTS_THRESHOLD}), rendering subset with step size ${step}px (multiplier: ${powerOf2Multiplier})`
+          `Grid too dense for DOTS mode (${totalDots} dots > ${MAX_DOTS_THRESHOLD}), rendering subset with step size ${step}px (multiplier: ${powerOf2Multiplier})`,
         );
         hasWarnedAboutDensity = true;
       }
@@ -142,7 +142,7 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
               radius={2}
               fill={stroke}
               opacity={opacity}
-            />
+            />,
           );
         }
       }
@@ -159,7 +159,7 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
               radius={2}
               fill={stroke}
               opacity={opacity}
-            />
+            />,
           );
         }
       }
@@ -189,7 +189,7 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
           stroke={stroke}
           strokeWidth={1}
           opacity={opacity}
-        />
+        />,
       );
     }
 
@@ -202,7 +202,7 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
           stroke={stroke}
           strokeWidth={1}
           opacity={opacity}
-        />
+        />,
       );
     }
 
@@ -214,10 +214,7 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
     if (type !== 'HEXAGONAL' && type !== 'ISOMETRIC') return null;
 
     const geometry = createGridGeometry(type);
-    const visibleCells = geometry.getVisibleCells(
-      { x, y, width, height },
-      gridSize
-    );
+    const visibleCells = geometry.getVisibleCells({ x, y, width, height }, gridSize);
 
     return visibleCells.map((cell) => {
       const vertices = geometry.getCellVertices(cell, gridSize);

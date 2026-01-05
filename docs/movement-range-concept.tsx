@@ -18,7 +18,7 @@ export const MovementRangeOverlay: React.FC<MovementRangeProps> = ({
   movementSpeed,
   gridSize,
   gridType,
-  visibleBounds
+  visibleBounds,
 }) => {
   const geometry = createGridGeometry(gridType);
 
@@ -31,10 +31,10 @@ export const MovementRangeOverlay: React.FC<MovementRangeProps> = ({
     // Simple radius check (for square grids)
     // For hex/iso, use proper distance calculation
     const visited = new Set<string>();
-    const queue: Array<{cell: GridCell, distance: number}> = [{cell: startCell, distance: 0}];
+    const queue: Array<{ cell: GridCell; distance: number }> = [{ cell: startCell, distance: 0 }];
 
     while (queue.length > 0) {
-      const {cell, distance} = queue.shift()!;
+      const { cell, distance } = queue.shift()!;
       const key = `${cell.q},${cell.r}`;
 
       if (visited.has(key) || distance > maxCells) continue;
@@ -43,8 +43,8 @@ export const MovementRangeOverlay: React.FC<MovementRangeProps> = ({
 
       // Add neighbors (6 for hex, 4 for square, 4 for iso)
       const neighbors = getNeighbors(cell, gridType);
-      neighbors.forEach(neighbor => {
-        queue.push({cell: neighbor, distance: distance + 1});
+      neighbors.forEach((neighbor) => {
+        queue.push({ cell: neighbor, distance: distance + 1 });
       });
     }
 
@@ -53,7 +53,7 @@ export const MovementRangeOverlay: React.FC<MovementRangeProps> = ({
 
   return (
     <Group listening={false}>
-      {reachableCells.map(cell => {
+      {reachableCells.map((cell) => {
         const vertices = geometry.getCellVertices(cell, gridSize);
         return (
           <Line
@@ -76,27 +76,27 @@ function getNeighbors(cell: GridCell, gridType: GridType): GridCell[] {
     case 'HEXAGONAL':
       // Hex has 6 neighbors (axial coordinates)
       return [
-        {q: cell.q + 1, r: cell.r},
-        {q: cell.q - 1, r: cell.r},
-        {q: cell.q, r: cell.r + 1},
-        {q: cell.q, r: cell.r - 1},
-        {q: cell.q + 1, r: cell.r - 1},
-        {q: cell.q - 1, r: cell.r + 1},
+        { q: cell.q + 1, r: cell.r },
+        { q: cell.q - 1, r: cell.r },
+        { q: cell.q, r: cell.r + 1 },
+        { q: cell.q, r: cell.r - 1 },
+        { q: cell.q + 1, r: cell.r - 1 },
+        { q: cell.q - 1, r: cell.r + 1 },
       ];
     case 'ISOMETRIC':
       // Iso has 4 diagonal neighbors
       return [
-        {q: cell.q + 1, r: cell.r},
-        {q: cell.q - 1, r: cell.r},
-        {q: cell.q, r: cell.r + 1},
-        {q: cell.q, r: cell.r - 1},
+        { q: cell.q + 1, r: cell.r },
+        { q: cell.q - 1, r: cell.r },
+        { q: cell.q, r: cell.r + 1 },
+        { q: cell.q, r: cell.r - 1 },
       ];
     default: // Square
       return [
-        {q: cell.q + 1, r: cell.r},
-        {q: cell.q - 1, r: cell.r},
-        {q: cell.q, r: cell.r + 1},
-        {q: cell.q, r: cell.r - 1},
+        { q: cell.q + 1, r: cell.r },
+        { q: cell.q - 1, r: cell.r },
+        { q: cell.q, r: cell.r + 1 },
+        { q: cell.q, r: cell.r - 1 },
       ];
   }
 }

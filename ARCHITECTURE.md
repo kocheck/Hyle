@@ -3,6 +3,7 @@
 > **AI Agent Onboarding**: This file provides a high-level map of the Graphium codebase. Read this first before making changes to understand the system architecture, data flow, and key patterns.
 
 ## 📋 Table of Contents
+
 - [System Overview](#system-overview)
 - [Technology Stack](#technology-stack)
 - [Directory Structure](#directory-structure)
@@ -20,6 +21,7 @@
 **Graphium** is a dual-target (Electron + Web) React/TypeScript application serving as a digital battlemap for tabletop RPG Dungeon Masters.
 
 ### Core Concept: Dual-Window Architecture
+
 ```
 ┌─────────────────────┐         ┌─────────────────────┐
 │  ARCHITECT VIEW     │         │    WORLD VIEW       │
@@ -36,6 +38,7 @@
 ```
 
 ### Platform Support
+
 - **Electron Desktop App**: Full-featured with file system access
 - **Web App**: Browser-based with IndexedDB storage (limited file ops)
 
@@ -44,26 +47,31 @@
 ## Technology Stack
 
 ### Core Framework & Build Tools
+
 - **React 18.2** - UI framework
 - **TypeScript 5.2** - Type safety (strict mode)
 - **Vite 5.1** - Build tool & dev server
 - **Electron 30** - Desktop wrapper (optional)
 
 ### State & Data
+
 - **Zustand 5.0** - Global state management (single store)
 - **IndexedDB** (idb) - Web storage
 - **Electron IPC** - Inter-process communication
 - **JSZip** - Campaign file (.graphium) compression
 
 ### Canvas & Rendering
+
 - **Konva 10** / **React-Konva 18** - Canvas rendering engine
 - **HTML5 Canvas** - Low-level drawing API
 
 ### Styling & UI
+
 - **Tailwind CSS 4.1** - Utility-first styling
 - **CSS Custom Properties** - Theming system
 
 ### Testing
+
 - **Vitest 1.3** - Unit tests (22 test files)
 - **Playwright 1.57** - E2E tests (13 spec files)
 - **@testing-library/react** - Component testing utilities
@@ -138,14 +146,14 @@
 
 ### Key Files to Know
 
-| File | Purpose | Size | Critical? |
-|------|---------|------|-----------|
-| `src/store/gameStore.ts` | **Single source of truth** for all game state | 26KB | ⚠️ YES |
-| `src/components/Canvas/CanvasManager.tsx` | **Main canvas logic** - rendering, tools, interactions | 84KB | ⚠️ YES |
-| `src/App.tsx` | Root component - window type detection, tool state | 22KB | ⚠️ YES |
-| `src/components/SyncManager.tsx` | **IPC synchronization** between windows | Medium | ⚠️ YES |
-| `electron/main.ts` | Electron main process - IPC, file I/O, windows | 38KB | ⚠️ YES |
-| `src/services/storage.ts` | **Platform abstraction** - Electron vs Web | Small | ⚠️ YES |
+| File                                      | Purpose                                                | Size   | Critical? |
+| ----------------------------------------- | ------------------------------------------------------ | ------ | --------- |
+| `src/store/gameStore.ts`                  | **Single source of truth** for all game state          | 26KB   | ⚠️ YES    |
+| `src/components/Canvas/CanvasManager.tsx` | **Main canvas logic** - rendering, tools, interactions | 84KB   | ⚠️ YES    |
+| `src/App.tsx`                             | Root component - window type detection, tool state     | 22KB   | ⚠️ YES    |
+| `src/components/SyncManager.tsx`          | **IPC synchronization** between windows                | Medium | ⚠️ YES    |
+| `electron/main.ts`                        | Electron main process - IPC, file I/O, windows         | 38KB   | ⚠️ YES    |
+| `src/services/storage.ts`                 | **Platform abstraction** - Electron vs Web             | Small  | ⚠️ YES    |
 
 ---
 
@@ -154,6 +162,7 @@
 ### State Management: Zustand (Single Store)
 
 **Why Zustand over Redux?**
+
 - Minimal boilerplate
 - No context provider hell
 - Excellent TypeScript support
@@ -162,18 +171,19 @@
 **Store Location**: `/home/user/Graphium/src/store/gameStore.ts`
 
 **Store Structure**:
+
 ```typescript
 interface GameState {
   // ===== Data =====
   currentCampaignId: string | null;
   campaigns: Campaign[];
   currentMapId: string | null;
-  tokens: Token[];              // Instances on current map
-  drawings: Drawing[];          // Freehand strokes (marker/eraser/wall)
-  doors: Door[];                // Interactive doors
-  stairs: Stairs[];             // Staircase markers
-  tokenLibrary: TokenLibraryItem[];  // Reusable token prototypes
-  map: MapConfig | null;        // Background map image
+  tokens: Token[]; // Instances on current map
+  drawings: Drawing[]; // Freehand strokes (marker/eraser/wall)
+  doors: Door[]; // Interactive doors
+  stairs: Stairs[]; // Staircase markers
+  tokenLibrary: TokenLibraryItem[]; // Reusable token prototypes
+  map: MapConfig | null; // Background map image
 
   // ===== Actions =====
   // Token management
@@ -200,6 +210,7 @@ interface GameState {
 ### Data Flow Patterns
 
 #### 1. Campaign Save/Load Flow
+
 ```
 User clicks "Save"
     ↓
@@ -219,6 +230,7 @@ fs.writeFile() to .graphium ZIP
 ```
 
 #### 2. IPC State Synchronization (Dual-Window Sync)
+
 ```
 User drags token in Architect View
     ↓
@@ -244,6 +256,7 @@ World View re-renders with updated token position
 ```
 
 #### 3. Asset Processing Flow
+
 ```
 User drags PNG onto canvas
     ↓
@@ -292,9 +305,7 @@ class WebStorageService implements IStorageService {
 }
 
 // Runtime detection (storage.ts)
-const storage = window.ipcRenderer
-  ? new ElectronStorageService()
-  : new WebStorageService();
+const storage = window.ipcRenderer ? new ElectronStorageService() : new WebStorageService();
 ```
 
 **Location**: `/home/user/Graphium/src/services/`
@@ -320,14 +331,14 @@ interface TokenLibraryItem {
 // Instance (in tokens[])
 interface Token {
   id: string;
-  x: number;              // Instance-specific
-  y: number;              // Instance-specific
-  src: string;            // Inherited from library
+  x: number; // Instance-specific
+  y: number; // Instance-specific
+  src: string; // Inherited from library
   libraryItemId?: string; // Reference to prototype
-  scale?: number;         // Override (falls back to defaultScale)
-  type?: 'PC' | 'NPC';    // Override (falls back to defaultType)
-  visionRadius?: number;  // Override (falls back to defaultVisionRadius)
-  name?: string;          // Override (falls back to library name)
+  scale?: number; // Override (falls back to defaultScale)
+  type?: 'PC' | 'NPC'; // Override (falls back to defaultType)
+  visionRadius?: number; // Override (falls back to defaultVisionRadius)
+  name?: string; // Override (falls back to library name)
 }
 ```
 
@@ -383,14 +394,14 @@ function snapToGrid(x: number, y: number, tokenScale: number, gridSize: number) 
     // Large token: snap to intersection
     return {
       x: Math.round(x / gridSize) * gridSize,
-      y: Math.round(y / gridSize) * gridSize
+      y: Math.round(y / gridSize) * gridSize,
     };
   } else {
     // Medium/small token: snap to cell center
     const halfGrid = gridSize / 2;
     return {
       x: Math.round((x - halfGrid) / gridSize) * gridSize + halfGrid,
-      y: Math.round((y - halfGrid) / gridSize) * gridSize + halfGrid
+      y: Math.round((y - halfGrid) / gridSize) * gridSize + halfGrid,
     };
   }
 }
@@ -421,24 +432,28 @@ For each PC token:
 ## Critical Paths & Workflows
 
 ### Campaign Workflow
+
 1. **New Campaign**: `HomeScreen` → Create campaign → Set name → Start Editor
 2. **Load Campaign**: `HomeScreen` → Load .graphium → Extract assets → Populate store → Start Editor
 3. **Save Campaign**: Toolbar → Save → Serialize store → Embed assets → Write .graphium ZIP
 4. **Auto-Save**: `AutoSaveManager` polls store every 30s → IndexedDB write
 
 ### Token Workflow
+
 1. **Add to Library**: Drag image → Crop → Set metadata → Add to `tokenLibrary[]`
 2. **Place on Map**: Drag from library → `addLibraryTokenToMap()` → Creates instance with `libraryItemId`
 3. **Edit Token**: Click token → `TokenInspector` → Edit properties → `updateToken()`
 4. **Delete Token**: Select → Delete key → `removeToken()`
 
 ### Drawing Workflow
+
 1. **Select Tool**: Toolbar → Click Marker/Eraser/Wall → `setTool()`
 2. **Draw**: Mouse down → Capture points → Mouse up → `addDrawing()`
 3. **Erase**: Eraser tool → Draw over existing → Remove intersecting drawings
 4. **Walls**: Wall tool → Draw → Tagged as `tool: 'wall'` → Blocks vision
 
 ### Fog of War Workflow
+
 1. **Enable**: Preferences → Turn on Fog of War
 2. **Set Vision**: Select PC token → TokenInspector → Set visionRadius
 3. **Reveal**: FogOfWarLayer calculates vision → Blurs unseen areas
@@ -449,9 +464,11 @@ For each PC token:
 ## Testing Strategy
 
 ### Unit Tests (Vitest)
+
 **Location**: Co-located with source files (`*.test.ts`, `*.test.tsx`)
 
 **Coverage**: 22 test files
+
 - Utils: `grid.test.ts`, `measurement.test.ts`, `errorSanitizer.test.ts`, `fuzzySearch.test.ts` (⚠️ **MISSING**)
 - Hooks: `useTokenData.test.ts`
 - Components: `HomeScreen.test.tsx`, `Sidebar.test.tsx`, `Toast.test.tsx`
@@ -460,20 +477,24 @@ For each PC token:
 **Run**: `npm run test` or `npm run test:coverage`
 
 ### E2E Tests (Playwright)
+
 **Location**: `/home/user/Graphium/tests/`
 
 **Coverage**: 13 spec files
+
 - **Functional**: `campaign-workflow.spec.ts`, `token-management.spec.ts`, `door-sync.spec.ts`, etc.
 - **Electron**: `ipc.electron.spec.ts`, `startup.electron.spec.ts`
 - **Performance**: `drawing-performance.spec.ts`
 - **Accessibility**: `accessibility.spec.ts` (WCAG AA with axe-core)
 
 **Run**:
+
 - `npm run test:e2e` (all tests)
 - `npm run test:e2e:web` (web only)
 - `npm run test:e2e:electron` (Electron only)
 
 ### Testing Philosophy
+
 - **Behavior over implementation**: Test user-facing behavior, not internal state
 - **Functional over visual**: No screenshot tests (too brittle)
 - **Privacy-aware**: All error tests verify PII sanitization
@@ -488,6 +509,7 @@ For each PC token:
 ### 3-Layer Error Handling Architecture
 
 #### Layer 1: React Error Boundaries
+
 - **PrivacyErrorBoundary** (root level)
 - **TokenErrorBoundary** (per-token granularity)
 - **CanvasOverlayErrorBoundary** (per-overlay granularity)
@@ -499,6 +521,7 @@ For each PC token:
 **Location**: `/home/user/Graphium/src/components/`
 
 #### Layer 2: Global Error Handlers
+
 - `window.onerror` - Catches uncaught JS errors
 - `window.onunhandledrejection` - Catches unhandled promise rejections
 - Both sanitize errors and expose to `window.errorReporting` API
@@ -506,6 +529,7 @@ For each PC token:
 **Location**: `/home/user/Graphium/src/utils/globalErrorHandler.ts`
 
 #### Layer 3: Main Process Error Handling
+
 - Electron main process error handlers
 - IPC error handling
 - File I/O error handling
@@ -513,7 +537,9 @@ For each PC token:
 **Location**: `/home/user/Graphium/electron/main.ts`
 
 ### Privacy Guarantees
+
 All errors are sanitized before reporting:
+
 - Usernames → `<USER>`
 - File paths → Relative paths
 - System info → Redacted
@@ -527,28 +553,33 @@ All errors are sanitized before reporting:
 ## Further Reading
 
 ### Essential Docs (Read These First)
+
 1. **[docs/context/CONTEXT.md](docs/context/CONTEXT.md)** - Domain knowledge, business rules, user workflows
 2. **[docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md)** - Deep-dive architecture with diagrams
 3. **[docs/components/state-management.md](docs/components/state-management.md)** - Zustand store patterns
 4. **[TESTING_STRATEGY.md](TESTING_STRATEGY.md)** - Testing philosophy and guidelines
 
 ### Component-Specific Docs
+
 - **[docs/components/canvas.md](docs/components/canvas.md)** - CanvasManager deep-dive
 - **[docs/components/electron.md](docs/components/electron.md)** - Electron/IPC patterns
 - **[docs/features/error-boundaries.md](docs/features/error-boundaries.md)** - Error boundary strategy
 - **[docs/features/theming.md](docs/features/theming.md)** - Theme system
 
 ### Developer Guides
+
 - **[docs/guides/CONVENTIONS.md](docs/guides/CONVENTIONS.md)** - Code style, naming conventions
 - **[docs/guides/TUTORIALS.md](docs/guides/TUTORIALS.md)** - How to add features
 - **[docs/guides/TROUBLESHOOTING.md](docs/guides/TROUBLESHOOTING.md)** - Common issues
 
 ### Architecture Deep-Dives
+
 - **[docs/architecture/IPC_API.md](docs/architecture/IPC_API.md)** - IPC message reference
 - **[docs/architecture/PERFORMANCE_OPTIMIZATIONS.md](docs/architecture/PERFORMANCE_OPTIMIZATIONS.md)** - Performance patterns
 - **[docs/architecture/DECISIONS.md](docs/architecture/DECISIONS.md)** - Architectural decision records (ADRs)
 
 ### Full Documentation Index
+
 See **[docs/index.md](docs/index.md)** for complete documentation catalog.
 
 ---

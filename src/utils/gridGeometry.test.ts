@@ -136,7 +136,7 @@ describe('SquareGridGeometry', () => {
       const cells = geometry.getVisibleCells(bounds, gridSize);
       expect(cells.length).toBeGreaterThan(0);
       // Check that we get cells around (2,2), (3,3), (4,4)
-      const hasCell22 = cells.some(c => c.q === 2 && c.r === 2);
+      const hasCell22 = cells.some((c) => c.q === 2 && c.r === 2);
       expect(hasCell22).toBe(true);
     });
   });
@@ -166,7 +166,7 @@ describe('HexagonalGridGeometry', () => {
         { q: -1, r: -1 },
       ];
 
-      testCells.forEach(cell => {
+      testCells.forEach((cell) => {
         const pixel = geometry.gridToPixel(cell, gridSize);
         const convertedCell = geometry.pixelToGrid(pixel.x, pixel.y, gridSize);
         // Handle -0 vs +0 JavaScript quirk by normalizing zeros
@@ -211,10 +211,8 @@ describe('HexagonalGridGeometry', () => {
       const center = geometry.gridToPixel({ q: 0, r: 0 }, gridSize);
 
       // Check that all vertices are approximately gridSize distance from center
-      vertices.forEach(v => {
-        const distance = Math.sqrt(
-          Math.pow(v.x - center.x, 2) + Math.pow(v.y - center.y, 2)
-        );
+      vertices.forEach((v) => {
+        const distance = Math.sqrt(Math.pow(v.x - center.x, 2) + Math.pow(v.y - center.y, 2));
         expect(Math.abs(distance - gridSize)).toBeLessThan(1);
       });
     });
@@ -244,7 +242,7 @@ describe('HexagonalGridGeometry', () => {
       const bounds = { x: 0, y: 0, width: 1000, height: 1000 };
       const cells = geometry.getVisibleCells(bounds, gridSize);
 
-      const rs = cells.map(c => c.r);
+      const rs = cells.map((c) => c.r);
       const minR = Math.min(...rs);
       const maxR = Math.max(...rs);
 
@@ -272,7 +270,7 @@ describe('IsometricGridGeometry', () => {
         { q: -1, r: -1 },
       ];
 
-      testCells.forEach(cell => {
+      testCells.forEach((cell) => {
         const pixel = geometry.gridToPixel(cell, gridSize);
         const convertedCell = geometry.pixelToGrid(pixel.x, pixel.y, gridSize);
         expect(convertedCell).toEqual(cell);

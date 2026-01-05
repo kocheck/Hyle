@@ -50,10 +50,7 @@ export interface ResolvedTokenData {
 export function useTokenData(token: Token): ResolvedTokenData {
   const tokenLibrary = useGameStore((state) => state.campaign.tokenLibrary);
 
-  return useMemo(
-    () => resolveTokenData(token, tokenLibrary),
-    [token, tokenLibrary],
-  );
+  return useMemo(() => resolveTokenData(token, tokenLibrary), [token, tokenLibrary]);
 }
 
 /**
@@ -64,7 +61,10 @@ export function useTokenData(token: Token): ResolvedTokenData {
  * @param tokenLibrary - The array of library items
  * @returns Fully resolved token data
  */
-export function resolveTokenData(token: Token, tokenLibrary: TokenLibraryItem[]): ResolvedTokenData {
+export function resolveTokenData(
+  token: Token,
+  tokenLibrary: TokenLibraryItem[],
+): ResolvedTokenData {
   const libraryItem = token.libraryItemId
     ? tokenLibrary.find((item) => item.id === token.libraryItemId)
     : undefined;
@@ -77,7 +77,7 @@ export function resolveTokenData(token: Token, tokenLibrary: TokenLibraryItem[])
   // Determine Type: Instance > Library Default > Library Category (PC)
   let resolvedType = token.type ?? libraryItem?.defaultType;
   if (!resolvedType && libraryItem?.category === 'PC') {
-      resolvedType = 'PC';
+    resolvedType = 'PC';
   }
   const resolvedVisionRadius = token.visionRadius ?? libraryItem?.defaultVisionRadius;
   const resolvedName = token.name ?? libraryItem?.name ?? DEFAULT_NAME;
@@ -95,7 +95,8 @@ export function resolveTokenData(token: Token, tokenLibrary: TokenLibraryItem[])
     _isInherited: {
       scale: token.scale === undefined && libraryItem?.defaultScale !== undefined,
       type: token.type === undefined && libraryItem?.defaultType !== undefined,
-      visionRadius: token.visionRadius === undefined && libraryItem?.defaultVisionRadius !== undefined,
+      visionRadius:
+        token.visionRadius === undefined && libraryItem?.defaultVisionRadius !== undefined,
       name: token.name === undefined && libraryItem?.name !== undefined,
     },
   };

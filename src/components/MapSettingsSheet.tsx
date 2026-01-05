@@ -22,32 +22,27 @@ interface MapSettingsSheetProps {
   mapId?: string; // Required when mode is EDIT
 }
 
-const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({
-  isOpen,
-  onClose,
-  mode,
-  mapId
-}) => {
+const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({ isOpen, onClose, mode, mapId }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const processingHandleRef = useRef<ProcessingHandle | null>(null);
 
   // Store selectors
-  const campaign = useGameStore(state => state.campaign);
-  const setMap = useGameStore(state => state.setMap);
-  const gridType = useGameStore(state => state.gridType);
-  const setGridType = useGameStore(state => state.setGridType);
-  const gridColor = useGameStore(state => state.gridColor);
-  const setGridColor = useGameStore(state => state.setGridColor);
-  const isDaylightMode = useGameStore(state => state.isDaylightMode);
-  const setDaylightMode = useGameStore(state => state.setDaylightMode);
-  const isCalibrating = useGameStore(state => state.isCalibrating);
-  const setIsCalibrating = useGameStore(state => state.setIsCalibrating);
-  const updateMapPosition = useGameStore(state => state.updateMapPosition);
-  const updateMapScale = useGameStore(state => state.updateMapScale);
-  const showToast = useGameStore(state => state.showToast);
-  const showConfirmDialog = useGameStore(state => state.showConfirmDialog);
-  const addMap = useGameStore(state => state.addMap);
-  const renameMap = useGameStore(state => state.renameMap);
+  const campaign = useGameStore((state) => state.campaign);
+  const setMap = useGameStore((state) => state.setMap);
+  const gridType = useGameStore((state) => state.gridType);
+  const setGridType = useGameStore((state) => state.setGridType);
+  const gridColor = useGameStore((state) => state.gridColor);
+  const setGridColor = useGameStore((state) => state.setGridColor);
+  const isDaylightMode = useGameStore((state) => state.isDaylightMode);
+  const setDaylightMode = useGameStore((state) => state.setDaylightMode);
+  const isCalibrating = useGameStore((state) => state.isCalibrating);
+  const setIsCalibrating = useGameStore((state) => state.setIsCalibrating);
+  const updateMapPosition = useGameStore((state) => state.updateMapPosition);
+  const updateMapScale = useGameStore((state) => state.updateMapScale);
+  const showToast = useGameStore((state) => state.showToast);
+  const showConfirmDialog = useGameStore((state) => state.showConfirmDialog);
+  const addMap = useGameStore((state) => state.addMap);
+  const renameMap = useGameStore((state) => state.renameMap);
 
   // Local state for map name
   const [mapName, setMapName] = useState('');
@@ -77,9 +72,7 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({
           return match ? parseInt(match[1], 10) : 0;
         })
         .filter((n) => n > 0);
-      const nextNumber = mapNumbers.length > 0
-        ? Math.max(...mapNumbers) + 1
-        : maps.length + 1;
+      const nextNumber = mapNumbers.length > 0 ? Math.max(...mapNumbers) + 1 : maps.length + 1;
       setMapName(`Map ${nextNumber}`);
       // Clear pending map data when opening in CREATE mode
       setPendingMapData(null);
@@ -122,7 +115,7 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({
       try {
         objectUrl = URL.createObjectURL(file);
       } catch (err) {
-        console.error("Failed to create object URL for map image", err);
+        console.error('Failed to create object URL for map image', err);
         showToast(rollForMessage('MAP_IMAGE_PROCESS_FAILED'), 'error');
         return;
       }
@@ -136,7 +129,7 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({
           y: 0,
           width: img.width,
           height: img.height,
-          scale: 1
+          scale: 1,
         };
 
         // Only apply to the active map immediately when editing an existing map.
@@ -149,18 +142,18 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({
           setPendingMapData({
             src,
             width: img.width,
-            height: img.height
+            height: img.height,
           });
         }
         URL.revokeObjectURL(objectUrl);
       };
       img.onerror = (e) => {
-        console.error("Map Image Failed to Load for Dimensions", e);
+        console.error('Map Image Failed to Load for Dimensions', e);
         URL.revokeObjectURL(objectUrl);
         showToast(rollForMessage('MAP_IMAGE_LOAD_FAILED'), 'error');
       };
     } catch (err) {
-      console.error("Failed to upload map", err);
+      console.error('Failed to upload map', err);
       showToast(rollForMessage('MAP_UPLOAD_FAILED'), 'error');
       processingHandleRef.current = null;
     } finally {
@@ -190,7 +183,7 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({
           y: 0,
           width: pendingMapData.width,
           height: pendingMapData.height,
-          scale: 1
+          scale: 1,
         });
         setIsCalibrating(true);
       }
@@ -214,7 +207,7 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({
         updateMapPosition(0, 0);
         updateMapScale(1);
       },
-      'Reset'
+      'Reset',
     );
   };
 
@@ -225,7 +218,7 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({
       {/* Backdrop */}
       <div
         className={`fixed inset-0 z-40 transition-colors duration-200 ${
-            isCalibrating ? 'bg-transparent pointer-events-none' : 'bg-black/50'
+          isCalibrating ? 'bg-transparent pointer-events-none' : 'bg-black/50'
         }`}
         onClick={isCalibrating ? undefined : onClose}
       />
@@ -234,9 +227,7 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({
       <div className="fixed right-0 top-0 bottom-0 w-full sm:w-96 bg-[var(--app-bg-surface)] shadow-2xl z-50 overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-[var(--app-bg-surface)] border-b border-[var(--app-border-default)] p-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold">
-            {mode === 'CREATE' ? 'New Map' : 'Edit Map'}
-          </h2>
+          <h2 className="text-lg font-bold">{mode === 'CREATE' ? 'New Map' : 'Edit Map'}</h2>
           <button
             onClick={onClose}
             className="p-2 hover:bg-[var(--app-bg-subtle)] rounded transition"
@@ -250,7 +241,11 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({
         <div className="p-4 space-y-6">
           {/* Map Name */}
           <div>
-            <label htmlFor="map-name" className="block text-xs mb-2 uppercase font-semibold" style={{ color: 'var(--app-text-secondary)' }}>
+            <label
+              htmlFor="map-name"
+              className="block text-xs mb-2 uppercase font-semibold"
+              style={{ color: 'var(--app-text-secondary)' }}
+            >
               Map Name
             </label>
             <input
@@ -265,7 +260,10 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({
 
           {/* Upload Map */}
           <div>
-            <label className="block text-xs mb-2 uppercase font-semibold" style={{ color: 'var(--app-text-secondary)' }}>
+            <label
+              className="block text-xs mb-2 uppercase font-semibold"
+              style={{ color: 'var(--app-text-secondary)' }}
+            >
               Upload Map
             </label>
             <input
@@ -286,7 +284,10 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({
           {/* Calibrate Map */}
           <div>
             <div className="flex justify-between items-center mb-2">
-              <label className="block text-xs uppercase font-semibold" style={{ color: 'var(--app-text-secondary)' }}>
+              <label
+                className="block text-xs uppercase font-semibold"
+                style={{ color: 'var(--app-text-secondary)' }}
+              >
                 Calibration
               </label>
               {isCalibrating && (
@@ -330,13 +331,21 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({
 
           {/* Grid Type */}
           <div>
-            <label htmlFor="grid-type-select" className="block text-xs mb-2 uppercase font-semibold" style={{ color: 'var(--app-text-secondary)' }}>
+            <label
+              htmlFor="grid-type-select"
+              className="block text-xs mb-2 uppercase font-semibold"
+              style={{ color: 'var(--app-text-secondary)' }}
+            >
               Grid Type
             </label>
             <select
               id="grid-type-select"
               value={mode === 'CREATE' ? pendingGridType : gridType}
-              onChange={(e) => mode === 'CREATE' ? setPendingGridType(e.target.value as GridType) : setGridType(e.target.value as GridType)}
+              onChange={(e) =>
+                mode === 'CREATE'
+                  ? setPendingGridType(e.target.value as GridType)
+                  : setGridType(e.target.value as GridType)
+              }
               className="sidebar-input w-full rounded px-3 py-2 text-sm"
             >
               <option value="LINES">Square - Lines</option>
@@ -350,7 +359,11 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({
           {/* Grid Color */}
           {gridType !== 'HIDDEN' && (
             <div>
-              <label htmlFor="grid-color-input" className="block text-xs mb-2 uppercase font-semibold" style={{ color: 'var(--app-text-secondary)' }}>
+              <label
+                htmlFor="grid-color-input"
+                className="block text-xs mb-2 uppercase font-semibold"
+                style={{ color: 'var(--app-text-secondary)' }}
+              >
                 Grid Color
               </label>
               <div className="flex gap-2 items-center">
@@ -358,7 +371,11 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({
                   id="grid-color-input"
                   type="color"
                   value={mode === 'CREATE' ? pendingGridColor : gridColor}
-                  onChange={(e) => mode === 'CREATE' ? setPendingGridColor(e.target.value) : setGridColor(e.target.value)}
+                  onChange={(e) =>
+                    mode === 'CREATE'
+                      ? setPendingGridColor(e.target.value)
+                      : setGridColor(e.target.value)
+                  }
                   className="h-10 w-20 rounded cursor-pointer border border-[var(--app-border-default)]"
                 />
                 <span className="text-xs text-[var(--app-text-secondary)]">
@@ -372,16 +389,25 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({
           <div>
             <ToggleSwitch
               checked={mode === 'CREATE' ? pendingDaylightMode : isDaylightMode}
-              onChange={(checked) => mode === 'CREATE' ? setPendingDaylightMode(checked) : setDaylightMode(checked)}
+              onChange={(checked) =>
+                mode === 'CREATE' ? setPendingDaylightMode(checked) : setDaylightMode(checked)
+              }
               label="Daylight Mode"
-              description={(mode === 'CREATE' ? pendingDaylightMode : isDaylightMode) ? '☀️ Fog of War disabled' : '🌙 Fog of War enabled'}
+              description={
+                (mode === 'CREATE' ? pendingDaylightMode : isDaylightMode)
+                  ? '☀️ Fog of War disabled'
+                  : '🌙 Fog of War enabled'
+              }
             />
           </div>
 
           {/* Reset Map */}
           {mode === 'EDIT' && (
             <div>
-              <label className="block text-xs mb-2 uppercase font-semibold" style={{ color: 'var(--app-text-secondary)' }}>
+              <label
+                className="block text-xs mb-2 uppercase font-semibold"
+                style={{ color: 'var(--app-text-secondary)' }}
+              >
                 Danger Zone
               </label>
               <button
@@ -396,16 +422,10 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({
 
         {/* Footer */}
         <div className="sticky bottom-0 bg-[var(--app-bg-surface)] border-t border-[var(--app-border-default)] p-4 flex gap-2">
-          <button
-            onClick={onClose}
-            className="btn btn-ghost flex-1 py-2 rounded"
-          >
+          <button onClick={onClose} className="btn btn-ghost flex-1 py-2 rounded">
             Cancel
           </button>
-          <button
-            onClick={handleSave}
-            className="btn btn-primary flex-1 py-2 rounded"
-          >
+          <button onClick={handleSave} className="btn btn-primary flex-1 py-2 rounded">
             {mode === 'CREATE' ? 'Create Map' : 'Save Changes'}
           </button>
         </div>

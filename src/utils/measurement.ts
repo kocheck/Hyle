@@ -64,7 +64,7 @@ export const dnd5eDistance = (p1: Point, p2: Point, gridSize: number): number =>
   const diagonalPairs = Math.floor(diagonals / 2);
   const remainingDiagonal = diagonals % 2;
 
-  const totalCells = (diagonalPairs * 3) + remainingDiagonal + straight;
+  const totalCells = diagonalPairs * 3 + remainingDiagonal + straight;
   return totalCells;
 };
 
@@ -85,7 +85,7 @@ export const pixelsToFeet = (
   gridSize: number,
   mode: DistanceMode = DistanceMode.EUCLIDEAN,
   p1?: Point,
-  p2?: Point
+  p2?: Point,
 ): number => {
   if (mode === DistanceMode.DND_5E && p1 && p2) {
     const cells = dnd5eDistance(p1, p2, gridSize);
@@ -136,7 +136,7 @@ export const calculateAngleDegrees = (p1: Point, p2: Point): number => {
 export const calculateConeVertices = (
   origin: Point,
   target: Point,
-  coneAngleDegrees: number = 53
+  coneAngleDegrees: number = 53,
 ): [Point, Point, Point] => {
   // Calculate the central axis angle
   const centralAngle = calculateAngle(origin, target);
@@ -201,7 +201,11 @@ export const formatRadius = (radiusFeet: number, showCells: boolean = true): str
  * @param showCells - Whether to show grid cell count (default: true)
  * @returns Formatted string (e.g., "30ft 53° cone (6 cells)" or "30ft 53° cone")
  */
-export const formatCone = (lengthFeet: number, angleDegrees: number = 53, showCells: boolean = true): string => {
+export const formatCone = (
+  lengthFeet: number,
+  angleDegrees: number = 53,
+  showCells: boolean = true,
+): string => {
   if (showCells) {
     const cells = Math.round(lengthFeet / 5);
     return `${lengthFeet}ft ${angleDegrees}° cone (${cells} ${cells === 1 ? 'cell' : 'cells'})`;

@@ -81,13 +81,7 @@ export interface GridGeometry {
    * @param height Token height in pixels (optional)
    * @returns Snapped pixel coordinates (top-left corner)
    */
-  getSnapPoint(
-    x: number,
-    y: number,
-    gridSize: number,
-    width?: number,
-    height?: number
-  ): Point;
+  getSnapPoint(x: number, y: number, gridSize: number, width?: number, height?: number): Point;
 
   /**
    * Get vertices for rendering a single grid cell

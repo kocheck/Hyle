@@ -50,13 +50,7 @@ export class SquareGridGeometry implements GridGeometry {
     };
   }
 
-  getSnapPoint(
-    x: number,
-    y: number,
-    gridSize: number,
-    width?: number,
-    height?: number
-  ): Point {
+  getSnapPoint(x: number, y: number, gridSize: number, width?: number, height?: number): Point {
     // Migrated from grid.ts - smart snapping based on token size
     if (width === undefined || height === undefined) {
       // Legacy mode: simple rounding
@@ -142,7 +136,7 @@ export class HexagonalGridGeometry implements GridGeometry {
     // Convert pixel to fractional axial coordinates
     // Flat-top hex: width = 2 * size, height = sqrt(3) * size
     const q = ((2 / 3) * x) / gridSize;
-    const r = ((-1 / 3) * x + (SQRT3_3 * y)) / gridSize;
+    const r = ((-1 / 3) * x + SQRT3_3 * y) / gridSize;
 
     // Round to nearest hex using efficient algorithm
     return this.hexRound(q, r);
@@ -156,13 +150,7 @@ export class HexagonalGridGeometry implements GridGeometry {
     return { x, y };
   }
 
-  getSnapPoint(
-    x: number,
-    y: number,
-    gridSize: number,
-    width?: number,
-    height?: number
-  ): Point {
+  getSnapPoint(x: number, y: number, gridSize: number, width?: number, height?: number): Point {
     // For hex grids, always snap to hex center
     // Token size determines how many hexes it occupies, but placement is always centered
 
@@ -331,13 +319,7 @@ export class IsometricGridGeometry implements GridGeometry {
     return { x, y };
   }
 
-  getSnapPoint(
-    x: number,
-    y: number,
-    gridSize: number,
-    width?: number,
-    height?: number
-  ): Point {
+  getSnapPoint(x: number, y: number, gridSize: number, width?: number, height?: number): Point {
     if (width === undefined || height === undefined) {
       // Simple snap to nearest diamond center
       const cell = this.pixelToGrid(x, y, gridSize);
@@ -381,7 +363,7 @@ export class IsometricGridGeometry implements GridGeometry {
     const bottomRight = this.pixelToGrid(
       bounds.x + bounds.width,
       bounds.y + bounds.height,
-      gridSize
+      gridSize,
     );
 
     // Also check top-right and bottom-left corners due to diamond shape
@@ -411,7 +393,7 @@ export class IsometricGridGeometry implements GridGeometry {
  * @returns Appropriate GridGeometry implementation
  */
 export function createGridGeometry(
-  gridType: 'LINES' | 'DOTS' | 'HIDDEN' | 'HEXAGONAL' | 'ISOMETRIC'
+  gridType: 'LINES' | 'DOTS' | 'HIDDEN' | 'HEXAGONAL' | 'ISOMETRIC',
 ): GridGeometry {
   switch (gridType) {
     case 'LINES':
