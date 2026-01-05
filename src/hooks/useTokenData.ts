@@ -56,6 +56,13 @@ export function useTokenData(token: Token): ResolvedTokenData {
 }
 
 /**
+ * Default values for token properties
+ */
+export const DEFAULT_SCALE = 1;
+export const DEFAULT_NAME = 'Token';
+export const DEFAULT_MOVEMENT_SPEED = 30; // Standard D&D 5e movement speed
+
+/**
  * Utility function (non-hook version) for resolving token data
  * Use this when you can't use hooks (e.g., in store actions or utilities)
  *
@@ -70,10 +77,6 @@ export function resolveTokenData(
   const libraryItem = token.libraryItemId
     ? tokenLibrary.find((item) => item.id === token.libraryItemId)
     : undefined;
-
-  const DEFAULT_SCALE = 1;
-  const DEFAULT_NAME = 'Token';
-  const DEFAULT_MOVEMENT_SPEED = 30; // Standard D&D 5e movement speed
 
   const resolvedScale = token.scale ?? libraryItem?.defaultScale ?? DEFAULT_SCALE;
 

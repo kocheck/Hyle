@@ -24,7 +24,7 @@ import { useTokenDrag } from './hooks/useTokenDrag';
 import { useCanvasInteraction } from './hooks/useCanvasInteraction';
 import MeasurementOverlay from './MeasurementOverlay';
 import MovementRangeOverlay from './MovementRangeOverlay';
-import { resolveTokenData } from '../../hooks/useTokenData';
+import { resolveTokenData, DEFAULT_MOVEMENT_SPEED } from '../../hooks/useTokenData';
 import URLImage from './URLImage';
 import PressureSensitiveLine from './PressureSensitiveLine';
 import { createGridGeometry } from '../../utils/gridGeometry';
@@ -1421,8 +1421,8 @@ const CanvasManager = ({
               const dragPos = dragPositionsRef.current.get(selectedToken.id);
               const tokenPos = dragPos || { x: selectedToken.x, y: selectedToken.y };
 
-              // Movement speed is resolved from token data (defaults to 30ft if not set)
-              const movementSpeed = selectedToken.movementSpeed ?? 30;
+              // Movement speed is resolved from token data
+              const movementSpeed = selectedToken.movementSpeed ?? DEFAULT_MOVEMENT_SPEED;
 
               return (
                 <CanvasOverlayErrorBoundary overlayName="MovementRangeOverlay">
