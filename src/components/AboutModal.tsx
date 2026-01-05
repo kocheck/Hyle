@@ -15,6 +15,7 @@ interface AboutModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialTab?: AboutModalTab;
+  onCheckForUpdates?: () => void;
 }
 
 // Add styles tag for modal-specific classes
@@ -231,7 +232,7 @@ const modalStyles = `
  * A modal explaining what Graphium is and how to use it,
  * written in the signature "Digital Dungeon Master" tone.
  */
-export function AboutModal({ isOpen, onClose, initialTab = 'about' }: AboutModalProps) {
+export function AboutModal({ isOpen, onClose, initialTab = 'about', onCheckForUpdates }: AboutModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<AboutModalTab>(initialTab);
 
@@ -403,6 +404,29 @@ export function AboutModal({ isOpen, onClose, initialTab = 'about' }: AboutModal
                 }}
               >
                  <p style={{ color: 'var(--app-text-secondary)' }}>Version {__APP_VERSION__}</p>
+
+                 {/* Check for Updates button (Electron only) */}
+                 {onCheckForUpdates && (
+                   <button
+                     onClick={onCheckForUpdates}
+                     style={{
+                       marginTop: '1rem',
+                       padding: '0.5rem 1rem',
+                       backgroundColor: 'var(--app-accent-solid)',
+                       color: 'white',
+                       border: 'none',
+                       borderRadius: '6px',
+                       fontWeight: '500',
+                       cursor: 'pointer',
+                       transition: 'opacity 0.2s',
+                     }}
+                     onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
+                     onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                   >
+                     Check for Updates
+                   </button>
+                 )}
+
                  <a
                   href="https://github.com/kocheck/Graphium"
                   target="_blank"
