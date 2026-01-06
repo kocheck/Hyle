@@ -342,5 +342,350 @@ describe('HomeScreen', () => {
       const campaignButton = screen.getByLabelText(/Recent campaign: Test Campaign/i);
       expect(campaignButton).toBeInTheDocument();
     });
+
+    it('should have ARIA labels on Templates button', () => {
+      render(<HomeScreen onStartEditor={mockOnStartEditor} />);
+
+      const templatesButton = screen.getByLabelText('Start from a template');
+      expect(templatesButton).toBeInTheDocument();
+    });
+
+    it('should have ARIA labels on theme switcher', () => {
+      render(<HomeScreen onStartEditor={mockOnStartEditor} />);
+
+      const themeSwitcher = screen.getByLabelText(/Switch theme/i);
+      expect(themeSwitcher).toBeInTheDocument();
+    });
+  });
+
+  describe('keyboard shortcuts', () => {
+    it('should open templates modal when Ctrl+T is pressed', async () => {
+      render(<HomeScreen onStartEditor={mockOnStartEditor} />);
+
+      // Press Ctrl+T
+      fireEvent.keyDown(window, { key: 't', ctrlKey: true });
+
+      await waitFor(() => {
+        expect(screen.getByText('Choose a Template')).toBeInTheDocument();
+      });
+    });
+
+    it('should close templates modal when Escape is pressed', async () => {
+      render(<HomeScreen onStartEditor={mockOnStartEditor} />);
+
+      // Open templates modal
+      fireEvent.keyDown(window, { key: 't', ctrlKey: true });
+
+      await waitFor(() => {
+        expect(screen.getByText('Choose a Template')).toBeInTheDocument();
+      });
+
+      // Press Escape
+      fireEvent.keyDown(window, { key: 'Escape' });
+
+      await waitFor(() => {
+        expect(screen.queryByText('Choose a Template')).not.toBeInTheDocument();
+      });
+    });
+
+    it('should trigger New Campaign when Ctrl+N is pressed', async () => {
+      render(<HomeScreen onStartEditor={mockOnStartEditor} />);
+
+      fireEvent.keyDown(window, { key: 'n', ctrlKey: true });
+
+      await waitFor(() => {
+        expect(mockOnStartEditor).toHaveBeenCalledTimes(1);
+      });
+    });
+  });
+
+  describe('templates feature', () => {
+    it('should render Templates action card', () => {
+      render(<HomeScreen onStartEditor={mockOnStartEditor} />);
+
+      expect(screen.getByText('Templates')).toBeInTheDocument();
+      expect(screen.getByText(/Start from pre-made scenarios/)).toBeInTheDocument();
+    });
+
+    it('should open templates modal when Templates card is clicked', async () => {
+      render(<HomeScreen onStartEditor={mockOnStartEditor} />);
+
+      const templatesButton = screen.getByText('Templates').closest('button');
+      fireEvent.click(templatesButton!);
+
+      await waitFor(() => {
+        expect(screen.getByText('Choose a Template')).toBeInTheDocument();
+        expect(screen.getByText('Classic Dungeon')).toBeInTheDocument();
+        expect(screen.getByText('Wilderness Encounter')).toBeInTheDocument();
+        expect(screen.getByText('Tavern Brawl')).toBeInTheDocument();
+        expect(screen.getByText('Arena Battle')).toBeInTheDocument();
+      });
+    });
+
+    it('should close templates modal when Close button is clicked', async () => {
+      render(<HomeScreen onStartEditor={mockOnStartEditor} />);
+
+      const templatesButton = screen.getByText('Templates').closest('button');
+      fireEvent.click(templatesButton!);
+
+      await waitFor(() => {
+        expect(screen.getByText('Choose a Template')).toBeInTheDocument();
+      });
+
+      const closeButton = screen.getByLabelText('Close templates');
+      fireEvent.click(closeButton);
+
+      await waitFor(() => {
+        expect(screen.queryByText('Choose a Template')).not.toBeInTheDocument();
+      });
+    });
+
+    it('should start editor when a template is selected', async () => {
+      render(<HomeScreen onStartEditor={mockOnStartEditor} />);
+
+      // Open templates modal
+      const templatesButton = screen.getByText('Templates').closest('button');
+      fireEvent.click(templatesButton!);
+
+      await waitFor(() => {
+        expect(screen.getByText('Classic Dungeon')).toBeInTheDocument();
+      });
+
+      // Select a template
+      const dungeonTemplate = screen.getByText('Classic Dungeon').closest('button');
+      fireEvent.click(dungeonTemplate!);
+
+      await waitFor(() => {
+        expect(mockOnStartEditor).toHaveBeenCalledTimes(1);
+        expect(screen.queryByText('Choose a Template')).not.toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('recent campaigns search', () => {
+    it('should show search input when 6+ campaigns exist', () => {
+      const campaigns = Array.from({ length: 7 }, (_, i) => ({
+        platform: 'web' as const,
+        id: `campaign-${i}`,
+        name: `Campaign ${i}`,
+        lastOpened: Date.now() - i * 1000,
+      }));
+
+      vi.mocked(recentCampaignsModule.getRecentCampaigns).mockReturnValue(campaigns);
+
+      render(<HomeScreen onStartEditor={mockOnStartEditor} />);
+
+      const searchInput = screen.getByPlaceholderText(/Search recent campaigns/i);
+      expect(searchInput).toBeInTheDocument();
+    });
+
+    it('should not show search input when fewer than 6 campaigns exist', () => {
+      const campaigns = Array.from({ length: 5 }, (_, i) => ({
+        platform: 'web' as const,
+        id: `campaign-${i}`,
+        name: `Campaign ${i}`,
+        lastOpened: Date.now() - i * 1000,
+      }));
+
+      vi.mocked(recentCampaignsModule.getRecentCampaigns).mockReturnValue(campaigns);
+
+      render(<HomeScreen onStartEditor={mockOnStartEditor} />);
+
+      const searchInput = screen.queryByPlaceholderText(/Search recent campaigns/i);
+      expect(searchInput).not.toBeInTheDocument();
+    });
+
+    it('should filter campaigns based on search query', async () => {
+      const campaigns = [
+        { platform: 'web' as const, id: '1', name: 'Dragon Quest', lastOpened: Date.now() },
+        { platform: 'web' as const, id: '2', name: 'Goblin Camp', lastOpened: Date.now() },
+        { platform: 'web' as const, id: '3', name: 'Dragon Heist', lastOpened: Date.now() },
+        { platform: 'web' as const, id: '4', name: 'Lost Mines', lastOpened: Date.now() },
+        { platform: 'web' as const, id: '5', name: 'Curse of Strahd', lastOpened: Date.now() },
+        { platform: 'web' as const, id: '6', name: 'Tomb of Annihilation', lastOpened: Date.now() },
+      ];
+
+      vi.mocked(recentCampaignsModule.getRecentCampaigns).mockReturnValue(campaigns);
+
+      render(<HomeScreen onStartEditor={mockOnStartEditor} />);
+
+      const searchInput = screen.getByPlaceholderText(/Search recent campaigns/i);
+
+      // Filter for "Dragon"
+      fireEvent.change(searchInput, { target: { value: 'dragon' } });
+
+      await waitFor(() => {
+        expect(screen.getByText('Dragon Quest')).toBeInTheDocument();
+        expect(screen.getByText('Dragon Heist')).toBeInTheDocument();
+        expect(screen.queryByText('Goblin Camp')).not.toBeInTheDocument();
+        expect(screen.queryByText('Lost Mines')).not.toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('platform-specific download banners', () => {
+    it('should show Windows download banner on Windows web platform', () => {
+      Object.defineProperty(window, 'navigator', {
+        value: {
+          userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      render(<HomeScreen onStartEditor={mockOnStartEditor} />);
+
+      expect(screen.getByText('Download the Windows App')).toBeInTheDocument();
+      expect(
+        screen.getByText(/Greater portability, offline support, and privacy/)
+      ).toBeInTheDocument();
+    });
+
+    it('should show Linux download banner on Linux web platform', () => {
+      Object.defineProperty(window, 'navigator', {
+        value: {
+          userAgent: 'Mozilla/5.0 (X11; Linux x86_64)',
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      render(<HomeScreen onStartEditor={mockOnStartEditor} />);
+
+      expect(screen.getByText('Download the Linux App')).toBeInTheDocument();
+    });
+
+    it('should show Mac download banner on Mac web platform', () => {
+      Object.defineProperty(window, 'navigator', {
+        value: {
+          userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      render(<HomeScreen onStartEditor={mockOnStartEditor} />);
+
+      expect(screen.getByText('Download the Mac App')).toBeInTheDocument();
+    });
+
+    it('should not show download banner on Electron', () => {
+      vi.mocked(storageModule.getStorage).mockReturnValue({
+        getPlatform: () => 'electron',
+        loadCampaign: vi.fn(),
+      } as any);
+
+      render(<HomeScreen onStartEditor={mockOnStartEditor} />);
+
+      expect(screen.queryByText(/Download the .* App/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('theme switcher', () => {
+    beforeEach(() => {
+      // Mock BroadcastChannel
+      (global as any).BroadcastChannel = class {
+        postMessage = vi.fn();
+        close = vi.fn();
+      };
+
+      // Mock storage methods
+      vi.mocked(storageModule.getStorage).mockReturnValue({
+        getPlatform: () => 'web',
+        loadCampaign: vi.fn(),
+        getThemeMode: vi.fn().mockResolvedValue('dark'),
+        setThemeMode: vi.fn().mockResolvedValue(undefined),
+      } as any);
+    });
+
+    it('should render theme switcher in footer', () => {
+      render(<HomeScreen onStartEditor={mockOnStartEditor} />);
+
+      const themeSwitcher = screen.getByLabelText(/Switch theme/i);
+      expect(themeSwitcher).toBeInTheDocument();
+    });
+
+    it('should cycle through themes when clicked', async () => {
+      const mockSetThemeMode = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(storageModule.getStorage).mockReturnValue({
+        getPlatform: () => 'web',
+        loadCampaign: vi.fn(),
+        getThemeMode: vi.fn().mockResolvedValue('dark'),
+        setThemeMode: mockSetThemeMode,
+      } as any);
+
+      render(<HomeScreen onStartEditor={mockOnStartEditor} />);
+
+      const themeSwitcher = screen.getByLabelText(/Switch theme/i);
+
+      // Click to cycle from dark → system
+      fireEvent.click(themeSwitcher);
+
+      await waitFor(() => {
+        expect(mockSetThemeMode).toHaveBeenCalledWith('system');
+      });
+    });
+  });
+
+  describe('lite mode toggle', () => {
+    beforeEach(() => {
+      // Clear localStorage before each test
+      localStorage.clear();
+    });
+
+    it('should render lite mode toggle in footer', () => {
+      render(<HomeScreen onStartEditor={mockOnStartEditor} />);
+
+      expect(screen.getByText('Lite Mode')).toBeInTheDocument();
+      expect(screen.getByText(/Reduce visual effects/i)).toBeInTheDocument();
+    });
+
+    it('should toggle lite mode when clicked', async () => {
+      render(<HomeScreen onStartEditor={mockOnStartEditor} />);
+
+      const liteToggle = screen.getByLabelText('Toggle Lite Mode');
+
+      // Initially OFF (not checked)
+      expect(liteToggle).not.toBeChecked();
+
+      // Click to enable
+      fireEvent.click(liteToggle);
+
+      await waitFor(() => {
+        expect(liteToggle).toBeChecked();
+        expect(localStorage.getItem('liteMode')).toBe('true');
+      });
+
+      // Click to disable
+      fireEvent.click(liteToggle);
+
+      await waitFor(() => {
+        expect(liteToggle).not.toBeChecked();
+        expect(localStorage.getItem('liteMode')).toBe('false');
+      });
+    });
+
+    it('should persist lite mode preference from localStorage', () => {
+      localStorage.setItem('liteMode', 'true');
+
+      render(<HomeScreen onStartEditor={mockOnStartEditor} />);
+
+      const liteToggle = screen.getByLabelText('Toggle Lite Mode');
+      expect(liteToggle).toBeChecked();
+    });
+
+    it('should set data-lite-mode attribute on root element', async () => {
+      render(<HomeScreen onStartEditor={mockOnStartEditor} />);
+
+      const liteToggle = screen.getByLabelText('Toggle Lite Mode');
+
+      // Enable lite mode
+      fireEvent.click(liteToggle);
+
+      await waitFor(() => {
+        const rootElement = document.querySelector('.home-screen');
+        expect(rootElement?.getAttribute('data-lite-mode')).toBe('true');
+      });
+    });
   });
 });
