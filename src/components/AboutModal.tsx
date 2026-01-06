@@ -15,6 +15,7 @@ interface AboutModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialTab?: AboutModalTab;
+  onCheckForUpdates?: () => void;
 }
 
 // Add styles tag for modal-specific classes
@@ -231,7 +232,7 @@ const modalStyles = `
  * A modal explaining what Graphium is and how to use it,
  * written in the signature "Digital Dungeon Master" tone.
  */
-export function AboutModal({ isOpen, onClose, initialTab = 'about' }: AboutModalProps) {
+export function AboutModal({ isOpen, onClose, initialTab = 'about', onCheckForUpdates }: AboutModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<AboutModalTab>(initialTab);
 
@@ -419,6 +420,18 @@ export function AboutModal({ isOpen, onClose, initialTab = 'about' }: AboutModal
                   }}
                 >
                   <p style={{ color: 'var(--app-text-secondary)' }}>Version {__APP_VERSION__}</p>
+
+                  {/* Consult the Archives button (Electron only) */}
+                  {onCheckForUpdates && (
+                    <button
+                      onClick={onCheckForUpdates}
+                      disabled={!onCheckForUpdates}
+                      className="mt-4 px-4 py-2 bg-[var(--app-accent-solid)] hover:bg-[var(--app-accent-solid-hover)] text-white rounded-md font-medium cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Consult the Archives
+                    </button>
+                  )}
+
                   <a
                     href="https://github.com/kocheck/Graphium"
                     target="_blank"
@@ -636,24 +649,146 @@ export function AboutModal({ isOpen, onClose, initialTab = 'about' }: AboutModal
                     </ul>
                   </div>
                 </section>
-              </div>
-            )}
-          </div>
 
-          {/* Footer */}
-          <div
-            style={{
-              padding: '1rem',
-              borderTop: '1px solid var(--app-border-subtle)',
-              textAlign: 'center',
-              color: 'var(--app-text-muted)',
-              fontSize: '0.85rem',
-            }}
-          >
-            <p>May your rolls be ever in your favor, Dungeon Master. ⚔️🎲</p>
-          </div>
+               {/* Feature Highlights */}
+              <div className="feature-highlights">
+                <h2 className="features-title">Designed for Dungeon Masters</h2>
+                <div className="features-grid">
+                  <div className="feature-card">
+                    <div className="feature-icon-wrapper">
+                      <RiWindowLine className="feature-icon" />
+                    </div>
+                    <h3 className="feature-name">Dual Windows</h3>
+                    <p className="feature-desc">
+                      Architect view for you, clean world view for players
+                    </p>
+                  </div>
+
+                  <div className="feature-card">
+                    <div className="feature-icon-wrapper">
+                      <RiEyeOffLine className="feature-icon" />
+                    </div>
+                    <h3 className="feature-name">Fog of War</h3>
+                    <p className="feature-desc">
+                      Hardware-accelerated raycasting with dynamic vision
+                    </p>
+                  </div>
+
+                  <div className="feature-card">
+                    <div className="feature-icon-wrapper">
+                      <RiLayoutGridLine className="feature-icon" />
+                    </div>
+                    <h3 className="feature-name">Dungeon Generator</h3>
+                    <p className="feature-desc">
+                      Procedural dungeons with rooms, corridors, and doors
+                    </p>
+                  </div>
+
+                  <div className="feature-card">
+                    <div className="feature-icon-wrapper">
+                      <RiShieldLine className="feature-icon" />
+                    </div>
+                    <h3 className="feature-name">Local-First</h3>
+                    <p className="feature-desc">
+                      Your campaigns live on your drive, no cloud required
+                    </p>
+                  </div>
+
+                  <div className="feature-card">
+                    <div className="feature-icon-wrapper">
+                      <RiPaletteLine className="feature-icon" />
+                    </div>
+                    <h3 className="feature-name">Drawing Tools</h3>
+                    <p className="feature-desc">
+                      Markers, walls, doors, and tactical annotations
+                    </p>
+                  </div>
+
+                  <div className="feature-card">
+                    <div className="feature-icon-wrapper">
+                      <RiImageLine className="feature-icon" />
+                    </div>
+                    <h3 className="feature-name">Asset Library</h3>
+                    <p className="feature-desc">
+                      Drag-and-drop tokens with automatic optimization
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Screenshot Showcase */}
+              <div className="screenshot-showcase">
+                <h2 className="showcase-title">See Graphium in Action</h2>
+                <div className="showcase-grid">
+                  {[
+                    { src: '/screenshots/Graphium-show.gif', caption: 'Dual-window architecture with fog of war' },
+                    { src: '/screenshots/Graphium-1.png', caption: 'Dynamic lighting and shadows' },
+                    { src: '/screenshots/Graphium-2.png', caption: 'Asset library management' },
+                    { src: '/screenshots/Graphium-3.png', caption: 'Detailed map editing' },
+                    { src: '/screenshots/Graphium-4.png', caption: 'Token customization' },
+                  ].map((img, index) => (
+                    <div key={index} className="showcase-item">
+                       <img
+                        src={img.src}
+                        alt={img.caption}
+                        style={{
+                          width: '100%',
+                          height: 'auto',
+                          display: 'block',
+                          borderBottom: '1px solid var(--app-border-subtle)'
+                        }}
+                      />
+                      <div style={{ padding: '1rem', background: 'var(--app-bg-base)' }}>
+                        <p className="placeholder-caption" style={{ margin: 0 }}>{img.caption}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="showcase-note">
+                  Add your screenshots, GIFs, or videos to <code>/public/screenshots/</code>
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* SHORTCUTS TAB */}
+          {activeTab === 'shortcuts' && (
+            <div style={{ lineHeight: '1.7' }}>
+              <section style={{ marginBottom: '1.5rem' }}>
+                 <h3 style={{ fontSize: '1.3rem', fontWeight: 'bold', marginBottom: '0.75rem', color: 'var(--app-accent-text)' }}>
+                  📜 Quick Start Incantations
+                </h3>
+                <div style={{ background: 'var(--app-bg-base)', padding: '1rem', borderRadius: '6px', fontSize: '0.95rem' }}>
+                  <ul style={{ color: 'var(--app-text-muted)', paddingLeft: '1.5rem', margin: 0, fontFamily: 'monospace' }}>
+                    <li><code>V</code> – Select Tool</li>
+                    <li><code>M</code> – Marker Tool</li>
+                    <li><code>E</code> – Eraser Tool</li>
+                    <li><code>W</code> – Wall Tool (vision blocking)</li>
+                    <li><code>I</code> – Color Picker</li>
+                    <li><code>Shift</code> (while drawing) – Lock to axis</li>
+                    <li><code>?</code> – Open this help modal</li>
+                  </ul>
+                </div>
+              </section>
+            </div>
+          )}
+
+        </div>
+
+        {/* Footer */}
+        <div
+          style={{
+            padding: '1rem',
+            borderTop: '1px solid var(--app-border-subtle)',
+            textAlign: 'center',
+            color: 'var(--app-text-muted)',
+            fontSize: '0.85rem',
+          }}
+        >
+          <p>May your rolls be ever in your favor, Dungeon Master. ⚔️🎲</p>
         </div>
       </div>
+    </div>
     </>
   );
 }

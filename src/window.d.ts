@@ -69,5 +69,19 @@ declare global {
     __getErrorHistory__?: () => Array<ErrorInfo>;
     __simulateTokenError__?: (tokenId: string) => void;
     __simulateOverlayError__?: (overlayName: string) => void;
+
+    // Auto-updater API (exposed via preload.ts)
+    autoUpdater?: {
+      checkForUpdates: () => Promise<{ available: boolean; updateInfo?: unknown; reason?: string }>;
+      downloadUpdate: () => Promise<boolean>;
+      quitAndInstall: () => Promise<boolean>;
+      getCurrentVersion: () => Promise<string>;
+      onCheckingForUpdate: (callback: () => void) => () => void;
+      onUpdateAvailable: (callback: (info: { version: string; releaseNotes?: string; releaseDate?: string }) => void) => () => void;
+      onUpdateNotAvailable: (callback: (info: { version: string }) => void) => () => void;
+      onDownloadProgress: (callback: (progress: { percent: number; bytesPerSecond: number; transferred: number; total: number }) => void) => () => void;
+      onUpdateDownloaded: (callback: (info: { version: string }) => void) => () => void;
+      onError: (callback: (error: { message: string }) => void) => () => void;
+    };
   }
 }

@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+## [Unreleased]
+
+### Added
+
 #### Hexagonal and Isometric Grid Support
 
 - **New Grid Types**: Added support for Hexagonal (flat-top) and Isometric grids alongside existing Square grids
@@ -129,17 +133,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.5.3] - 2024-XX-XX
+## [0.5.3] - 2025-01-05
+
+### Added
+
+- **Auto-Update System**: Seamless updates from GitHub Releases
+  - Check for updates via About modal (`?` keyboard shortcut)
+  - Download progress indicator with speed and percentage
+  - One-click "Restart & Install" when update is ready
+  - Comprehensive error handling with user-friendly messages
+  - Error boundary protection prevents update failures from crashing app
+  - Full test coverage (708 lines of tests)
+  - Production logging for debugging update issues
+  - Disabled in development mode to prevent accidental updates
+  - Requires code signing for macOS production builds
+
+### Technical Details
+- Added `electron-updater` ^6.3.9 for update management
+- Added `electron-log` ^5.2.4 for production logging
+- New components:
+  - `UpdateManager.tsx`: Update UI modal (528 lines)
+  - `UpdateManagerErrorBoundary.tsx`: Error protection (161 lines)
+  - `electron/autoUpdater.ts`: Main process logic (212 lines)
+- IPC bridge in `electron/preload.ts` for secure communication
+- Type definitions in `src/window.d.ts` for `window.autoUpdater` API
+- Integrated in `src/App.tsx` with error boundary wrapping
+- "Check for Updates" button added to About modal
+- Design system documentation in playground
+- Comprehensive documentation in `AUTO_UPDATER.md`
+
+### Security
+- Signature verification (when app is code-signed)
+- HTTPS-only downloads from GitHub
+- No auto-download - user controls update installation
+- Sandboxed renderer access via contextBridge
 
 ### Fixed
 
 - Logo not appearing in Mac production builds (#223)
-- E2E test failures caused by preventDefault() on synthetic events (#219)
-
-### Changed
-
-- Mobile enhancements (#220)
 
 ---
 
-_For older changes, see git history._
+## [0.5.2] - Previous Release
+
+(Add previous releases as needed)
+
+---
+
+## Legend
+
+- **Added**: New features
+- **Changed**: Changes in existing functionality
+- **Deprecated**: Soon-to-be removed features
+- **Removed**: Removed features
+- **Fixed**: Bug fixes
+- **Security**: Security improvements
