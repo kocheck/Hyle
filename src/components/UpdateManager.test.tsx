@@ -276,7 +276,7 @@ describe('UpdateManager', () => {
       });
 
       // The downloaded message uses randomized themed copy, but button text is stable.
-      expect(screen.getByText(/Install & Reforge/i)).toBeInTheDocument();
+      expect(screen.getByText(/Restart & Install/i)).toBeInTheDocument();
     });
 
     it('should show error state', async () => {
@@ -345,7 +345,7 @@ describe('UpdateManager', () => {
         }
       });
 
-      const installButton = screen.getByText(/Install & Reforge/i);
+      const installButton = screen.getByText(/Restart & Install/i);
       await act(async () => {
         fireEvent.click(installButton);
       });
@@ -396,7 +396,9 @@ describe('UpdateManager', () => {
         }
       });
 
-      const downloadButton = screen.getByText('⚡ Summon the Artifact');
+      const downloadButton = screen.getByRole('button', {
+        name: /Summon the Artifact/i,
+      });
       await act(async () => {
         fireEvent.click(downloadButton);
       });

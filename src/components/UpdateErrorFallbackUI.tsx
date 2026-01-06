@@ -64,15 +64,15 @@ export function UpdateErrorFallbackUI({ error, onReset }: UpdateErrorFallbackUIP
       onClick={onReset}
     >
       <div
-        className="bg-[var(--app-bg)] border border-red-500 rounded-lg shadow-2xl p-6 max-w-md mx-4"
+        className="bg-[var(--app-bg)] border border-[var(--app-error-border)] rounded-lg shadow-2xl p-6 max-w-md mx-4"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="update-error-dialog-title"
       >
         <div className="flex items-start gap-3 mb-4">
-          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-red-500/20 flex items-center justify-center">
-            <span className="text-red-500 text-sm">!</span>
+          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-[var(--app-error-bg)] flex items-center justify-center">
+            <span className="text-[var(--app-error-text)] text-sm">!</span>
           </div>
           <div className="flex-1">
             <h2
@@ -116,7 +116,7 @@ export function UpdateErrorFallbackUI({ error, onReset }: UpdateErrorFallbackUIP
           </button>
           <button
             onClick={onReset}
-            className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white transition"
+            className="px-4 py-2 rounded bg-[var(--app-accent-solid)] hover:bg-[var(--app-accent-solid-hover)] text-white transition"
           >
             Try Again
           </button>

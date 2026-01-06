@@ -405,13 +405,13 @@ export function AboutModal({ isOpen, onClose, initialTab = 'about', onCheckForUp
               >
                  <p style={{ color: 'var(--app-text-secondary)' }}>Version {__APP_VERSION__}</p>
 
-                 {/* Check for Updates button (Electron only) */}
+                 {/* Consult the Archives button (Electron only) */}
                  {onCheckForUpdates && (
                    <button
                      onClick={onCheckForUpdates}
-                     className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-md font-medium cursor-pointer transition-colors"
+                     className="mt-4 px-4 py-2 bg-[var(--app-accent-solid)] hover:bg-[var(--app-accent-solid-hover)] text-white rounded-md font-medium cursor-pointer transition-colors"
                    >
-                     Check for Updates
+                     Consult the Archives
                    </button>
                  )}
 

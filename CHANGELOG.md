@@ -23,9 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `electron-updater` ^6.3.9 for update management
 - Added `electron-log` ^5.2.4 for production logging
 - New components:
-  - `UpdateManager.tsx`: Update UI modal (329 lines)
-  - `UpdateManagerErrorBoundary.tsx`: Error protection (152 lines)
-  - `electron/autoUpdater.ts`: Main process logic (233 lines)
+  - `UpdateManager.tsx`: Update UI modal (528 lines)
+  - `UpdateManagerErrorBoundary.tsx`: Error protection (161 lines)
+  - `electron/autoUpdater.ts`: Main process logic (212 lines)
 - IPC bridge in `electron/preload.ts` for secure communication
 - Type definitions in `src/window.d.ts` for `window.autoUpdater` API
 - Integrated in `src/App.tsx` with error boundary wrapping

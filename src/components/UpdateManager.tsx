@@ -190,12 +190,32 @@ const UpdateManager = ({ isOpen, onClose }: UpdateManagerProps) => {
 
   // Check if running in Electron
   useEffect(() => {
+    let isMounted = true;
+
     setIsElectron(!!window.autoUpdater);
 
     if (window.autoUpdater) {
-      // Get current version on mount
-      window.autoUpdater.getCurrentVersion().then(setCurrentVersion);
+      // Get current version on mount with error handling
+      (async () => {
+        try {
+          const version = await window.autoUpdater.getCurrentVersion();
+          if (isMounted) {
+            setCurrentVersion(version);
+          }
+        } catch (error) {
+          // Avoid unhandled promise rejections
+          // eslint-disable-next-line no-console
+          console.error('Failed to get current app version', error);
+          if (isMounted) {
+            setErrorMessage('Failed to get current app version');
+          }
+        }
+      })();
     }
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Set up event listeners for auto-updater
@@ -420,7 +440,7 @@ const UpdateManager = ({ isOpen, onClose }: UpdateManagerProps) => {
               </p>
               <div className="mb-2 bg-[var(--app-bg)] rounded-full h-2 overflow-hidden">
                 <div
-                  className="h-full bg-blue-500 transition-all duration-300"
+                  className="h-full bg-[var(--app-accent-solid)] transition-all duration-300"
                   style={{ width: `${downloadProgress.percent}%` }}
                 />
               </div>
@@ -451,7 +471,7 @@ const UpdateManager = ({ isOpen, onClose }: UpdateManagerProps) => {
           )}
 
           {status === 'error' && (
-            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded">
+            <div className="p-4 bg-[var(--app-error-bg)] border border-[var(--app-error-border)] rounded">
               <p className="text-sm" style={{ color: 'var(--app-text-muted)' }}>
                 {errorMessage || messages.error}
               </p>
@@ -465,7 +485,7 @@ const UpdateManager = ({ isOpen, onClose }: UpdateManagerProps) => {
             <button
               onClick={handleCheckForUpdates}
               disabled={status === 'checking'}
-              className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded font-medium transition flex items-center justify-center gap-2"
+              className="flex-1 px-4 py-2 bg-[var(--app-accent-solid)] hover:bg-[var(--app-accent-solid-hover)] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded font-medium transition flex items-center justify-center gap-2"
             >
               <RiSearchLine className="w-5 h-5" />
               Consult the Archives
@@ -475,7 +495,7 @@ const UpdateManager = ({ isOpen, onClose }: UpdateManagerProps) => {
           {status === 'update-available' && (
             <button
               onClick={handleDownload}
-              className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded font-medium transition flex items-center justify-center gap-2"
+              className="flex-1 px-4 py-2 bg-[var(--app-accent-solid)] hover:bg-[var(--app-accent-solid-hover)] text-white rounded font-medium transition flex items-center justify-center gap-2"
             >
               <RiDownloadLine className="w-5 h-5" />
               Summon the Artifact
@@ -485,10 +505,10 @@ const UpdateManager = ({ isOpen, onClose }: UpdateManagerProps) => {
           {status === 'downloaded' && (
             <button
               onClick={handleInstall}
-              className="flex-1 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded font-medium transition flex items-center justify-center gap-2"
+              className="flex-1 px-4 py-2 bg-[var(--app-success-solid)] hover:bg-[var(--app-success-solid-hover)] text-white rounded font-medium transition flex items-center justify-center gap-2"
             >
               <RiRefreshLine className="w-5 h-5" />
-              Install & Reforge
+              Restart & Install
             </button>
           )}
 
