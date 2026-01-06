@@ -58,24 +58,16 @@ export function UpdateErrorFallbackUI({ error, onReset }: UpdateErrorFallbackUIP
   const errorTitle = useMemo(() => rollForMessage(updateErrorMessages.title), [error]);
   const errorDesc = useMemo(() => rollForMessage(updateErrorMessages.description), [error]);
 
-  const handleClose = () => {
-    onReset();
-  };
-
-  const handleRetry = () => {
-    onReset();
-  };
-
   return (
     <div
       className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="update-error-dialog-title"
     >
       <div
         className="bg-[var(--app-bg)] border border-red-500 rounded-lg shadow-2xl p-6 max-w-md mx-4"
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="update-error-dialog-title"
       >
         <div className="flex items-start gap-3 mb-4">
           <div className="flex-shrink-0 w-6 h-6 rounded-full bg-red-500/20 flex items-center justify-center">
@@ -115,14 +107,14 @@ export function UpdateErrorFallbackUI({ error, onReset }: UpdateErrorFallbackUIP
 
         <div className="flex justify-end gap-3">
           <button
-            onClick={handleClose}
+            onClick={onReset}
             className="px-4 py-2 rounded bg-[var(--app-bg-subtle)] hover:bg-[var(--app-bg-hover)] transition"
             style={{ color: 'var(--app-text)' }}
           >
             Close
           </button>
           <button
-            onClick={handleRetry}
+            onClick={onReset}
             className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white transition"
           >
             Try Again
