@@ -2,7 +2,12 @@ import { useState, useEffect } from 'react';
 import Tooltip from './Tooltip';
 import { getStorage } from '../services/storage';
 import { useGameStore } from '../store/gameStore';
-import { getRecentCampaigns, addRecentCampaignWithPlatform, removeRecentCampaign, type RecentCampaign } from '../utils/recentCampaigns';
+import {
+  getRecentCampaigns,
+  addRecentCampaignWithPlatform,
+  removeRecentCampaign,
+  type RecentCampaign,
+} from '../utils/recentCampaigns';
 import { rollForMessage } from '../utils/systemMessages';
 import {
   RiDownloadCloudLine,
@@ -33,19 +38,36 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
   const [isMac, setIsMac] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [aboutInitialTab, setAboutInitialTab] = useState<AboutModalTab>('about');
-  const [hideMacBanner, setHideMacBanner] = useState(() =>
-    localStorage.getItem('hideMacBanner') === 'true'
+  const [hideMacBanner, setHideMacBanner] = useState(
+    () => localStorage.getItem('hideMacBanner') === 'true',
   );
 
   // Random inclusive subtitle (stable for session)
   const [subtitle] = useState(() => {
     const titles = [
-      "Storytellers", "World Builders", "Game Guides", "Adventure Architects",
-      "Keepers of Lore", "Dice Rollers", "Party Leaders", "Campaign Curators",
-      "Narrative Weavers", "Fantasy Facilitators", "Myth Makers", "Legend Spinners",
-      "Plot Twisters", "Tabletop Tacticians", "Grid Guardians", "Scene Setters",
-      "Roleplay Referees", "Quest Givers", "Map Makers", "Saga Shapers",
-      "Chroniclers", "Chaos Coordinators", "Rules Lawyers (The Good Kind)"
+      'Storytellers',
+      'World Builders',
+      'Game Guides',
+      'Adventure Architects',
+      'Keepers of Lore',
+      'Dice Rollers',
+      'Party Leaders',
+      'Campaign Curators',
+      'Narrative Weavers',
+      'Fantasy Facilitators',
+      'Myth Makers',
+      'Legend Spinners',
+      'Plot Twisters',
+      'Tabletop Tacticians',
+      'Grid Guardians',
+      'Scene Setters',
+      'Roleplay Referees',
+      'Quest Givers',
+      'Map Makers',
+      'Saga Shapers',
+      'Chroniclers',
+      'Chaos Coordinators',
+      'Rules Lawyers (The Good Kind)',
     ];
     return titles[Math.floor(Math.random() * titles.length)];
   });
@@ -66,13 +88,12 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
     // Detect macOS for download banner
     let isMacOS = false;
     if (typeof navigator !== 'undefined') {
-      const uaData = (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData;
+      const uaData = (navigator as Navigator & { userAgentData?: { platform?: string } })
+        .userAgentData;
       const platformHint = uaData?.platform ?? '';
       const userAgent = navigator.userAgent ?? '';
 
-      isMacOS =
-        platformHint.toLowerCase().includes('mac') ||
-        /mac/i.test(userAgent);
+      isMacOS = platformHint.toLowerCase().includes('mac') || /mac/i.test(userAgent);
     }
     setIsMac(isMacOS);
   }, []);
@@ -119,7 +140,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
   const handleLoadRecent = async (_recent: RecentCampaign) => {
     showToast(
       'Recent campaigns are a reference list only right now. Use "Load Campaign" and select the matching .graphium file.',
-      'info'
+      'info',
     );
   };
 
@@ -156,10 +177,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
         {/* Hero Section */}
         <div className="hero-section">
           <div className="logo-container">
-            <LogoLockup
-              width={420}
-              className="logo"
-            />
+            <LogoLockup width={420} className="logo" />
           </div>
           <h1 className="hero-title">
             Virtual Tabletop for <span className="highlight">{subtitle}</span>
@@ -185,7 +203,8 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
               <div className="banner-text">
                 <h3 className="banner-title">Download the Mac App</h3>
                 <p className="banner-description">
-                  Get greater portability, offline support, and privacy with the native Mac application.
+                  Get greater portability, offline support, and privacy with the native Mac
+                  application.
                 </p>
               </div>
               <a
@@ -255,8 +274,6 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
           </button>
         </div>
 
-
-
         {/* Recent Campaigns */}
         {recentCampaigns.length > 0 && (
           <div className="recent-campaigns">
@@ -266,10 +283,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
             </div>
             <div className="recent-list">
               {recentCampaigns.map((recent) => (
-                <div
-                  key={recent.id}
-                  className="recent-item"
-                >
+                <div key={recent.id} className="recent-item">
                   <button
                     onClick={() => handleLoadRecent(recent)}
                     className="recent-button"
@@ -346,11 +360,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
             Help (?)
           </button>
           <span className="footer-separator">·</span>
-          <a
-            href="/design-system"
-            className="footer-link"
-            title="Internal component library (Dev)"
-          >
+          <a href="/design-system" className="footer-link" title="Internal component library (Dev)">
             Design System
           </a>
         </div>
