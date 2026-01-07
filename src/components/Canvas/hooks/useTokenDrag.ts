@@ -5,6 +5,7 @@ import { useGameStore } from '../../../store/gameStore';
 import { snapToGrid } from '../../../utils/grid';
 import { Token } from '../../../store/gameStore';
 import { getPointerPosition, isMultiTouchGesture } from '../CanvasUtils';
+import { createGridGeometry } from '../../../utils/gridGeometry';
 
 interface UseTokenDragProps {
   tool: string;
@@ -38,6 +39,7 @@ export const useTokenDrag = ({
   const dragStartOffsetsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
   const dragBroadcastThrottleRef = useRef<Map<string, number>>(new Map());
   const snapPreviewPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+  const snapPreviewNodesRef = useRef<Map<string, Konva.Line>>(new Map());
   const tokenNodesRef = useRef<Map<string, Konva.Node>>(new Map());
   const tokenLayerRef = useRef<Konva.Layer>(null); // We need a way to set this from outside or pass it
 
@@ -229,6 +231,51 @@ export const useTokenDrag = ({
           node.y(newY);
         }
 
+        const snapNode = snapPreviewNodesRef.current.get(tokenId);
+        if (snapNode && token) {
+            const snapped = snapPreviewPositionsRef.current.get(tokenId);
+            if (snapped) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const geo = createGridGeometry(gridType as any);
+                 // Note: pixelToGrid expects world coordinates.
+                 // We use the snapped position (top-left) + half size to get center for pixelToGrid if needed?
+                 // Actually `snapToGrid` returns the top-left of the cell.
+                 // `pixelToGrid` usually takes a point and tells you which grid cell it is in.
+                 // But here we already have the snapped top-left coordinate.
+                 // We should use that to generate the vertices.
+                 // `createGridGeometry` likely has `getCellVertices`.
+
+                 const tSafeScale = token.scale ?? 1;
+                 const centerX = snapped.x + (gridSize * tSafeScale) / 2;
+                 const centerY = snapped.y + (gridSize * tSafeScale) / 2;
+
+                 const cell = geo.pixelToGrid(centerX, centerY, gridSize);
+                 const pts = geo.getCellVertices(cell, gridSize).flatMap(v => [v.x, v.y]);
+                 snapNode.points(pts);
+            }
+        }
+
+        // Multi-token snap update
+        if (tokenIds.length > 1) {
+            tokenIds.forEach(id => {
+                 const snapNode2 = snapPreviewNodesRef.current.get(id);
+                 const t2 = resolvedTokens.find(t => t.id === id);
+                 if (snapNode2 && t2) {
+                     const snapped2 = snapPreviewPositionsRef.current.get(id);
+                     if (snapped2) {
+                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                         const geo = createGridGeometry(gridType as any);
+                         const tSafeScale2 = t2.scale ?? 1;
+                         const centerX2 = snapped2.x + (gridSize * tSafeScale2) / 2;
+                         const centerY2 = snapped2.y + (gridSize * tSafeScale2) / 2;
+                         const cell2 = geo.pixelToGrid(centerX2, centerY2, gridSize);
+                         const pts2 = geo.getCellVertices(cell2, gridSize).flatMap(v => [v.x, v.y]);
+                         snapNode2.points(pts2);
+                     }
+                 }
+            });
+        }
+
         if (tokenLayerRef.current) {
           tokenLayerRef.current.batchDraw();
         }
@@ -384,6 +431,7 @@ export const useTokenDrag = ({
     itemsForDuplication,
     setItemsForDuplication,
     snapPreviewPositionsRef,
+    snapPreviewNodesRef,
     tokenLayerRef,
     isDragging: isDraggingWithThreshold,
   };

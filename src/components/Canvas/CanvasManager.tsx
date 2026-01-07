@@ -26,7 +26,7 @@ import MovementRangeOverlay from './MovementRangeOverlay';
 import { resolveTokenData, DEFAULT_MOVEMENT_SPEED } from '../../hooks/useTokenData';
 import URLImage from './URLImage';
 import PressureSensitiveLine from './PressureSensitiveLine';
-import { createGridGeometry } from '../../utils/gridGeometry';
+
 
 // Zoom constants
 const MIN_SCALE = 0.1;
@@ -168,10 +168,9 @@ const CanvasManager = ({
     handleTokenPointerUp,
     dragPositionsRef,
     tokenNodesRef,
-    // draggingTokenIds,
+    snapPreviewNodesRef,
+    draggingTokenIds,
     itemsForDuplication,
-    // setItemsForDuplication, // Removed unused
-    snapPreviewPositionsRef,
     tokenLayerRef,
     isDragging: isDraggingToken,
   } = useTokenDrag({
@@ -511,13 +510,21 @@ const CanvasManager = ({
           <DoorLayer doors={doors} isWorldView={isWorldView} onToggleDoor={toggleDoor} />
           {doorPreviewPos && tool === 'door' && !isWorldView && <Rect x={doorPreviewPos.x - gridSize / 2} y={doorPreviewPos.y - gridSize / 2} width={doorOrientation === 'horizontal' ? gridSize : gridSize/5} height={doorOrientation === 'horizontal' ? gridSize/5 : gridSize} fill="white" opacity={0.5} />}
           {/* Snap Preview */}
-          {isDraggingToken && Array.from(snapPreviewPositionsRef.current.entries()).map(([tid, pos]) => {
-              const t = resolvedTokens.find(r => r.id === tid);
-              if(!t) return null;
-              const geo = createGridGeometry(gridType);
-              const cell = geo.pixelToGrid(pos.x + gridSize * t.scale / 2, pos.y + gridSize * t.scale / 2, gridSize);
-              const pts = geo.getCellVertices(cell, gridSize).flatMap(v => [v.x, v.y]);
-              return <Line key={`snap-${tid}`} points={pts} stroke="blue" dash={[8, 4]} closed strokeWidth={2} />
+          {isDraggingToken && Array.from(draggingTokenIds).map(tid => {
+              // We render the line initially with no points. The performant ref-based update loop in useTokenDrag
+              // will update the points on the very next frame/move event.
+              return <Line
+                  key={`snap-${tid}`}
+                  ref={node => {
+                      if (node) snapPreviewNodesRef.current.set(tid, node);
+                      else snapPreviewNodesRef.current.delete(tid);
+                  }}
+                  points={[]}
+                  stroke="blue"
+                  dash={[8, 4]}
+                  closed
+                  strokeWidth={2}
+              />
           })}
           {/* Ghost Tokens */}
           {isAltPressed && resolvedTokens.filter(t => itemsForDuplication.includes(t.id)).map(g => (
