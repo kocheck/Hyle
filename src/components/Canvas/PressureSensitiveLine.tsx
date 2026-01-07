@@ -1,6 +1,7 @@
 import { useRef, memo } from 'react';
 import { Shape } from 'react-konva';
 import Konva from 'konva';
+import { KonvaEventObject } from 'konva/lib/Node';
 
 // Import the globalCompositeOperationType from Konva
 type GlobalCompositeOperationType =
@@ -50,6 +51,10 @@ interface PressureSensitiveLineProps {
   x?: number;
   y?: number;
   pressureRange?: { min: number; max: number }; // Pressure multiplier range from settings
+  style?: any;
+  draggable?: boolean;
+  onClick?: (e: KonvaEventObject<MouseEvent>) => void;
+  onDragEnd?: (e: KonvaEventObject<DragEvent>) => void;
 }
 
 /**
@@ -122,6 +127,9 @@ const PressureSensitiveLineComponent = ({
   x,
   y,
   pressureRange = { min: 0.3, max: 1.5 }, // Default to 'normal' curve
+  draggable,
+  onClick,
+  onDragEnd,
 }: PressureSensitiveLineProps) => {
   const shapeRef = useRef<Konva.Shape>(null);
 
@@ -198,6 +206,9 @@ const PressureSensitiveLineComponent = ({
       scaleY={scaleY}
       x={x}
       y={y}
+      draggable={draggable}
+      onClick={onClick}
+      onDragEnd={onDragEnd}
     />
   );
 };
