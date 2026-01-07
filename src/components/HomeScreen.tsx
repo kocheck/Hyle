@@ -2,7 +2,12 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Tooltip from './Tooltip';
 import { getStorage } from '../services/storage';
 import { useGameStore } from '../store/gameStore';
-import { getRecentCampaigns, addRecentCampaignWithPlatform, removeRecentCampaign, type RecentCampaign } from '../utils/recentCampaigns';
+import {
+  getRecentCampaigns,
+  addRecentCampaignWithPlatform,
+  removeRecentCampaign,
+  type RecentCampaign,
+} from '../utils/recentCampaigns';
 import { rollForMessage } from '../utils/systemMessages';
 import {
   RiDownloadCloudLine,
@@ -57,28 +62,28 @@ const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
     name: 'Classic Dungeon',
     icon: RiBuilding2Line,
     description: '5-room dungeon with fog of war',
-    grid: { width: 30, height: 30, cellSize: 50 }
+    grid: { width: 30, height: 30, cellSize: 50 },
   },
   {
     id: 'wilderness',
     name: 'Wilderness Map',
     icon: RiTreeLine,
     description: 'Large outdoor exploration area',
-    grid: { width: 40, height: 40, cellSize: 50 }
+    grid: { width: 40, height: 40, cellSize: 50 },
   },
   {
     id: 'tavern',
     name: 'Starting Tavern',
     icon: RiGobletLine,
     description: 'Small indoor social encounter',
-    grid: { width: 20, height: 20, cellSize: 50 }
+    grid: { width: 20, height: 20, cellSize: 50 },
   },
   {
     id: 'arena',
     name: 'Combat Arena',
     icon: RiSwordLine,
     description: 'Tactical battle grid',
-    grid: { width: 25, height: 25, cellSize: 50 }
+    grid: { width: 25, height: 25, cellSize: 50 },
   },
 ];
 
@@ -96,14 +101,12 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
   const [isLinux, setIsLinux] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [aboutInitialTab, setAboutInitialTab] = useState<AboutModalTab>('about');
-  const [hideDownloadBanner, setHideDownloadBanner] = useState(() =>
-    localStorage.getItem('hideDownloadBanner') === 'true'
+  const [hideDownloadBanner, setHideDownloadBanner] = useState(
+    () => localStorage.getItem('hideDownloadBanner') === 'true',
   );
 
   // NEW FEATURES
-  const [liteMode, setLiteMode] = useState(() =>
-    localStorage.getItem('liteMode') === 'true'
-  );
+  const [liteMode, setLiteMode] = useState(() => localStorage.getItem('liteMode') === 'true');
   const [searchQuery, setSearchQuery] = useState('');
   const [showTemplates, setShowTemplates] = useState(false);
   const [currentTheme, setCurrentTheme] = useState<ThemeMode>('system');
@@ -116,12 +119,29 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
   // Random inclusive subtitle (stable for session)
   const [subtitle] = useState(() => {
     const titles = [
-      "Storytellers", "World Builders", "Game Guides", "Adventure Architects",
-      "Keepers of Lore", "Dice Rollers", "Party Leaders", "Campaign Curators",
-      "Narrative Weavers", "Fantasy Facilitators", "Myth Makers", "Legend Spinners",
-      "Plot Twisters", "Tabletop Tacticians", "Grid Guardians", "Scene Setters",
-      "Roleplay Referees", "Quest Givers", "Map Makers", "Saga Shapers",
-      "Chroniclers", "Chaos Coordinators", "Rules Lawyers (The Good Kind)"
+      'Storytellers',
+      'World Builders',
+      'Game Guides',
+      'Adventure Architects',
+      'Keepers of Lore',
+      'Dice Rollers',
+      'Party Leaders',
+      'Campaign Curators',
+      'Narrative Weavers',
+      'Fantasy Facilitators',
+      'Myth Makers',
+      'Legend Spinners',
+      'Plot Twisters',
+      'Tabletop Tacticians',
+      'Grid Guardians',
+      'Scene Setters',
+      'Roleplay Referees',
+      'Quest Givers',
+      'Map Makers',
+      'Saga Shapers',
+      'Chroniclers',
+      'Chaos Coordinators',
+      'Rules Lawyers (The Good Kind)',
     ];
     return titles[Math.floor(Math.random() * titles.length)];
   });
@@ -171,11 +191,15 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
     setIsElectron(platform === 'electron');
 
     // Load current theme mode
-    storage.getThemeMode().then(mode => setCurrentTheme(mode)).catch(() => {});
+    storage
+      .getThemeMode()
+      .then((mode) => setCurrentTheme(mode))
+      .catch(() => {});
 
     // Detect OS for download banners
     if (typeof navigator !== 'undefined') {
-      const uaData = (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData;
+      const uaData = (navigator as Navigator & { userAgentData?: { platform?: string } })
+        .userAgentData;
       const platformHint = uaData?.platform ?? '';
       const userAgent = navigator.userAgent ?? '';
 
@@ -194,7 +218,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
     if (showTemplates) {
       // Store the element that had focus before opening
       previousFocusRef.current = document.activeElement as HTMLElement;
-      
+
       // Focus the close button when modal opens
       setTimeout(() => {
         templatesCloseButtonRef.current?.focus();
@@ -214,7 +238,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
       if (e.key !== 'Tab' || !templatesModalRef.current) return;
 
       const focusableElements = templatesModalRef.current.querySelectorAll<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
       );
       const firstElement = focusableElements[0];
       const lastElement = focusableElements[focusableElements.length - 1];
@@ -276,7 +300,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
   const handleLoadRecent = async (_recent: RecentCampaign) => {
     showToast(
       'Recent campaigns are a reference list only right now. Use "Load Campaign" and select the matching .graphium file.',
-      'info'
+      'info',
     );
   };
 
@@ -297,8 +321,10 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
     setLiteMode(newLiteMode);
     localStorage.setItem('liteMode', String(newLiteMode));
     showToast(
-      newLiteMode ? '⚡ Lite Mode enabled - animations disabled for better performance' : '✨ Full Mode enabled - animations restored',
-      'success'
+      newLiteMode
+        ? '⚡ Lite Mode enabled - animations disabled for better performance'
+        : '✨ Full Mode enabled - animations restored',
+      'success',
     );
   };
 
@@ -314,9 +340,12 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
 
       // Apply theme immediately for web (Electron handles via IPC)
       if (storage.getPlatform() === 'web') {
-        const effectiveTheme = nextTheme === 'system'
-          ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-          : nextTheme;
+        const effectiveTheme =
+          nextTheme === 'system'
+            ? window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light'
+            : nextTheme;
         document.documentElement.setAttribute('data-theme', effectiveTheme);
 
         // Broadcast to other tabs
@@ -348,10 +377,11 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
 
   // Filter recent campaigns by search query
   const filteredCampaigns = useMemo(
-    () => recentCampaigns.filter(campaign =>
-      campaign.name.toLowerCase().includes(searchQuery.toLowerCase())
-    ),
-    [recentCampaigns, searchQuery]
+    () =>
+      recentCampaigns.filter((campaign) =>
+        campaign.name.toLowerCase().includes(searchQuery.toLowerCase()),
+      ),
+    [recentCampaigns, searchQuery],
   );
 
   const getThemeIcon = () => {
@@ -381,10 +411,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
         {/* Hero Section */}
         <div className="hero-section">
           <div className="logo-container">
-            <LogoLockup
-              width={420}
-              className="logo"
-            />
+            <LogoLockup width={420} className="logo" />
           </div>
           <h1 className="hero-title">
             Virtual Tabletop for <span className="highlight">{subtitle}</span>
@@ -414,7 +441,8 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
                   {isLinux && 'Download for Linux'}
                 </h3>
                 <p className="banner-description">
-                  Get greater portability, offline support, and privacy with the native desktop application.
+                  Get greater portability, offline support, and privacy with the native desktop
+                  application.
                 </p>
               </div>
               <a
@@ -496,8 +524,6 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
           </button>
         </div>
 
-
-
         {/* Recent Campaigns */}
         {recentCampaigns.length > 0 && (
           <div className="recent-campaigns">
@@ -528,10 +554,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
                 </div>
               )}
               {filteredCampaigns.map((recent) => (
-                <div
-                  key={recent.id}
-                  className="recent-item"
-                >
+                <div key={recent.id} className="recent-item">
                   <button
                     onClick={() => handleLoadRecent(recent)}
                     className="recent-button"
@@ -608,11 +631,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
             Help (?)
           </button>
           <span className="footer-separator">·</span>
-          <a
-            href="/design-system"
-            className="footer-link"
-            title="Internal component library (Dev)"
-          >
+          <a href="/design-system" className="footer-link" title="Internal component library (Dev)">
             Design System
           </a>
           <span className="footer-separator">·</span>
@@ -629,10 +648,20 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
           <button
             onClick={handleToggleLiteMode}
             className="footer-link footer-icon-link"
-            title={liteMode ? 'Lite Mode: ON (better performance)' : 'Full Mode: ON (all animations)'}
-            aria-label={liteMode ? 'Lite Mode enabled. Click to enable full mode.' : 'Full Mode enabled. Click to enable lite mode.'}
+            title={
+              liteMode ? 'Lite Mode: ON (better performance)' : 'Full Mode: ON (all animations)'
+            }
+            aria-label={
+              liteMode
+                ? 'Lite Mode enabled. Click to enable full mode.'
+                : 'Full Mode enabled. Click to enable lite mode.'
+            }
           >
-            {liteMode ? <RiFlashlightLine className="w-4 h-4" /> : <RiSparklingLine className="w-4 h-4" />}
+            {liteMode ? (
+              <RiFlashlightLine className="w-4 h-4" />
+            ) : (
+              <RiSparklingLine className="w-4 h-4" />
+            )}
             <span className="footer-link-label">{liteMode ? 'Lite' : 'Full'}</span>
           </button>
         </div>
@@ -651,8 +680,8 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
       {/* Templates Modal */}
       {showTemplates && (
         <div className="templates-overlay" onClick={() => setShowTemplates(false)}>
-          <div 
-            className="templates-modal" 
+          <div
+            className="templates-modal"
             onClick={(e) => e.stopPropagation()}
             ref={templatesModalRef}
           >
@@ -684,7 +713,8 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
                     <h3 className="template-name">{template.name}</h3>
                     <p className="template-description">{template.description}</p>
                     <div className="template-specs">
-                      {template.grid.width}×{template.grid.height} • {template.grid.cellSize}px cells
+                      {template.grid.width}×{template.grid.height} • {template.grid.cellSize}px
+                      cells
                     </div>
                   </button>
                 );
