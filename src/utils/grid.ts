@@ -1,3 +1,6 @@
+import { GridType } from '../store/gameStore';
+import { snapToHexGrid, snapToIsoGrid } from './gridGeometry';
+
 /**
  * Snaps pixel coordinates to the nearest grid intersection or cell center
  *
@@ -35,53 +38,48 @@
  * @param gridSize - Size of each grid cell in pixels (typically 50)
  * @param width - Token width in pixels (optional, enables smart snapping)
  * @param height - Token height in pixels (optional, enables smart snapping)
+ * @param gridType - Grid Type (LINES, DOTS, HEX_H, HEX_V, ISO_H, ISO_V)
  * @returns Object with snapped x and y coordinates (top-left corner)
- *
- * @example
- * // Medium creature (1x1, 50x50px) - snaps to cell center
- * const pos = snapToGrid(127, 83, 50, 50, 50);
- * // Returns: { x: 125, y: 75 }
- * // Center at (150, 100) aligns with cell center at (150, 100)
- *
- * @example
- * // Large creature (2x2, 100x100px) - snaps to intersection
- * const pos = snapToGrid(127, 83, 50, 100, 100);
- * // Returns: { x: 100, y: 50 }
- * // Center at (150, 100) aligns with intersection at (150, 100)
- *
- * @example
- * // Huge creature (3x3, 150x150px) - snaps to cell center
- * const pos = snapToGrid(180, 120, 50, 150, 150);
- * // Returns: { x: 175, y: 125 }
- * // Center at (250, 200) aligns with cell center at (250, 200)
- *
- * @example
- * // Legacy mode without dimensions - simple rounding
- * const pos = snapToGrid(127, 83, 50);
- * // Returns: { x: 150, y: 100 }
- * // Top-left snaps to nearest grid point
- *
- * @example
- * // Used during token drag
- * const handleDragEnd = (e: KonvaEventObject<DragEvent>) => {
- *   const token = e.target;
- *   const { x, y } = snapToGrid(
- *     token.x(),
- *     token.y(),
- *     gridSize,
- *     token.width() * token.scaleX(),
- *     token.height() * token.scaleY()
- *   );
- *   updateTokenPosition(token.id(), x, y);
- * };
  */
 export const snapToGrid = (
   x: number,
   y: number,
   gridSize: number,
   width?: number,
-  height?: number
+  height?: number,
+  gridType: GridType = 'LINES'
 ): { x: number; y: number } => {
+  // Center point calculation for non-square grids
+  const centerX = width !== undefined ? x + width / 2 : x;
+  const centerY = height !== undefined ? y + height / 2 : y;
+
+  if (gridType === 'HEX_H') {
+    const snapped = snapToHexGrid(centerX, centerY, gridSize, 'FLAT');
+    return {
+      x: snapped.x - (width !== undefined ? width / 2 : 0),
+      y: snapped.y - (height !== undefined ? height / 2 : 0)
+    };
+  }
+
+  if (gridType === 'HEX_V') {
+    const snapped = snapToHexGrid(centerX, centerY, gridSize, 'POINTY');
+    return {
+      x: snapped.x - (width !== undefined ? width / 2 : 0),
+      y: snapped.y - (height !== undefined ? height / 2 : 0)
+    };
+  }
+
+  if (gridType === 'ISO_H' || gridType === 'ISO_V') {
+    // Treat ISO_V same as ISO_H for now unless specific vertical iso logic needed
+    const snapped = snapToIsoGrid(centerX, centerY, gridSize);
+    return {
+      x: snapped.x - (width !== undefined ? width / 2 : 0),
+      y: snapped.y - (height !== undefined ? height / 2 : 0)
+    };
+  }
+
+  // Fallback to Square Grid Logic (LINES/DOTS/HIDDEN)
+
   // If dimensions not provided, use simple top-left rounding (legacy behavior)
   if (width === undefined || height === undefined) {
     return {

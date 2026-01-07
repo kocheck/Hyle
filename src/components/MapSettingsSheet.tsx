@@ -326,8 +326,12 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({
               onChange={(e) => mode === 'CREATE' ? setPendingGridType(e.target.value as GridType) : setGridType(e.target.value as GridType)}
               className="sidebar-input w-full rounded px-3 py-2 text-sm"
             >
-              <option value="LINES">Lines</option>
-              <option value="DOTS">Dots</option>
+              <option value="LINES">Square (Lines)</option>
+              <option value="DOTS">Square (Dots)</option>
+              <option value="HEX_H">Hexagonal (Horizontal)</option>
+              <option value="HEX_V">Hexagonal (Vertical)</option>
+              <option value="ISO_H">Isometric (Horizontal)</option>
+              <option value="ISO_V">Isometric (Vertical)</option>
               <option value="HIDDEN">Hidden</option>
             </select>
           </div>

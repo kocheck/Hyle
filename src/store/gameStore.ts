@@ -81,7 +81,7 @@ export interface MapConfig {
 /**
  * GridType determines how the tactical grid is displayed
  */
-export type GridType = 'LINES' | 'DOTS' | 'HIDDEN';
+export type GridType = 'LINES' | 'DOTS' | 'HIDDEN' | 'HEX_H' | 'HEX_V' | 'ISO_H' | 'ISO_V';
 
 /**
  * MapData represents the persistent state of a single map within a campaign

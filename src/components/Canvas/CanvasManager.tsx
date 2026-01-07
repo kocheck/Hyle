@@ -1,5 +1,5 @@
 import Konva from 'konva';
-import { Stage, Layer, Line, Rect, Transformer, Group, Text } from 'react-konva';
+import { Stage, Layer, Image as KonvaImage, Rect, Circle, Line, Text, Transformer, Group, RegularPolygon } from 'react-konva';
 import { KonvaEventObject } from 'konva/lib/Node';
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { useShallow } from 'zustand/shallow';
@@ -867,7 +867,7 @@ const CanvasManager = ({
     // Initial snap for drop (assuming standard 1x1 if unknown, or center on mouse)
     // We don't know image size yet, so we snap top-left to grid line nearby.
     // Use WORLD coordinates for snapping.
-    const { x, y } = snapToGrid(worldX, worldY, gridSize);
+    const { x, y } = snapToGrid(worldX, worldY, gridSize, undefined, undefined, gridType);
 
     // Check for JSON (Library Item or Generic Token)
     const jsonData = e.dataTransfer.getData('application/json');
@@ -1166,7 +1166,7 @@ const CanvasManager = ({
       if (dragPos) {
         const width = gridSize * token.scale;
         const height = gridSize * token.scale;
-        const snapped = snapToGrid(dragPos.x, dragPos.y, gridSize, width, height);
+        const snapped = snapToGrid(dragPos.x, dragPos.y, gridSize, width, height, gridType);
 
         // Handle multi-token drag end
         if (tokenIds.length > 1) {
@@ -1179,7 +1179,7 @@ const CanvasManager = ({
               const dragPosForToken = dragPositionsRef.current.get(id) ?? { x: t.x, y: t.y };
               const newX = dragPosForToken.x + offsetX;
               const newY = dragPosForToken.y + offsetY;
-              const snappedPos = snapToGrid(newX, newY, gridSize, gridSize * t.scale, gridSize * t.scale);
+              const snappedPos = snapToGrid(newX, newY, gridSize, gridSize * t.scale, gridSize * t.scale, gridType);
               updateTokenPosition(id, snappedPos.x, snappedPos.y);
               committedPositions.set(id, { x: snappedPos.x, y: snappedPos.y });
             }
@@ -1392,7 +1392,7 @@ const CanvasManager = ({
       if (!pos) return;
 
       // Snap to grid for preview
-      const snapped = snapToGrid(pos.x, pos.y, gridSize);
+      const snapped = snapToGrid(pos.x, pos.y, gridSize, undefined, undefined, gridType);
 
       setDoorPreviewPos(snapped);
       return;
@@ -1600,7 +1600,7 @@ const CanvasManager = ({
         if (!pos) return;
 
         // Snap to grid
-        const snapped = snapToGrid(pos.x, pos.y, gridSize);
+        const snapped = snapToGrid(pos.x, pos.y, gridSize, undefined, undefined, gridType);
 
         // Create door at snapped position
         const newDoor = {
@@ -2342,6 +2342,42 @@ const CanvasManager = ({
                 return (
                 <Group key={token.id}>
                 <TokenErrorBoundary tokenId={token.id} onShowToast={showToast}>
+                <Group
+                    clipFunc={(ctx) => {
+                        if (gridType === 'HEX_H' || gridType === 'HEX_V') {
+                            const size = gridSize * safeScale;
+                            const radius = size / Math.sqrt(3);
+                            // Draw Hexagon at center of token area
+                            const cx = displayX + size / 2;
+                            const cy = displayY + size / 2;
+
+                            ctx.beginPath();
+                            for (let i = 0; i < 6; i++) {
+                                const angle = (gridType === 'HEX_V' ? 0 : 30) * Math.PI / 180 + i * 60 * Math.PI / 180;
+                                const x = cx + radius * Math.cos(angle);
+                                const y = cy + radius * Math.sin(angle);
+                                if (i === 0) ctx.moveTo(x, y);
+                                else ctx.lineTo(x, y);
+                            }
+                            ctx.closePath();
+                        } else if (gridType === 'ISO_H' || gridType === 'ISO_V') {
+                            const size = gridSize * safeScale;
+                            const cx = displayX + size / 2;
+                            const cy = displayY + size / 2;
+                            // Draw Diamond
+                            ctx.beginPath();
+                            ctx.moveTo(cx, displayY); // Top
+                            ctx.lineTo(displayX + size, cy); // Right
+                            ctx.lineTo(cx, displayY + size); // Bottom
+                            ctx.lineTo(displayX, cy); // Left
+                            ctx.closePath();
+                        } else {
+                            // Default Rect (or no clip needed if mapped to rect)
+                             const size = gridSize * safeScale;
+                             ctx.rect(displayX, displayY, size, size);
+                        }
+                    }}
+                >
                 <URLImage
                     ref={(node) => {
                       if (node) {
@@ -2353,10 +2389,10 @@ const CanvasManager = ({
                     name="token"
                     id={token.id}
                     src={token.src}
-                    x={displayX}
-                    y={displayY}
-                    width={gridSize * safeScale}
-                    height={gridSize * safeScale}
+                    x={displayX - ((gridType?.startsWith('HEX') ? 1.1547 : 1) * gridSize * safeScale - gridSize * safeScale) / 2}
+                    y={displayY - ((gridType?.startsWith('HEX') ? 1.1547 : 1) * gridSize * safeScale - gridSize * safeScale) / 2}
+                    width={gridSize * safeScale * (gridType?.startsWith('HEX') ? 1.1547 : 1)}
+                    height={gridSize * safeScale * (gridType?.startsWith('HEX') ? 1.1547 : 1)}
                     draggable={false}
                     // Visual props (scaleX, scaleY, opacity, shadow) are transformation properties
                     // that multiply with base dimensions to create hover/drag feedback effects
@@ -2368,20 +2404,56 @@ const CanvasManager = ({
                     onDragMove={emptyDragHandler}
                     onDragEnd={emptyDragHandler}
                 />
+                </Group>
+
                 {/* Selection border - enhanced with glow effect */}
                 {isSelected && (
-                  <Rect
-                    x={displayX}
-                    y={displayY}
-                    width={gridSize * safeScale}
-                    height={gridSize * safeScale}
-                    stroke="#2563eb"
-                    strokeWidth={3}
-                    shadowColor="#2563eb"
-                    shadowBlur={8}
-                    shadowEnabled={true}
-                    listening={false}
-                  />
+                  <>
+                  {(gridType === 'HEX_H' || gridType === 'HEX_V') ? (
+                       <RegularPolygon
+                        x={displayX + (gridSize * safeScale) / 2}
+                        y={displayY + (gridSize * safeScale) / 2}
+                        sides={6}
+                        radius={(gridSize * safeScale) / Math.sqrt(3)}
+                        stroke="#2563eb"
+                        strokeWidth={3}
+                        shadowColor="#2563eb"
+                        shadowBlur={8}
+                        shadowEnabled={true}
+                        rotation={gridType === 'HEX_V' ? 0 : 30}
+                        listening={false}
+                       />
+                  ) : (gridType === 'ISO_H' || gridType === 'ISO_V') ? (
+                       <Line
+                        points={[
+                           displayX + (gridSize * safeScale) / 2, displayY,
+                           displayX + (gridSize * safeScale), displayY + (gridSize * safeScale) / 2,
+                           displayX + (gridSize * safeScale) / 2, displayY + (gridSize * safeScale),
+                           displayX, displayY + (gridSize * safeScale) / 2,
+                           displayX + (gridSize * safeScale) / 2, displayY
+                        ]}
+                        stroke="#2563eb"
+                        strokeWidth={3}
+                        shadowColor="#2563eb"
+                        shadowBlur={8}
+                        shadowEnabled={true}
+                        listening={false}
+                       />
+                  ) : (
+                      <Rect
+                        x={displayX}
+                        y={displayY}
+                        width={gridSize * safeScale}
+                        height={gridSize * safeScale}
+                        stroke="#2563eb"
+                        strokeWidth={3}
+                        shadowColor="#2563eb"
+                        shadowBlur={8}
+                        shadowEnabled={true}
+                        listening={false}
+                      />
+                  )}
+                  </>
                 )}
                 </TokenErrorBoundary>
 
@@ -2522,6 +2594,29 @@ const CanvasManager = ({
             />
           </MinimapErrorBoundary>
         </>
+      )}
+
+      {/* Persistence Calibration UI Overlay */}
+      {isCalibrating && !isWorldView && (
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 pointer-events-auto">
+          <div className="bg-[var(--app-bg-surface)] border border-[var(--app-border-default)] shadow-xl rounded-lg p-4 flex flex-col items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-300">
+             <div className="flex items-center gap-2 text-[var(--app-accent-text)] font-bold">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 animate-pulse">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+                </svg>
+                <span>Calibration Active</span>
+             </div>
+             <p className="text-sm text-[var(--app-text-secondary)] text-center max-w-xs">
+               Draw a square on the map that represents exactly <strong>one grid cell</strong>.
+             </p>
+             <button
+               onClick={() => setIsCalibrating(false)}
+               className="btn btn-default text-sm w-full py-1.5"
+             >
+               Cancel Calibration
+             </button>
+          </div>
+        </div>
       )}
     </div>
   );

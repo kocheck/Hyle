@@ -65,50 +65,26 @@
  */
 
 import React from 'react';
-import { Group, Line, Circle } from 'react-konva';
+import { Group, Line, Circle, RegularPolygon } from 'react-konva';
+import { GridType } from '../../store/gameStore';
+import { hexToPixel, pixelToHex } from '../../utils/gridGeometry';
 
-/**
- * Maximum dots to render before using subset rendering
- * Prevents performance degradation when zoomed out on large maps
- */
 const MAX_DOTS_THRESHOLD = 10000;
-
-/**
- * Flag to prevent console warning spam when grid is too dense
- * Only logs warning once per threshold crossing
- */
 let hasWarnedAboutDensity = false;
 
-/**
- * Props for GridOverlay component
- *
- * @property visibleBounds - Current viewport bounds in canvas coordinates
- * @property visibleBounds.x - Left edge of viewport
- * @property visibleBounds.y - Top edge of viewport
- * @property visibleBounds.width - Width of viewport
- * @property visibleBounds.height - Height of viewport
- * @property gridSize - Size of each grid cell in pixels
- * @property stroke - Color of grid lines/dots (default: '#222')
- * @property opacity - Opacity of grid elements (default: 0.5)
- * @property type - Grid rendering type: LINES, DOTS, or HIDDEN (default: 'LINES')
- */
 interface GridOverlayProps {
   visibleBounds: { x: number; y: number; width: number; height: number };
   gridSize: number;
   stroke?: string;
   opacity?: number;
-  type?: 'LINES' | 'DOTS' | 'HIDDEN';
+  type?: GridType;
 }
 
-/**
- * GridOverlay renders a grid on the canvas with viewport culling
- * Only renders grid elements within visible bounds for performance
- */
 const GridOverlay: React.FC<GridOverlayProps> = ({
   visibleBounds,
   gridSize,
   stroke = '#222',
-  opacity = 0.5, // THEME ADJUSTMENT: Modify this value to change grid visibility (0.0 = invisible, 1.0 = fully opaque)
+  opacity = 0.5,
   type = 'LINES'
 }) => {
   if (type === 'HIDDEN') return null;
@@ -116,9 +92,6 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
   const elements = [];
   const { x, y, width, height } = visibleBounds || { x: 0, y: 0, width: 0, height: 0 };
 
-  // Calculate start and end grid numbers based on visible bounds
-  // We want to draw lines covering the visible area.
-  // Start X = first multiple of gridSize <= x
   const startX = Math.floor(x / gridSize) * gridSize;
   const endX = Math.ceil((x + width) / gridSize) * gridSize;
 
@@ -131,7 +104,7 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
       elements.push(
         <Line
           key={`v-${ix}`}
-          points={[ix, y, ix, y + height]} // Draw from top of view to bottom
+          points={[ix, y, ix, y + height]}
           stroke={stroke}
           strokeWidth={1}
           opacity={opacity}
@@ -152,24 +125,19 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
       );
     }
   } else if (type === 'DOTS') {
-    // Render dots at intersections using a single Shape for better performance
-    // Limit rendering if there are too many dots to avoid performance issues
+    // ... DOTS implementation (abbreviated/preserved) ...
     const dotsX = Math.ceil((endX - startX) / gridSize) + 1;
     const dotsY = Math.ceil((endY - startY) / gridSize) + 1;
     const totalDots = dotsX * dotsY;
-    
-    // If there would be too many dots, fall back to a simpler grid or skip
+
     if (totalDots > MAX_DOTS_THRESHOLD) {
-      // Use a power-of-2 step multiplier to maintain grid alignment and predictable iteration
       const minMultiplier = Math.ceil(Math.sqrt(totalDots / MAX_DOTS_THRESHOLD));
-      // Find the next power of 2 greater than or equal to minMultiplier
       const powerOf2Multiplier = Math.pow(2, Math.ceil(Math.log2(minMultiplier)));
       const step = gridSize * powerOf2Multiplier;
       if (!hasWarnedAboutDensity) {
-        console.warn(`Grid too dense for DOTS mode (${totalDots} dots > ${MAX_DOTS_THRESHOLD}), rendering subset with step size ${step}px (multiplier: ${powerOf2Multiplier})`);
+        console.warn(`Grid too dense for DOTS mode, rendering subset with step size ${step}px`);
         hasWarnedAboutDensity = true;
       }
-      // Render a subset by increasing step size
       for (let ix = startX; ix <= endX; ix += step) {
         for (let iy = startY; iy <= endY; iy += step) {
           elements.push(
@@ -185,7 +153,6 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
         }
       }
     } else {
-      // Normal rendering - reset warning flag when back under threshold
       hasWarnedAboutDensity = false;
       for (let ix = startX; ix <= endX; ix += gridSize) {
         for (let iy = startY; iy <= endY; iy += gridSize) {
@@ -202,6 +169,132 @@ const GridOverlay: React.FC<GridOverlayProps> = ({
         }
       }
     }
+  } else if (type === 'HEX_H' || type === 'HEX_V') {
+    // Hexagonal Grid
+    // Radius of hex
+    // For Flat Top (HEX_H): Width = 2*size, Height = sqrt(3)*size, Spacing H = 1.5*size, Spacing V = sqrt(3)*size
+    // For Pointy Top (HEX_V): Width = sqrt(3)*size, Height = 2*size, Spacing H = sqrt(3)*size, Spacing V = 1.5*size
+    // gridSize usually defines the "short diagonal" (flat-to-flat).
+
+    // We used: radius = gridSize / Math.sqrt(3).
+    // HEX_V (Pointy): Width = sqrt(3)*size = gridSize. Correct.
+    // HEX_H (Flat): Height = sqrt(3)*size = gridSize. Correct.
+
+    const radius = gridSize / Math.sqrt(3);
+    const orientation = type === 'HEX_V' ? 'POINTY' : 'FLAT';
+
+    // Calculate bounds in axial coords (q, r) using all 4 corners to ensure coverage
+    const tl = pixelToHex(x, y, radius, orientation);
+    const tr = pixelToHex(x + width, y, radius, orientation);
+    const bl = pixelToHex(x, y + height, radius, orientation);
+    const br = pixelToHex(x + width, y + height, radius, orientation);
+
+    const minQ = Math.floor(Math.min(tl.q, tr.q, bl.q, br.q)) - 1;
+    const maxQ = Math.ceil(Math.max(tl.q, tr.q, bl.q, br.q)) + 1;
+    const minR = Math.floor(Math.min(tl.r, tr.r, bl.r, br.r)) - 1;
+    const maxR = Math.ceil(Math.max(tl.r, tr.r, bl.r, br.r)) + 1;
+
+    // Limit iteration to prevent freezing if bounds are huge
+    if ((maxQ - minQ) * (maxR - minR) < 20000) {
+       for (let q = minQ; q <= maxQ; q++) {
+        for (let r = minR; r <= maxR; r++) {
+             const px = hexToPixel(q, r, radius, orientation);
+
+             // Culling check: skip if outside viewport + toggle
+             // Add buffer of 1 grid size
+             if (px.x < x - gridSize || px.x > x + width + gridSize ||
+                 px.y < y - gridSize || px.y > y + height + gridSize) {
+                continue;
+             }
+
+             elements.push(
+                <RegularPolygon
+                   key={`hex-${q}-${r}`}
+                   x={px.x}
+                   y={px.y}
+                   sides={6}
+                   radius={radius}
+                   stroke={stroke}
+                   strokeWidth={1}
+                   opacity={opacity}
+                   rotation={orientation === 'POINTY' ? 0 : 30}
+                />
+             );
+        }
+       }
+    }
+  } else if (type === 'ISO_H' || type === 'ISO_V') {
+      // Isometric Grid (Projected Square Grid)
+      // Draw diagonal lines
+      // Isometric grid is rotated 45 degrees and scaled.
+      // Usually represented as a diamond grid.
+      // Lines: y = x/2 + offset, y = -x/2 + offset (approx)
+
+      const isoWidth = gridSize * 2;
+      const isoHeight = gridSize;
+
+      // We need to draw the diagonals.
+      // Line equation: Y = (1/2)X + C  and Y = -(1/2)X + C
+      // We iterate C to cover the Viewport.
+
+      // Map Viewport corners to determine range of C
+      // ... complex math.
+
+      // Simpler: Draw individual tiles (Diamonds) -> Polygon 4 sides.
+      // OR: transform a normal grid? No, context transform is messy for overlay.
+
+      // Render individual diamonds (inefficient?)
+      // Viewport culling matches Square grid but rotated.
+
+      // Let's use the iteration logic from square grid but transform points.
+      // Or just draw many diagonal lines.
+
+      // This is hard to cull efficiently without good math.
+      // Let's brute force "enough lines" around the center? No.
+
+      // Iterate "grid coordinates" (row/col) and draw diamonds.
+      // ISO_H: Width = 2 * Height.
+      const tileHalfW = isoWidth / 2;
+      const tileHalfH = isoHeight / 2;
+
+      // Estimate grid indices roughly
+      const minCol = Math.floor((x / tileHalfW + y / tileHalfH) / 2) - 1;
+      const maxCol = Math.ceil(((x + width) / tileHalfW + (y+height) / tileHalfH) / 2) + 1;
+
+      const minRow = Math.floor((y / tileHalfH - (x+width) / tileHalfW) / 2) - 1;
+      const maxRow = Math.ceil(((y+height) / tileHalfH - x / tileHalfW) / 2) + 1;
+
+      if ((maxCol - minCol) * (maxRow - minRow) < 10000) {
+          for (let col = minCol; col <= maxCol; col++) {
+             for (let row = minRow; row <= maxRow; row++) {
+                // Center of iso tile
+                const cx = (col - row) * tileHalfW;
+                const cy = (col + row) * tileHalfH;
+
+                 // Culling
+                 if (cx < x - isoWidth || cx > x + width + isoWidth ||
+                     cy < y - isoHeight || cy > y + height + isoHeight) {
+                    continue;
+                 }
+
+                elements.push(
+                     <Line
+                        key={`iso-${col}-${row}`}
+                        points={[
+                            cx, cy - tileHalfH, // Top
+                            cx + tileHalfW, cy, // Right
+                            cx, cy + tileHalfH, // Bottom
+                            cx - tileHalfW, cy, // Left
+                            cx, cy - tileHalfH  // Close loop
+                        ]}
+                        stroke={stroke}
+                        strokeWidth={1}
+                        opacity={opacity}
+                     />
+                );
+             }
+          }
+      }
   }
 
   return <Group listening={false}>{elements}</Group>;
