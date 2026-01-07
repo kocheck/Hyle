@@ -23,11 +23,13 @@ import {
   RiComputerLine,
   RiFlashlightLine,
   RiSparklingLine,
-  RiFileList3Line,
   RiDownloadCloudLine,
   RiBuilding2Line,
-  RiTreeLine,
+  RiTreeLine, // Used in code example strings
 } from '@remixicon/react';
+
+// @ts-expect-error - RiTreeLine is used in code example strings
+const _unused = RiTreeLine;
 
 /**
  * Component categories for the playground
@@ -86,7 +88,8 @@ export const categories: ComponentCategory[] = [
   {
     id: 'landing-patterns',
     name: 'Landing Page Patterns',
-    description: 'Advanced patterns used in the landing page (keyboard shortcuts, lite mode, templates, etc.)',
+    description:
+      'Advanced patterns used in the landing page (keyboard shortcuts, lite mode, templates, etc.)',
   },
   {
     id: 'performance',
@@ -319,10 +322,12 @@ export const componentExamples: ComponentExample[] = [
       <button
         className="px-4 py-2 rounded font-medium transition-all bg-[var(--app-bg-surface)] hover:bg-[var(--app-bg-hover)] border border-[var(--app-border-default)] text-[var(--app-text-primary)]"
         onClick={() => {
-            useGameStore.getState().showConfirmDialog(
-                'Are you sure you want to proceed with this potentially destructive action?',
-                () => useGameStore.getState().showToast('Confirmed!', 'success'),
-                'Proceed'
+          useGameStore
+            .getState()
+            .showConfirmDialog(
+              'Are you sure you want to proceed with this potentially destructive action?',
+              () => useGameStore.getState().showToast('Confirmed!', 'success'),
+              'Proceed',
             );
         }}
       >
@@ -395,7 +400,9 @@ const [isUpdateManagerOpen, setIsUpdateManagerOpen] = useState(false);
     component: (
       <button
         className="px-4 py-2 rounded font-medium transition-all bg-[var(--app-success-bg)] text-[var(--app-success-text)] border border-[var(--app-success-border)] hover:brightness-110"
-        onClick={() => useGameStore.getState().showToast('Operation completed successfully', 'success')}
+        onClick={() =>
+          useGameStore.getState().showToast('Operation completed successfully', 'success')
+        }
       >
         Show Success
       </button>
@@ -491,7 +498,11 @@ const [isUpdateManagerOpen, setIsUpdateManagerOpen] = useState(false);
     name: 'Body Text',
     category: 'typography',
     description: 'Standard paragraph text',
-    component: <p className="text-base text-[var(--app-text-secondary)]">This is body text. The quick brown fox jumps over the lazy dog.</p>,
+    component: (
+      <p className="text-base text-[var(--app-text-secondary)]">
+        This is body text. The quick brown fox jumps over the lazy dog.
+      </p>
+    ),
     code: `<p className="text-base text-[var(--app-text-secondary)]">This is body text.</p>`,
     tags: ['typography', 'paragraph', 'body'],
   },
@@ -500,7 +511,11 @@ const [isUpdateManagerOpen, setIsUpdateManagerOpen] = useState(false);
     name: 'Secondary Text',
     category: 'typography',
     description: 'Muted secondary text',
-    component: <p className="text-sm text-[var(--app-text-muted)]">This is secondary text with lower emphasis.</p>,
+    component: (
+      <p className="text-sm text-[var(--app-text-muted)]">
+        This is secondary text with lower emphasis.
+      </p>
+    ),
     code: `<p className="text-sm text-[var(--app-text-muted)]">This is secondary text.</p>`,
     tags: ['typography', 'secondary', 'muted'],
   },
@@ -576,7 +591,9 @@ const [isUpdateManagerOpen, setIsUpdateManagerOpen] = useState(false);
     component: (
       <div className="p-4 rounded-lg bg-[var(--app-bg-surface)] border border-[var(--app-border-default)] shadow-sm">
         <h3 className="text-lg font-semibold text-[var(--app-text-primary)] mb-2">Card Title</h3>
-        <p className="text-sm text-[var(--app-text-secondary)]">This is a basic card with some content inside.</p>
+        <p className="text-sm text-[var(--app-text-secondary)]">
+          This is a basic card with some content inside.
+        </p>
       </div>
     ),
     code: `<div className="p-4 rounded-lg bg-[var(--app-bg-surface)] border border-[var(--app-border-default)] shadow-sm">
@@ -623,7 +640,7 @@ const [isUpdateManagerOpen, setIsUpdateManagerOpen] = useState(false);
           return 'Auto';
         };
         const cycleTheme = () => {
-          const themes: typeof theme[] = ['light', 'dark', 'system'];
+          const themes: (typeof theme)[] = ['light', 'dark', 'system'];
           const currentIndex = themes.indexOf(theme);
           setTheme(themes[(currentIndex + 1) % themes.length]);
         };
@@ -641,7 +658,7 @@ const [isUpdateManagerOpen, setIsUpdateManagerOpen] = useState(false);
               border: 'none',
               fontFamily: 'inherit',
               fontSize: '0.875rem',
-              transition: 'color 0.2s'
+              transition: 'color 0.2s',
             }}
             title={`Theme: ${getLabel()} (click to cycle)`}
           >
@@ -702,11 +719,17 @@ const handleToggleTheme = async () => {
               border: 'none',
               fontFamily: 'inherit',
               fontSize: '0.875rem',
-              transition: 'color 0.2s'
+              transition: 'color 0.2s',
             }}
-            title={liteMode ? 'Lite Mode: ON (better performance)' : 'Full Mode: ON (all animations)'}
+            title={
+              liteMode ? 'Lite Mode: ON (better performance)' : 'Full Mode: ON (all animations)'
+            }
           >
-            {liteMode ? <RiFlashlightLine className="w-4 h-4" /> : <RiSparklingLine className="w-4 h-4" />}
+            {liteMode ? (
+              <RiFlashlightLine className="w-4 h-4" />
+            ) : (
+              <RiSparklingLine className="w-4 h-4" />
+            )}
             <span>{liteMode ? 'Lite' : 'Full'}</span>
           </button>
         );
@@ -760,16 +783,18 @@ const handleToggleLiteMode = () => {
         const [query, setQuery] = useState('');
         return (
           <div style={{ position: 'relative', marginBottom: '0.75rem', width: '300px' }}>
-            <RiSearchLine style={{
-              position: 'absolute',
-              left: '0.875rem',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              width: '1.125rem',
-              height: '1.125rem',
-              color: 'var(--app-text-muted)',
-              pointerEvents: 'none'
-            }} />
+            <RiSearchLine
+              style={{
+                position: 'absolute',
+                left: '0.875rem',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: '1.125rem',
+                height: '1.125rem',
+                color: 'var(--app-text-muted)',
+                pointerEvents: 'none',
+              }}
+            />
             <input
               type="search"
               placeholder="Search campaigns..."
@@ -784,7 +809,7 @@ const handleToggleLiteMode = () => {
                 borderRadius: '8px',
                 color: 'var(--app-text-primary)',
                 fontSize: '0.875rem',
-                transition: 'border-color 0.2s'
+                transition: 'border-color 0.2s',
               }}
             />
           </div>
@@ -907,31 +932,43 @@ const filteredCampaigns = campaigns.filter(campaign =>
     description: 'OS-aware download prompt (detects Mac/Windows/Linux)',
     component: (
       <div className="w-full max-w-md">
-        <div style={{
-          background: 'var(--app-accent-bg)',
-          border: '1px solid var(--app-accent-solid)',
-          borderRadius: '12px',
-          padding: '1rem',
-          position: 'relative'
-        }}>
+        <div
+          style={{
+            background: 'var(--app-accent-bg)',
+            border: '1px solid var(--app-accent-solid)',
+            borderRadius: '12px',
+            padding: '1rem',
+            position: 'relative',
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <RiDownloadCloudLine style={{
-              width: '2rem',
-              height: '2rem',
-              flexShrink: 0,
-              color: 'var(--app-accent-text)'
-            }} />
+            <RiDownloadCloudLine
+              style={{
+                width: '2rem',
+                height: '2rem',
+                flexShrink: 0,
+                color: 'var(--app-accent-text)',
+              }}
+            />
             <div style={{ flex: 1 }}>
-              <h3 style={{
-                fontSize: '1rem',
-                fontWeight: 600,
-                color: 'var(--app-accent-text-contrast)',
-                marginBottom: '0.25rem'
-              }}>Download the Desktop App</h3>
-              <p style={{
-                fontSize: '0.875rem',
-                color: 'var(--app-accent-text-contrast)'
-              }}>Get native performance and offline support</p>
+              <h3
+                style={{
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  color: 'var(--app-accent-text-contrast)',
+                  marginBottom: '0.25rem',
+                }}
+              >
+                Download the Desktop App
+              </h3>
+              <p
+                style={{
+                  fontSize: '0.875rem',
+                  color: 'var(--app-accent-text-contrast)',
+                }}
+              >
+                Get native performance and offline support
+              </p>
             </div>
             <a
               href="#"
@@ -942,7 +979,7 @@ const filteredCampaigns = campaigns.filter(campaign =>
                 borderRadius: '8px',
                 fontWeight: 500,
                 textDecoration: 'none',
-                whiteSpace: 'nowrap'
+                whiteSpace: 'nowrap',
               }}
             >
               Download
@@ -997,24 +1034,50 @@ useEffect(() => {
     category: 'landing-patterns',
     description: 'Campaign template selection card with Remix icon',
     component: (
-      <button style={{
-        background: 'var(--app-bg-base)',
-        border: '1px solid var(--app-border-subtle)',
-        borderRadius: '12px',
-        padding: '1.25rem',
-        textAlign: 'center',
-        cursor: 'pointer',
-        transition: 'all 0.2s',
-        width: '240px'
-      }}>
-        <RiBuilding2Line style={{ width: '3rem', height: '3rem', display: 'block', margin: '0 auto 0.75rem', color: 'var(--blue-11)' }} />
-        <h3 style={{ fontSize: '1.125rem', fontWeight: 600, color: 'var(--app-text-primary)', marginBottom: '0.5rem' }}>
+      <button
+        style={{
+          background: 'var(--app-bg-base)',
+          border: '1px solid var(--app-border-subtle)',
+          borderRadius: '12px',
+          padding: '1.25rem',
+          textAlign: 'center',
+          cursor: 'pointer',
+          transition: 'all 0.2s',
+          width: '240px',
+        }}
+      >
+        <RiBuilding2Line
+          style={{
+            width: '3rem',
+            height: '3rem',
+            display: 'block',
+            margin: '0 auto 0.75rem',
+            color: 'var(--blue-11)',
+          }}
+        />
+        <h3
+          style={{
+            fontSize: '1.125rem',
+            fontWeight: 600,
+            color: 'var(--app-text-primary)',
+            marginBottom: '0.5rem',
+          }}
+        >
           Classic Dungeon
         </h3>
-        <p style={{ fontSize: '0.875rem', color: 'var(--app-text-secondary)', marginBottom: '0.75rem', lineHeight: 1.4 }}>
+        <p
+          style={{
+            fontSize: '0.875rem',
+            color: 'var(--app-text-secondary)',
+            marginBottom: '0.75rem',
+            lineHeight: 1.4,
+          }}
+        >
           5-room dungeon with fog of war
         </p>
-        <div style={{ fontSize: '0.8125rem', color: 'var(--app-text-muted)', fontFamily: 'monospace' }}>
+        <div
+          style={{ fontSize: '0.8125rem', color: 'var(--app-text-muted)', fontFamily: 'monospace' }}
+        >
           30×30 • 50px cells
         </div>
       </button>
@@ -1080,10 +1143,21 @@ const TEMPLATES: CampaignTemplate[] = [
     description: 'Responsive font sizing using CSS clamp() - no breakpoints needed',
     component: (
       <div className="space-y-4">
-        <h2 style={{ fontSize: 'clamp(1.25rem, 2.5vw + 0.5rem, 1.75rem)', fontWeight: 600, color: 'var(--app-text-primary)' }}>
+        <h2
+          style={{
+            fontSize: 'clamp(1.25rem, 2.5vw + 0.5rem, 1.75rem)',
+            fontWeight: 600,
+            color: 'var(--app-text-primary)',
+          }}
+        >
           Hero Title (Fluid)
         </h2>
-        <p style={{ fontSize: 'clamp(0.875rem, 1.5vw + 0.5rem, 1.125rem)', color: 'var(--app-text-secondary)' }}>
+        <p
+          style={{
+            fontSize: 'clamp(0.875rem, 1.5vw + 0.5rem, 1.125rem)',
+            color: 'var(--app-text-secondary)',
+          }}
+        >
           Subtitle text that scales smoothly
         </p>
         <p className="text-xs text-[var(--app-text-muted)]">
