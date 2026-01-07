@@ -296,6 +296,8 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
     // Set up new campaign with template settings
     const store = useGameStore.getState();
     store.resetToNewCampaign();
+    // Note: Only cell size can be set via store. Grid width/height are reference
+    // values - actual canvas size is determined by the uploaded map image.
     store.setGridSize(template.grid.cellSize);
 
     onStartEditor();
@@ -1333,7 +1335,9 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
           width: 3rem;
           height: 3rem;
           display: block;
-          margin: 0 auto 0.75rem;
+          margin-left: auto;
+          margin-right: auto;
+          margin-bottom: 0.75rem;
           color: var(--blue-11); /* Theme-aware blue for icon color */
         }
 
