@@ -362,13 +362,23 @@ describe('createGridGeometry factory', () => {
     expect(geometry).toBeInstanceOf(SquareGridGeometry);
   });
 
-  it('creates HexagonalGridGeometry for HEXAGONAL type', () => {
-    const geometry = createGridGeometry('HEXAGONAL');
+  it('creates HexagonalGridGeometry for HEX_H type', () => {
+    const geometry = createGridGeometry('HEX_H');
     expect(geometry).toBeInstanceOf(HexagonalGridGeometry);
   });
 
-  it('creates IsometricGridGeometry for ISOMETRIC type', () => {
-    const geometry = createGridGeometry('ISOMETRIC');
+  it('creates HexagonalGridGeometry for HEX_V type', () => {
+    const geometry = createGridGeometry('HEX_V');
+    expect(geometry).toBeInstanceOf(HexagonalGridGeometry);
+  });
+
+  it('creates IsometricGridGeometry for ISO_H type', () => {
+    const geometry = createGridGeometry('ISO_H');
+    expect(geometry).toBeInstanceOf(IsometricGridGeometry);
+  });
+
+  it('creates IsometricGridGeometry for ISO_V type', () => {
+    const geometry = createGridGeometry('ISO_V');
     expect(geometry).toBeInstanceOf(IsometricGridGeometry);
   });
 });
