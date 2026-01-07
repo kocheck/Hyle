@@ -23,11 +23,13 @@ import {
   RiComputerLine,
   RiFlashlightLine,
   RiSparklingLine,
-  RiFileList3Line,
   RiDownloadCloudLine,
   RiBuilding2Line,
-  RiTreeLine,
+  RiTreeLine, // Used in code example strings
 } from '@remixicon/react';
+
+// @ts-expect-error - RiTreeLine is used in code example strings
+const _unused = RiTreeLine;
 
 /**
  * Component categories for the playground

@@ -96,9 +96,6 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
   const [isLinux, setIsLinux] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [aboutInitialTab, setAboutInitialTab] = useState<AboutModalTab>('about');
-  const [hideMacBanner, setHideMacBanner] = useState(() =>
-    localStorage.getItem('hideMacBanner') === 'true'
-  );
   const [hideDownloadBanner, setHideDownloadBanner] = useState(() =>
     localStorage.getItem('hideDownloadBanner') === 'true'
   );
@@ -286,11 +283,6 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
   const handleRemoveRecent = (campaignId: string) => {
     removeRecentCampaign(campaignId);
     setRecentCampaigns(getRecentCampaigns());
-  };
-
-  const handleDismissMacBanner = () => {
-    localStorage.setItem('hideMacBanner', 'true');
-    setHideMacBanner(true);
   };
 
   const handleDismissDownloadBanner = () => {
