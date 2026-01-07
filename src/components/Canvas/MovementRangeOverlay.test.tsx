@@ -160,7 +160,7 @@ describe('MovementRangeOverlay', () => {
       const squareLines = container.querySelectorAll('[data-testid="line"]').length;
 
       // Change to hexagonal (6 neighbors instead of 4)
-      rerender(<MovementRangeOverlay {...defaultProps} gridType="HEXAGONAL" movementSpeed={10} />);
+      rerender(<MovementRangeOverlay {...defaultProps} gridType="HEX_H" movementSpeed={10} />);
       const hexLines = container.querySelectorAll('[data-testid="line"]').length;
 
       // Hexagonal should have more cells (6 neighbors vs 4)
@@ -192,7 +192,7 @@ describe('MovementRangeOverlay', () => {
 
     it('should use 6 neighbors for hexagonal grids', () => {
       const { container } = render(
-        <MovementRangeOverlay {...defaultProps} gridType="HEXAGONAL" movementSpeed={10} />,
+        <MovementRangeOverlay {...defaultProps} gridType="HEX_H" movementSpeed={10} />,
       );
       // 10ft / 5ft = 2 cells radius
       // For 6-neighbor hex grid: 1 + 6 + 12 = 19 cells
@@ -202,7 +202,7 @@ describe('MovementRangeOverlay', () => {
 
     it('should use 4 neighbors for isometric grids', () => {
       const { container } = render(
-        <MovementRangeOverlay {...defaultProps} gridType="ISOMETRIC" movementSpeed={10} />,
+        <MovementRangeOverlay {...defaultProps} gridType="ISO_H" movementSpeed={10} />,
       );
       // Same as square - 4 neighbors
       const lines = container.querySelectorAll('[data-testid="line"]');

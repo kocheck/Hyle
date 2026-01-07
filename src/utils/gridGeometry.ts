@@ -197,7 +197,7 @@ export class HexagonalGridGeometry implements GridGeometry {
 
   getCellVertices(cell: GridCell, gridSize: number): Point[] {
     const center = this.gridToPixel(cell, gridSize);
-    const size = gridSize / SQRT3;
+    // gridSize represents the circumradius (distance from center to vertex)
     const vertices: Point[] = [];
 
     // Pointy: starts at 30 deg (if 0 is right). Flat: starts at 0 deg.
@@ -209,8 +209,8 @@ export class HexagonalGridGeometry implements GridGeometry {
       const angleDeg = 60 * i + offsetDeg;
       const angleRad = (Math.PI / 180) * angleDeg;
       vertices.push({
-        x: center.x + size * Math.cos(angleRad),
-        y: center.y + size * Math.sin(angleRad),
+        x: center.x + gridSize * Math.cos(angleRad),
+        y: center.y + gridSize * Math.sin(angleRad),
       });
     }
 
