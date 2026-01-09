@@ -108,7 +108,9 @@ function App() {
   const { isArchitectView, isWorldView } = useWindowType();
 
   // Detect Design System Playground route
-  const isDesignSystemPlayground = window.location.pathname === '/design-system';
+  const isDesignSystemPlayground =
+    window.location.pathname === '/design-system' ||
+    new URLSearchParams(window.location.search).get('page') === 'design-system';
 
   // View state management: HOME (splash screen) or EDITOR (main app)
   // World View always starts in EDITOR mode (bypasses home screen)

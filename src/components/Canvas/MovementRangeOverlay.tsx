@@ -40,7 +40,8 @@ function getNeighbors(
   gridType: GridType,
 ): Array<{ q: number; r: number }> {
   switch (gridType) {
-    case 'HEXAGONAL':
+    case 'HEX_H':
+    case 'HEX_V':
       // Hex has 6 neighbors (axial coordinates)
       return [
         { q: cell.q + 1, r: cell.r },
@@ -50,7 +51,8 @@ function getNeighbors(
         { q: cell.q + 1, r: cell.r - 1 },
         { q: cell.q - 1, r: cell.r + 1 },
       ];
-    case 'ISOMETRIC':
+    case 'ISO_H':
+    case 'ISO_V':
       // Iso has 4 diagonal neighbors
       return [
         { q: cell.q + 1, r: cell.r },

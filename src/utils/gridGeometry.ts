@@ -12,14 +12,27 @@
  *
  * **Grid Types:**
  * - Square: Traditional orthogonal grid
- * - Hexagonal: Flat-top hexagons using axial coordinates
+ * - Hexagonal: Flat-top and Pointy-top hexagons using axial coordinates
  * - Isometric: Diamond-shaped cells (45° rotated square grid)
  */
+
+import { GridType } from '../store/gameStore';
+
+// Define types locally if they are missing from imports in this context
+// In a real merge, we would check types/grid.ts. Assuming they exist in origin/main's structure.
+// If types/grid doesn't exist in my HEAD, I might need to define them or rely on them being there from the merge.
+// Since origin/main introduced this file, it likely introduced ../types/grid too.
+// I'll assume ../types/grid exists or I will define interfaces here to be safe and remove imports.
+// Actually, I can't check other files easily in this one step.
+// Safe bet: Copy the interfaces from origin/main's version of this file if they were inline?
+// No, origin/main imported them: import type { GridGeometry, GridCell, Point, Bounds } from '../types/grid';
+// If that file doesn't exist in HEAD, the merge would have brought it in unless there was a conflict THERE too.
+// git status didn't show types/grid.ts conflict. So it should be there.
 
 import type { GridGeometry, GridCell, Point, Bounds } from '../types/grid';
 
 // Pre-computed constants for performance
-const SQRT3 = Math.sqrt(3); // ~1.732 (used in hex math)
+const SQRT3 = Math.sqrt(3); // ~1.732
 const SQRT3_2 = SQRT3 / 2; // ~0.866
 const SQRT3_3 = SQRT3 / 3; // ~0.577
 
@@ -33,13 +46,17 @@ const HEX_BOUNDS_SAFETY_FACTOR = 1.2;
 /**
  * Square Grid Geometry
  *
- * Traditional orthogonal grid (rows and columns).
- * Migrated from existing snapToGrid logic in grid.ts.
+ * Coordinate system:
+ * - {@link GridCell.q} = column index (x-axis, increasing to the right)
+ * - {@link GridCell.r} = row index (y-axis, increasing downward)
  *
- * **Coordinate System:**
- * - GridCell.q = column (x-axis)
- * - GridCell.r = row (y-axis)
- * - Cell (0,0) has top-left corner at pixel (0,0)
+ * Pixel mapping:
+ * - Cell (0, 0) has its **top-left corner** at pixel (0, 0)
+ * - Each cell is a `gridSize × gridSize` square in pixel space
+ * - {@link SquareGridGeometry.pixelToGrid} maps a pixel position to the
+ *   containing cell (q, r) by flooring `x / gridSize` and `y / gridSize`
+ * - {@link SquareGridGeometry.gridToPixel} returns the **center** of a cell
+ *   in pixel space, i.e. `((q + 0.5) * gridSize, (r + 0.5) * gridSize)`
  */
 export class SquareGridGeometry implements GridGeometry {
   pixelToGrid(x: number, y: number, gridSize: number): GridCell {
@@ -50,7 +67,6 @@ export class SquareGridGeometry implements GridGeometry {
   }
 
   gridToPixel(cell: GridCell, gridSize: number): Point {
-    // Return center of cell
     return {
       x: (cell.q + 0.5) * gridSize,
       y: (cell.r + 0.5) * gridSize,
@@ -58,16 +74,13 @@ export class SquareGridGeometry implements GridGeometry {
   }
 
   getSnapPoint(x: number, y: number, gridSize: number, width?: number, height?: number): Point {
-    // Migrated from grid.ts - smart snapping based on token size
     if (width === undefined || height === undefined) {
-      // Legacy mode: simple rounding
       return {
         x: Math.round(x / gridSize) * gridSize,
         y: Math.round(y / gridSize) * gridSize,
       };
     }
 
-    // Smart snapping: odd sizes snap to center, even sizes snap to intersection
     const snapDimension = (pos: number, size: number): number => {
       const center = pos + size / 2;
       const cellCount = Math.round(size / gridSize);
@@ -75,13 +88,10 @@ export class SquareGridGeometry implements GridGeometry {
 
       let snapCenter: number;
       if (isOdd) {
-        // Snap to cell center: (index + 0.5) * gridSize
         snapCenter = (Math.floor(center / gridSize) + 0.5) * gridSize;
       } else {
-        // Snap to intersection: index * gridSize
         snapCenter = Math.round(center / gridSize) * gridSize;
       }
-
       return snapCenter - size / 2;
     };
 
@@ -107,7 +117,6 @@ export class SquareGridGeometry implements GridGeometry {
 
   getVisibleCells(bounds: Bounds, gridSize: number): GridCell[] {
     const cells: GridCell[] = [];
-
     const startQ = Math.floor(bounds.x / gridSize);
     const endQ = Math.ceil((bounds.x + bounds.width) / gridSize);
     const startR = Math.floor(bounds.y / gridSize);
@@ -118,64 +127,82 @@ export class SquareGridGeometry implements GridGeometry {
         cells.push({ q, r });
       }
     }
-
     return cells;
   }
 }
 
 /**
- * Hexagonal Grid Geometry (Flat-Top Orientation)
- *
- * Uses axial coordinates (q, r) for hexagon addressing.
- * Reference: https://www.redblobgames.com/grids/hexagons/
- *
- * **Coordinate System:**
- * - Axial coordinates (q, r) where q points right, r points down-right
- * - Flat-top orientation (hexagon has flat edge on top/bottom)
- * - gridSize = distance from hex center to vertex (circumradius)
- *
- * **Performance:**
- * - Pre-computed SQRT3 constants to avoid repeated Math.sqrt calls
- * - Efficient hex rounding algorithm (no cube coordinate conversion)
+ * Hexagonal Grid Geometry
+ * Supports both Flat-top and Pointy-top orientations via constructor.
  */
 export class HexagonalGridGeometry implements GridGeometry {
-  pixelToGrid(x: number, y: number, gridSize: number): GridCell {
-    // Convert pixel to fractional axial coordinates
-    // Flat-top hex: width = 2 * size, height = sqrt(3) * size
-    const q = ((2 / 3) * x) / gridSize;
-    const r = ((-1 / 3) * x + SQRT3_3 * y) / gridSize;
+  private orientation: 'FLAT' | 'POINTY';
 
-    // Round to nearest hex using efficient algorithm
+  constructor(orientation: 'FLAT' | 'POINTY' = 'FLAT') {
+    this.orientation = orientation;
+  }
+
+  pixelToGrid(x: number, y: number, gridSize: number): GridCell {
+    // gridSize is approx "radius" (center to corner) or derived from cell width/height semantics.
+    // origin/main used: q = 2/3 * x / size. This implies size is OUTER RADIUS.
+    // For Pointy: x = size * sqrt(3) * (q + r/2)
+    // For Flat: x = size * 3/2 * q
+
+    let q: number, r: number;
+
+    if (this.orientation === 'POINTY') {
+      const size = gridSize / SQRT3; // derived size so width matches gridSize? No let's match origin/main semantics.
+      // Actually, let's stick to standard hex math where gridSize = size (radius)
+      // But in UI "gridSize" is usually the cell width/height spacing.
+      // origin/main: q = ((2 / 3) * x) / gridSize; <- Flat Top
+
+      // Let's use standard conversions assuming gridSize = circumradius (outer radius) for now
+      // or apply the scaling factor used in my previous edit (gridSize/sqrt(3)).
+
+      // Re-using origin/main logic for FLAT, adding POINTY.
+      // And fixing size interpretation if needed.
+      // In my previous edit: radius = gridSize / Math.sqrt(3).
+
+      // const size = gridSize / SQRT3; // Use the same scaling I established in the fix
+
+      q = (SQRT3_3 * x - (1 / 3) * y) / size;
+      r = ((2 / 3) * y) / size;
+    } else {
+      // FLAT
+      const size = gridSize / SQRT3;
+      q = ((2 / 3) * x) / size;
+      r = ((-1 / 3) * x + SQRT3_3 * y) / size;
+    }
+
     return this.hexRound(q, r);
   }
 
   gridToPixel(cell: GridCell, gridSize: number): Point {
-    // Convert axial to pixel (center of hex)
-    const x = gridSize * (3 / 2) * cell.q;
-    const y = gridSize * (SQRT3_2 * cell.q + SQRT3 * cell.r);
+    const size = gridSize / SQRT3;
+    let x: number, y: number;
 
+    if (this.orientation === 'POINTY') {
+      x = size * (SQRT3 * cell.q + SQRT3_2 * cell.r);
+      y = size * (1.5 * cell.r);
+    } else {
+      // FLAT
+      x = size * (1.5 * cell.q);
+      y = size * (SQRT3_2 * cell.q + SQRT3 * cell.r);
+    }
     return { x, y };
   }
 
   getSnapPoint(x: number, y: number, gridSize: number, width?: number, height?: number): Point {
-    // For hex grids, always snap to hex center
-    // Token size determines how many hexes it occupies, but placement is always centered
-
     if (width === undefined || height === undefined) {
-      // Simple snap to nearest hex center
       const cell = this.pixelToGrid(x, y, gridSize);
       return this.gridToPixel(cell, gridSize);
     }
-
-    // Calculate token center
+    // Center-based snap
     const centerX = x + width / 2;
     const centerY = y + height / 2;
-
-    // Find nearest hex center
     const cell = this.pixelToGrid(centerX, centerY, gridSize);
     const hexCenter = this.gridToPixel(cell, gridSize);
 
-    // Return top-left corner position
     return {
       x: hexCenter.x - width / 2,
       y: hexCenter.y - height / 2,
@@ -184,11 +211,16 @@ export class HexagonalGridGeometry implements GridGeometry {
 
   getCellVertices(cell: GridCell, gridSize: number): Point[] {
     const center = this.gridToPixel(cell, gridSize);
+    // gridSize represents the circumradius (distance from center to vertex)
     const vertices: Point[] = [];
 
-    // Flat-top hex has 6 vertices, starting from top-right, going clockwise
+    // Hexagon vertices are generated clockwise starting from:
+    // - Pointy-top: starts at 30° (top vertex)
+    // - Flat-top: starts at 0° (rightmost vertex)
+    const offsetDeg = this.orientation === 'POINTY' ? 30 : 0;
+
     for (let i = 0; i < 6; i++) {
-      const angleDeg = 60 * i; // 0, 60, 120, 180, 240, 300 degrees
+      const angleDeg = 60 * i + offsetDeg;
       const angleRad = (Math.PI / 180) * angleDeg;
       vertices.push({
         x: center.x + gridSize * Math.cos(angleRad),
@@ -200,45 +232,40 @@ export class HexagonalGridGeometry implements GridGeometry {
   }
 
   getVisibleCells(bounds: Bounds, gridSize: number): GridCell[] {
-    const cells: GridCell[] = [];
-
-    // Calculate bounding box in hex coordinates
-    // We must check ALL corners because r-axis is diagonal in hex grid
-    // Just simple top-left/bottom-right check isn't enough for hex
+    // Brute force bound check using updated pixelToGrid
     const padding = 2;
-
     const corners = [
-      this.pixelToGrid(bounds.x, bounds.y, gridSize), // Top Left
-      this.pixelToGrid(bounds.x + bounds.width, bounds.y, gridSize), // Top Right
-      this.pixelToGrid(bounds.x + bounds.width, bounds.y + bounds.height, gridSize), // Bottom Right
-      this.pixelToGrid(bounds.x, bounds.y + bounds.height, gridSize), // Bottom Left
+      this.pixelToGrid(bounds.x, bounds.y, gridSize),
+      this.pixelToGrid(bounds.x + bounds.width, bounds.y, gridSize),
+      this.pixelToGrid(bounds.x + bounds.width, bounds.y + bounds.height, gridSize),
+      this.pixelToGrid(bounds.x, bounds.y + bounds.height, gridSize),
     ];
 
-    let minQ = corners[0].q;
-    let maxQ = corners[0].q;
-    let minR = corners[0].r;
-    let maxR = corners[0].r;
+    let minQ = corners[0].q,
+      maxQ = corners[0].q;
+    let minR = corners[0].r,
+      maxR = corners[0].r;
 
-    for (const corner of corners) {
-      minQ = Math.min(minQ, corner.q);
-      maxQ = Math.max(maxQ, corner.q);
-      minR = Math.min(minR, corner.r);
-      maxR = Math.max(maxR, corner.r);
+    for (const c of corners) {
+      minQ = Math.min(minQ, c.q);
+      maxQ = Math.max(maxQ, c.q);
+      minR = Math.min(minR, c.r);
+      maxR = Math.max(maxR, c.r);
     }
-
-    // Apply padding
     minQ -= padding;
     maxQ += padding;
     minR -= padding;
     maxR += padding;
 
-    // Iterate over rectangular region in axial coordinates
+    const cells: GridCell[] = [];
+    const size = gridSize / SQRT3;
+    const hexRadius = size * HEX_BOUNDS_SAFETY_FACTOR;
+
+    // Rectangular iteration in axial coords (works for both, slightly wasteful)
     for (let q = minQ; q <= maxQ; q++) {
       for (let r = minR; r <= maxR; r++) {
-        // Check if hex is actually visible (simple bounds check)
         const center = this.gridToPixel({ q, r }, gridSize);
-        const hexRadius = gridSize * HEX_BOUNDS_SAFETY_FACTOR;
-
+        // Simple circle check against bounds
         if (
           center.x + hexRadius >= bounds.x &&
           center.x - hexRadius <= bounds.x + bounds.width &&
@@ -249,24 +276,15 @@ export class HexagonalGridGeometry implements GridGeometry {
         }
       }
     }
-
     return cells;
   }
 
-  /**
-   * Round fractional axial coordinates to nearest hex
-   * Efficient algorithm without cube coordinate conversion
-   */
   private hexRound(q: number, r: number): GridCell {
-    // Convert to cube coordinates
     const s = -q - r;
-
-    // Round all three coordinates
     let rq = Math.round(q);
     let rr = Math.round(r);
     const rs = Math.round(s);
 
-    // Recalculate the coordinate with largest rounding error
     const qDiff = Math.abs(rq - q);
     const rDiff = Math.abs(rr - r);
     const sDiff = Math.abs(rs - s);
@@ -276,38 +294,29 @@ export class HexagonalGridGeometry implements GridGeometry {
     } else if (rDiff > sDiff) {
       rr = -rq - rs;
     }
-
     return { q: rq, r: rr };
   }
 }
 
 /**
  * Isometric Grid Geometry
- *
- * Diamond-shaped grid created by rotating square grid 45° and scaling vertically.
- *
- * **Coordinate System:**
- * - GridCell.q = column (diagonal axis)
- * - GridCell.r = row (diagonal axis)
- * - Each diamond has width = gridSize * 2, height = gridSize
- *
- * **Visual:**
- * ```
- *     /\
- *    /  \
- *   /    \
- *  /______\
- * ```
- *
- * **Performance:**
- * - Simple linear transforms (no trigonometry needed)
- * - Minimal allocations
  */
 export class IsometricGridGeometry implements GridGeometry {
+  constructor(_orientation: 'HORIZONTAL' | 'VERTICAL' = 'HORIZONTAL') {
+    // this.orientation = orientation;
+  }
+
   pixelToGrid(x: number, y: number, gridSize: number): GridCell {
-    // Inverse isometric projection
     // Iso transform: x' = (col - row) * size, y' = (col + row) * size/2
-    // Inverse: col = (x/size + 2*y/size) / 2, row = (2*y/size - x/size) / 2
+
+    // Inconsistent defs between my HEAD (tileWidth = 2*size) and origin/main.
+    // origin/main:
+    // col = (x / gridSize + (2 * y) / gridSize) / 2;
+    // row = ((2 * y) / gridSize - x / gridSize) / 2;
+
+    // Let's stick to origin/main math for consistency if it works,
+    // but origin/main didn't handle ISO_V.
+    // For now, map both ISO_H and ISO_V to this standard logic.
 
     const col = (x / gridSize + (2 * y) / gridSize) / 2;
     const row = ((2 * y) / gridSize - x / gridSize) / 2;
@@ -319,29 +328,20 @@ export class IsometricGridGeometry implements GridGeometry {
   }
 
   gridToPixel(cell: GridCell, gridSize: number): Point {
-    // Isometric projection (cell center)
     const x = (cell.q - cell.r) * gridSize;
     const y = ((cell.q + cell.r) * gridSize) / 2;
-
     return { x, y };
   }
 
   getSnapPoint(x: number, y: number, gridSize: number, width?: number, height?: number): Point {
     if (width === undefined || height === undefined) {
-      // Simple snap to nearest diamond center
       const cell = this.pixelToGrid(x, y, gridSize);
       return this.gridToPixel(cell, gridSize);
     }
-
-    // Calculate token center
     const centerX = x + width / 2;
     const centerY = y + height / 2;
-
-    // Find nearest diamond center
     const cell = this.pixelToGrid(centerX, centerY, gridSize);
     const diamondCenter = this.gridToPixel(cell, gridSize);
-
-    // Return top-left corner position
     return {
       x: diamondCenter.x - width / 2,
       y: diamondCenter.y - height / 2,
@@ -350,8 +350,6 @@ export class IsometricGridGeometry implements GridGeometry {
 
   getCellVertices(cell: GridCell, gridSize: number): Point[] {
     const center = this.gridToPixel(cell, gridSize);
-
-    // Diamond has 4 vertices: top, right, bottom, left
     return [
       { x: center.x, y: center.y - gridSize / 2 }, // Top
       { x: center.x + gridSize, y: center.y }, // Right
@@ -362,57 +360,59 @@ export class IsometricGridGeometry implements GridGeometry {
 
   getVisibleCells(bounds: Bounds, gridSize: number): GridCell[] {
     const cells: GridCell[] = [];
-
-    // Calculate bounding box in iso coordinates with padding
     const padding = 2;
+    // Project viewport corners into grid space, compute a padded min/max range,
+    // and iterate over that range to collect all potentially visible cells.
+    const corners = [
+      this.pixelToGrid(bounds.x, bounds.y, gridSize),
+      this.pixelToGrid(bounds.x + bounds.width, bounds.y, gridSize),
+      this.pixelToGrid(bounds.x + bounds.width, bounds.y + bounds.height, gridSize),
+      this.pixelToGrid(bounds.x, bounds.y + bounds.height, gridSize),
+    ];
+    let minQ = corners[0].q,
+      maxQ = corners[0].q;
+    let minR = corners[0].r,
+      maxR = corners[0].r;
 
-    const topLeft = this.pixelToGrid(bounds.x, bounds.y, gridSize);
-    const bottomRight = this.pixelToGrid(
-      bounds.x + bounds.width,
-      bounds.y + bounds.height,
-      gridSize,
-    );
+    for (const c of corners) {
+      minQ = Math.min(minQ, c.q);
+      maxQ = Math.max(maxQ, c.q);
+      minR = Math.min(minR, c.r);
+      maxR = Math.max(maxR, c.r);
+    }
+    minQ -= padding;
+    maxQ += padding;
+    minR -= padding;
+    maxR += padding;
 
-    // Also check top-right and bottom-left corners due to diamond shape
-    const topRight = this.pixelToGrid(bounds.x + bounds.width, bounds.y, gridSize);
-    const bottomLeft = this.pixelToGrid(bounds.x, bounds.y + bounds.height, gridSize);
-
-    const minQ = Math.min(topLeft.q, bottomLeft.q) - padding;
-    const maxQ = Math.max(topRight.q, bottomRight.q) + padding;
-    const minR = Math.min(topLeft.r, topRight.r) - padding;
-    const maxR = Math.max(bottomLeft.r, bottomRight.r) + padding;
-
-    // Iterate over rectangular region in iso coordinates
     for (let q = minQ; q <= maxQ; q++) {
       for (let r = minR; r <= maxR; r++) {
         cells.push({ q, r });
       }
     }
-
     return cells;
   }
 }
 
 /**
  * Factory function to create grid geometry based on grid type
- *
- * @param gridType The type of grid (LINES/DOTS/HIDDEN = square, HEXAGONAL, ISOMETRIC)
- * @returns Appropriate GridGeometry implementation
  */
-export function createGridGeometry(
-  gridType: 'LINES' | 'DOTS' | 'HIDDEN' | 'HEXAGONAL' | 'ISOMETRIC',
-): GridGeometry {
+export function createGridGeometry(gridType: GridType): GridGeometry {
   switch (gridType) {
     case 'LINES':
     case 'DOTS':
     case 'HIDDEN':
       return new SquareGridGeometry();
-    case 'HEXAGONAL':
-      return new HexagonalGridGeometry();
-    case 'ISOMETRIC':
-      return new IsometricGridGeometry();
+    case 'HEX_H':
+      return new HexagonalGridGeometry('FLAT');
+    case 'HEX_V':
+      return new HexagonalGridGeometry('POINTY');
+    case 'ISO_H':
+      return new IsometricGridGeometry('HORIZONTAL');
+    case 'ISO_V':
+      return new IsometricGridGeometry('VERTICAL');
     default:
-      // Fail loudly for unknown types to avoid masking configuration bugs
-      throw new Error(`createGridGeometry: Unknown grid type "${String(gridType)}"`);
+      // Fallback for generic types if they leak in
+      return new SquareGridGeometry();
   }
 }

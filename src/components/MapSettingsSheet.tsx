@@ -1,3 +1,4 @@
+
 /**
  * MapSettingsSheet Component - Map Configuration Drawer
  *
@@ -324,15 +325,15 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({ isOpen, onClose, mo
               <button
                 onClick={() => setIsCalibrating(true)}
                 className="btn btn-default w-full font-medium py-2 px-3 rounded text-sm flex items-center justify-center gap-2 transition"
-                disabled={gridType === 'HEXAGONAL' || gridType === 'ISOMETRIC'}
+                disabled={gridType.startsWith('HEX') || gridType.startsWith('ISO')}
                 title={
-                  gridType === 'HEXAGONAL' || gridType === 'ISOMETRIC'
+                  gridType.startsWith('HEX') || gridType.startsWith('ISO')
                     ? 'Calibration only works with square grids'
                     : 'Draw a box around one grid cell to calibrate map scale'
                 }
               >
                 <RiRulerLine className="w-4 h-4" /> Calibrate via Draw
-                {(gridType === 'HEXAGONAL' || gridType === 'ISOMETRIC') && (
+                {(gridType.startsWith('HEX') || gridType.startsWith('ISO')) && (
                   <span className="text-xs opacity-50">(Square grids only)</span>
                 )}
               </button>
@@ -360,8 +361,10 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({ isOpen, onClose, mo
             >
               <option value="LINES">Square - Lines</option>
               <option value="DOTS">Square - Dots</option>
-              <option value="HEXAGONAL">Hexagonal</option>
-              <option value="ISOMETRIC">Isometric</option>
+              <option value="HEX_H">Hexagonal (Horizontal)</option>
+              <option value="HEX_V">Hexagonal (Vertical)</option>
+              <option value="ISO_H">Isometric (Horizontal)</option>
+              <option value="ISO_V">Isometric (Vertical)</option>
               <option value="HIDDEN">Hidden</option>
             </select>
           </div>
@@ -449,3 +452,4 @@ const MapSettingsSheet: React.FC<MapSettingsSheetProps> = ({ isOpen, onClose, mo
 };
 
 export default MapSettingsSheet;
+

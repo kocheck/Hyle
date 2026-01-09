@@ -39,47 +39,10 @@ import type { GridType } from '../store/gameStore';
  * @param x - Raw X coordinate in pixels (top-left corner, e.g., from drag position)
  * @param y - Raw Y coordinate in pixels (top-left corner, e.g., from drag position)
  * @param gridSize - Size of each grid cell in pixels (typically 50)
- * @param gridType - Type of grid (LINES/DOTS/HIDDEN = square, HEXAGONAL, ISOMETRIC)
+ * @param gridType - Type of grid (LINES/DOTS/HIDDEN = square, HEX_H, HEX_V, ISO_H, ISO_V)
  * @param width - Token width in pixels (optional, enables smart snapping)
  * @param height - Token height in pixels (optional, enables smart snapping)
  * @returns Object with snapped x and y coordinates (top-left corner)
- *
- * @example
- * // Medium creature on square grid (1x1, 50x50px) - snaps to cell center
- * const pos = snapToGrid(127, 83, 50, 'LINES', 50, 50);
- * // Returns: { x: 125, y: 75 }
- * // Center at (150, 100) aligns with cell center at (150, 100)
- *
- * @example
- * // Large creature on hex grid (2x2, 100x100px) - snaps to hex center
- * const pos = snapToGrid(127, 83, 50, 'HEXAGONAL', 100, 100);
- * // Returns: { x, y } aligned to nearest hex center
- *
- * @example
- * // Token on isometric grid - snaps to diamond center
- * const pos = snapToGrid(180, 120, 50, 'ISOMETRIC', 50, 50);
- * // Returns: { x, y } aligned to nearest diamond center
- *
- * @example
- * // Legacy mode without dimensions - simple rounding
- * const pos = snapToGrid(127, 83, 50, 'LINES');
- * // Returns: { x: 150, y: 100 }
- * // Top-left snaps to nearest grid point
- *
- * @example
- * // Used during token drag
- * const handleDragEnd = (e: KonvaEventObject<DragEvent>) => {
- *   const token = e.target;
- *   const { x, y } = snapToGrid(
- *     token.x(),
- *     token.y(),
- *     gridSize,
- *     gridType,
- *     token.width() * token.scaleX(),
- *     token.height() * token.scaleY()
- *   );
- *   updateTokenPosition(token.id(), x, y);
- * };
  */
 export const snapToGrid = (
   x: number,

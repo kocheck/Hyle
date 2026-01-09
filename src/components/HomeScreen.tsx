@@ -631,7 +631,7 @@ export function HomeScreen({ onStartEditor }: HomeScreenProps) {
             Help (?)
           </button>
           <span className="footer-separator">·</span>
-          <a href="/design-system" className="footer-link" title="Internal component library (Dev)">
+          <a href="?page=design-system" className="footer-link" title="Internal component library (Dev)">
             Design System
           </a>
           <span className="footer-separator">·</span>
