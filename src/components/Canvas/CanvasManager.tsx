@@ -88,6 +88,7 @@ const CanvasManager = ({
   const setGridType = useGameStore((s) => s.setGridType);
   const toggleDoor = useGameStore((s) => s.toggleDoor);
   const updateDrawingTransform = useGameStore((s) => s.updateDrawingTransform);
+  const updateTokenTransform = useGameStore((s) => s.updateTokenTransform);
   const setActiveMeasurement = useGameStore((s) => s.setActiveMeasurement);
   const showToast = useGameStore((s) => s.showToast);
 
@@ -641,7 +642,46 @@ const CanvasManager = ({
             {activeMeasurement && <MeasurementOverlay measurement={activeMeasurement} gridSize={gridSize} />}
             {selectionRect.isVisible && <Rect x={selectionRect.x} y={selectionRect.y} width={selectionRect.width} height={selectionRect.height} fill="rgba(0, 161, 255, 0.3)" stroke="#00a1ff" />}
         </Layer>
-        <Layer><Transformer ref={transformerRef} boundBoxFunc={(_oldBox, newBox) => newBox} /></Layer>
+        <Layer>
+          <Transformer
+            ref={transformerRef}
+            boundBoxFunc={(_oldBox, newBox) => newBox}
+            onTransformEnd={(e) => {
+              const node = e.target;
+              const scaleX = node.scaleX();
+              const scaleY = node.scaleY();
+
+              // Update token transform in store
+              if (node.name() === 'token') {
+                // Use average of scaleX and scaleY for uniform scaling
+                const transformScale = (scaleX + scaleY) / 2;
+                const token = resolvedTokens.find((t) => t.id === node.id());
+                if (token) {
+                  // Multiply current scale by transformation scale
+                  const newScale = token.scale * transformScale;
+                  updateTokenTransform(node.id(), node.x(), node.y(), newScale);
+                }
+
+                // Reset scale to 1 since the new scale is stored
+                node.scaleX(1);
+                node.scaleY(1);
+              } else if (node.name() === 'drawing') {
+                // Handle drawing (Line) transformation
+                // Use average of scaleX and scaleY for uniform scaling
+                const transformScale = (scaleX + scaleY) / 2;
+                const drawing = drawings.find((d) => d.id === node.id());
+                if (drawing) {
+                  // Multiply current scale by transformation scale, or set to transformScale if not previously scaled
+                  const newScale = (drawing.scale || 1) * transformScale;
+                  updateDrawingTransform(node.id(), node.x(), node.y(), newScale);
+                }
+                // Reset scale to 1 since the new scale is stored
+                node.scaleX(1);
+                node.scaleY(1);
+              }
+            }}
+          />
+        </Layer>
       </Stage>
       {isCalibrating && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/80 text-white px-4 py-2 rounded-full text-sm font-medium z-50 flex items-center gap-3">
